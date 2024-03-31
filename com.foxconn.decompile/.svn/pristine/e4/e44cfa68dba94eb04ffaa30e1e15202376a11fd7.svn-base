@@ -1,0 +1,3 @@
+import=com.teamcenter.rac.workflow.common.common,com.teamcenter.rac.workflow.common.actions.actions, com.teamcenter.rac.ecmanagement.dialogs.dialogs,com.teamcenter.rac.ideasnavigator.actions.actions,com.teamcenter.rac.ets.actions.actions,com.teamcenter.rac.schedule.schedule,com.teamcenter.rac.scm.common.actions.actions,com.teamcenter.rac.commands.publish.publish
+
+#assignToProjectCommand=com.teamcenter.rac.commands.project.UserProjectCommand

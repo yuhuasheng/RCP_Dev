@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy element &apos;Activator.java&apos; to &apos;com.foxconn.electronics/src/com.foxconn.electronics.activator&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.tcfunctionexpand&apos;&#x0D;&#x0A;- Destination element: &apos;com.foxconn.electronics/src/com.foxconn.electronics.activator&apos;&#x0D;&#x0A;- Original element: &apos;com.hanhe.activator.Activator.java&apos;" description="Copy compilation unit" destination="=com.foxconn.electronics/src&lt;com.foxconn.electronics.activator" element1="/src&lt;com.hanhe.activator{Activator.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1682065612490" units="1" version="1.0"/>
+</session>

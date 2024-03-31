@@ -1,0 +1,1421 @@
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
+
+package com.teamcenter.rac.issuemanager.dialogs.reviewissue;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.TCTypeRenderer;
+import com.teamcenter.rac.issuemanager.IssueHelper;
+import com.teamcenter.rac.issuemanager.Messages;
+import com.teamcenter.rac.issuemanager.util.reviewissue.Tools;
+import com.teamcenter.rac.issuemanager.util.reviewissue.progress.BooleanFlag;
+import com.teamcenter.rac.issuemanager.util.reviewissue.progress.IProgressDialogRunnable;
+import com.teamcenter.rac.issuemanager.util.reviewissue.progress.LoopProgerssDialog;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentChangeItemRevision;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentIssueReportRevision;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentItemRevisionType;
+import com.teamcenter.rac.kernel.TCComponentListOfValues;
+import com.teamcenter.rac.kernel.TCComponentListOfValuesType;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCComponentType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCPropertyDescriptor;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.log.TcLogger;
+import com.teamcenter.services.rac.issuemanagement.IssueManagementService;
+import com.teamcenter.services.rac.issuemanagement._2011_06.IssueManagement;
+import com.teamcenter.soaictstubs.booleanSeq_tHolder;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.viewers.ComboViewer;
+import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerFilter;
+import org.eclipse.jface.window.Window;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
+import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.events.KeyAdapter;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.events.TraverseEvent;
+import org.eclipse.swt.events.TraverseListener;
+import org.eclipse.swt.events.VerifyEvent;
+import org.eclipse.swt.events.VerifyListener;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.wb.swt.SWTResourceManager;
+
+public class ReviewIssueDialog extends Dialog {
+	private InterfaceAIFComponent m_selectedIssue;
+	private Label m_processName;
+	private Label m_reviewTask;
+	private Combo m_decisionCombo;
+	private Text m_commentsText;
+	// recompile 2023/12/05 START
+	private Combo m_IRStatusCombo;
+//	private StyledText assignNodeLabel = null;
+//	private StyledText assignActualUserLabel = null;
+//	private Combo assignNodeUserCombo = null;
+//	private Combo assignActualUserCombo = null;
+	// recompile 2023/12/05 END
+	private String m_decision = "";
+	private String m_comments = "";
+	private String[] localizableDecisions = new String[] { "ReviewIssue.Decision.Defer", "ReviewIssue.Decision.Reject",
+			"ReviewIssue.Decision.ApproveFix", "ReviewIssue.Decision.Close", "ReviewIssue.Decision.Reopen",
+			"ReviewIssue.Decision.ApproveIssue", "ReviewIssue.Decision.SubmitFix" };
+	private String[] signoffDecisions = new String[] { "approveSignoff", "rejectSignoff", "donotPerformSignoff" };
+	private String m_reviewDecisionLabel = null;
+	private String m_commentLabel = null;
+	// recompile 2023/12/05 START
+	private Map<String, String> custLabelMap = null;
+	private Map<Control, String> custCompMap = null;
+	private Map<Control, String> assignNodeCompMap = null;
+	private Map<Control, String> totalRequiredComp = null;
+	private Map<String, Set<Entry<Control, String>>> sortMap = null;
+//	private Map<String, String> disToActualPropMap = null;
+	private Combo tcUserCombo = null;
+	private Combo actualUserCombo = null;	
+	private Combo requiredCombo = null;
+	private Text requiredText = null;
+	private List<Control> assignCompList = null;
+	private String objectType = null;
+	private TCComponentIssueReportRevision itemRev = null;
+	private TCSession session = null;
+	private String workFlowTemplateName = null;
+	private Button m_confirmBtn = null;
+	private List<String> addCustomList = null;
+	private List<String> assignNodeList = null;
+	private List<JSONObject> workList = null;
+	private List<String> tcUserList = null;
+	private List<String> actualList = null;
+	private String curTaskName = null;
+	private String secondUserInfo = null;
+	private String assignNodeValue = null;
+	private String propValue = null;
+	private String assignUserDecisionActualValue = ""; // Assign User Decision Actual Value
+	private String assignUserDecisionDisPlayName = ""; // Assign User Decision Display Value
+//	private String tcUserValue = "";
+//	private String actualUserValue = "";
+	String tcUserProp = "";
+	String actualUserProp = "";
+	private boolean show = false; 
+	private boolean savePropFlag = true; // 保存属性是否成功标识 
+	private static final String D9_ISSUEREVIEW_ADD_CUSTPROP = "D9_IssueReview_Add_CustProp";
+	private static final String D9_ISSUEREVIEW_ASSIGN_NODE_ACTUALUSER = "D9_IssueReview_Assign_Node_ActualUser";
+	// recompile 2023/12/05 END
+
+	public ReviewIssueDialog(Shell var1, InterfaceAIFComponent var2) {
+		super(var1);
+		this.setShellStyle(67680 | Window.getDefaultOrientation());
+		this.m_selectedIssue = var2;
+		TCComponent issueComponent = (TCComponent) var2;
+		refreshIssueWorkFlow(issueComponent);
+		// recompile 2023/12/06 START
+		custLabelMap = new LinkedHashMap<String, String>();
+		custCompMap = new LinkedHashMap<Control, String>();
+		assignNodeCompMap = new LinkedHashMap<Control, String>();
+//		disToActualPropMap = new LinkedHashMap<String, String>();
+		assignCompList = new ArrayList<Control>();
+		tcUserList = new ArrayList<String>();
+		workList = new ArrayList<JSONObject>();
+		session = Tools.getTCSession();
+		addCustomList = Tools.getArrayPreference(session, TCPreferenceService.TC_preference_site, D9_ISSUEREVIEW_ADD_CUSTPROP);
+		if (addCustomList == null || addCustomList.size() <= 0) {
+			Tools.warningMsgBox("PreferenceName " + D9_ISSUEREVIEW_ADD_CUSTPROP + " is not exist, please check preference", "Warning");
+			return;
+		}
+		
+		assignNodeList = Tools.getArrayPreference(session, TCPreferenceService.TC_preference_site, D9_ISSUEREVIEW_ASSIGN_NODE_ACTUALUSER);
+		if (assignNodeList == null || assignNodeList.size() <= 0) {
+			Tools.warningMsgBox("PreferenceName " + D9_ISSUEREVIEW_ASSIGN_NODE_ACTUALUSER + " is not exist, please check preference", "Warning");
+			return;
+		}
+//		assignNodeList.clear();
+//		assignNodeList.add("1-TL Review&&InternalDesign=d9_IssueFixOwner&&true;d9_IssueFixOwner_ActualUser&&true");
+//		assignNodeList.add("2-FixOwner Review&&ReassignFixOwner=d9_IssueFixOwner&&true;d9_IssueFixOwner_ActualUser&&true");
+//		assignNodeList.add("3-TL Assign PM&&AssignedPM=d9_IssueSEPM&&true;d9_IssueSEPM_ActualUser&&true;d9_IssueHWPM&&true;d9_IssueHWPM_ActualUser&&true");
+		
+		secondUserInfo = getSecondUserInfo();
+		// recompile 2023/12/06 END		
+
+		this.getLabelsForProperty();		
+				
+		
+		if (custLabelMap.size() <=0) {
+			return;
+		}	
+		
+		// recompile 2023/12/06 START
+//		workFlowTemplateName = getWorkFlowTemplateName();		
+		// recompile 2023/12/06 END
+	}
+
+	
+	private void refreshIssueWorkFlow(TCComponent issueComponent) {
+		try {
+			issueComponent.refresh();
+			issueComponent.clearCache();
+			AIFComponentContext[] whereReferenced = issueComponent.whereReferenced();
+			for (AIFComponentContext aifComponentContext : whereReferenced) {
+				InterfaceAIFComponent component = aifComponentContext.getComponent();
+				if (component instanceof TCComponentTask) {
+					TCComponentTask task = (TCComponentTask) component;
+					task.refresh();
+					task.clearCache();
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	protected void configureShell(Shell var1) {
+		super.configureShell(var1);
+		System.out.println("==>> issue reviewer ");
+		var1.setText(Messages.getString("ReviewIssue.TITLE"));
+	}
+
+	protected Control createDialogArea(Composite var1) {
+		Composite var2 = (Composite) super.createDialogArea(var1);
+		GridData var3 = new GridData(272);
+		var2.setLayoutData(var3);
+		Composite var4 = new Composite(var2, 0);
+		var4.setLayout(new GridLayout(50, false));
+		Label var5 = new Label(var4, 0);
+		Image var6 = TCTypeRenderer.getComponentImage((TCComponent) this.m_selectedIssue, false, "16");
+		var5.setImage(var6);
+		var5.setLayoutData(new GridData(1, 16777216, true, false, 1, 1));
+		Label var7 = new Label(var4, 0);
+		var7.setText(this.m_selectedIssue == null ? "" : this.m_selectedIssue.toString());
+		var7.setLayoutData(new GridData(1, 16777216, true, false, 49, 1));
+		Composite var8 = new Composite(var2, 0);
+//        var8.setLayout(new GridLayout(2, false));
+		
+
+		// recompile 2023/12/05 START
+		GridLayout gridLayout = new GridLayout(2, false);
+		gridLayout.verticalSpacing = 10;
+		var8.setLayout(gridLayout);
+		// recompile 2023/12/05 END
+
+		Label var9 = new Label(var8, 0);
+		var9.setText(Messages.getString("ReviewIssue.Process"));
+		this.m_processName = new Label(var8, 0);
+		Label var10 = new Label(var8, 0);
+		var10.setText(Messages.getString("ReviewIssue.ReviewTask"));
+		this.m_reviewTask = new Label(var8, 0);
+		Label var11 = new Label(var8, 16777474);
+		var11.setLayoutData(new GridData(4, 16777216, true, false, 2, 1));
+		Label var12 = new Label(var8, 0);
+		var12.setText(this.m_reviewDecisionLabel + ":");
+		var12.setLayoutData(new GridData(1, 16777216, true, false, 1, 1));
+		this.m_decisionCombo = new Combo(var8, 12);
+		this.m_decisionCombo.setLayoutData(new GridData(1, 16777216, true, false, 1, 1));
+
+		// recompile 2023/12/08 START
+		addCustComponent(var8);		
+		// recompile 2023/12/08 END
+
+		Label var13 = new Label(var8, 128);
+		var13.setText(this.m_commentLabel + ":");
+		var13.setLayoutData(new GridData(1, 16777216, true, false, 1, 1));
+
+		this.m_commentsText = new Text(var8, 2051);
+		this.m_commentsText.setLayoutData(new GridData(200, 55));
+		
+		try {
+			// recompile 2023/12/08 START
+			addNodeActualUserComponent(var8, false);		
+			totalRequiredComp = getTotalRequiredComp(); // 获取所有的必填Component			
+			setDisplayAndActualName(); // Set Actual Value and Display Value
+			sortMap = groupBy(assignNodeCompMap);
+			System.out.println(JSONUtil.toJsonStr(sortMap));
+			// recompile 2023/12/08 END
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		this.configureProcessInfo();
+		return var2;
+	}
+
+	/**
+	 * add Custom Component
+	 */
+	private void addCustComponent(Composite composite) {
+		custLabelMap.forEach((key, value) -> {
+			StyledText styledText = new StyledText(composite, SWT.NONE);
+			if (checkPropRequired(addCustomList, value)) {
+				styledText.setText(key + "* :");
+				StyleRange styleRange = new StyleRange();
+				styleRange.start = styledText.getText().indexOf("*");
+				styleRange.length = 1;
+				styleRange.foreground = SWTResourceManager.getColor(SWT.COLOR_RED);
+				styledText.setStyleRange(styleRange);
+			} else {
+				styledText.setText(key + ":");
+			}
+
+			styledText.setCaret(null);
+
+			GridData IRStatusData = new GridData();
+
+			try {
+				if (Tools.getLovValues(session, (TCComponentItemRevisionType) session.getTypeComponent(objectType), value) == null) { // Check Has Lov Value
+					Text text = new Text(composite, SWT.SINGLE | SWT.BORDER);
+					IRStatusData.widthHint = 205;
+					IRStatusData.heightHint = 50;
+					text.setLayoutData(IRStatusData);
+					custCompMap.put(text, value);
+				} else {
+					Combo combo = new Combo(composite, SWT.READ_ONLY);
+					IRStatusData.widthHint = 90;
+					combo.setLayoutData(IRStatusData);
+					custCompMap.put(combo, value);
+				}
+			} catch (TCException e) {
+				e.printStackTrace();
+			}
+		});
+	}
+
+	
+	/**
+	 * add Actual User Component
+	 * @param composite
+	 * @throws Exception 
+	 */
+	private void addNodeActualUserComponent(Composite composite, boolean flag) throws Exception {
+		Optional<String> findAny = assignNodeList.stream().filter(str -> str.split("=")[0].replace(" ", "").startsWith(curTaskName.replace(" ", ""))).findAny();
+		if (!findAny.isPresent()) {
+			return;
+		}
+		
+		String value = findAny.get();
+		System.out.println("==>> " + curTaskName + " match Next Node" + value);
+		
+		assignUserDecisionActualValue = value.split("=")[0].split("\\&&")[1];
+		System.out.println("==>> assignUserDecisionActualValue is " + assignUserDecisionActualValue);
+		
+		String[] split = value.split("=")[1].split(";");
+		
+		GridData gridData = new GridData();		
+		gridData.widthHint = 150;
+		
+		for (int i = 0; i < split.length; i++) {
+			String str = split[i];
+			String prop = str.split("\\&&")[0];
+			String disPlayName = getDisplayName(prop);
+			if (StrUtil.isEmpty(disPlayName)) {
+				Tools.errorMsgBox("当前属性: " + prop + ", 获取显示名失败", "错误");
+				throw new Exception("当前属性: " + prop + ", 获取显示名失败");
+			}
+			StyledText styledText = new StyledText(composite, SWT.NONE);
+			if (Boolean.parseBoolean(str.split("\\&&")[1])) {
+				styledText.setText(disPlayName + "* :");
+				StyleRange styleRange = new StyleRange();
+				styleRange.start = styledText.getText().indexOf("*");
+				styleRange.length = 1;
+				styleRange.foreground = SWTResourceManager.getColor(SWT.COLOR_RED);
+				styledText.setStyleRange(styleRange);
+			} else {
+				styledText.setText(disPlayName + ":");
+			}				
+			styledText.setCaret(null);
+			assignCompList.add(styledText);
+			
+			Combo combo = new Combo(composite, SWT.NONE);				
+			combo.setLayoutData(gridData);
+			String data = prop.replace("_ActualUser", "");
+			combo.setData(data); // 保存key用作分组的依据			
+			assignCompList.add(combo);
+			assignNodeCompMap.put(combo, prop);
+		}		
+
+		setAssignCompShow(false);
+		
+	}
+	
+	private void configureProcessInfo() {
+		// recompile 2023/12/20 START
+		TCComponent component = (TCComponent) this.m_selectedIssue;
+		try {
+			component.refresh();
+			component.clearCache();
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		String[] var1 = IssueHelper.getInstance().getProcessInfo(component);
+		// recompile 2023/12/20 END
+		
+//		String[] var1 = IssueHelper.getInstance().getProcessInfo((TCComponent) this.m_selectedIssue);
+		String var2 = var1[0];
+		String var3 = var1[1];
+		this.m_processName.setText(var2);
+		this.m_reviewTask.setText(var3);
+		String[] var4 = IssueHelper.getInstance().getProcessDecisions(var3);
+		int var5 = 0;
+		if (var4.length == 0) {
+			for (int var6 = 0; var6 < this.localizableDecisions.length; ++var6) {
+				this.m_decisionCombo.add(Messages.getString(this.localizableDecisions[var6]));
+				++var5;
+			}
+		} else {
+			String[] var9 = var4;
+			int var8 = var4.length;
+
+			for (int var7 = 0; var7 < var8; ++var7) {
+				String var10 = var9[var7];
+				this.m_decisionCombo.add(var10);
+				++var5;
+			}
+		}
+
+		if (var5 > 0) {
+			this.m_decisionCombo.setVisibleItemCount(var5);
+			this.m_decisionCombo.select(var5 - 1);
+		}
+
+		// recompile 2023/12/22 START
+//		Optional<String> findAny = assignNodeList.stream().filter(str -> str.split("=")[0].replace(" ", "").startsWith(curTaskName.replace(" ", "")) 
+//				&& str.split("=")[0].replace(" ", "").contains(m_decisionCombo.getText().replace(" ", ""))).findAny();
+		
+		Optional<String> findAny = assignNodeList.stream().filter(str -> str.split("=")[0].replace(" ", "").startsWith(curTaskName.replace(" ", ""))).findAny();
+		if (findAny.isPresent()) {
+			String text = m_decisionCombo.getText();
+			if (StrUtil.isNotEmpty(text)) {
+				boolean flag = (m_decisionCombo.getData(text) == null) ? false : m_decisionCombo.getData(text).equals(assignUserDecisionActualValue);
+				if (flag) {
+					show = true;
+					setAssignCompValue();
+				}
+			}
+						
+		}		
+		
+		// recompile 2023/12/22 END
+//		loadAssignNodeValue();
+		// recompile 2023/12/05 START
+
+		for (Map.Entry<Control, String> entry : custCompMap.entrySet()) {
+			Combo combo = null;
+			Text text = null;
+			Control key = entry.getKey();
+			String prop = entry.getValue();
+			try {
+				String value = itemRev.getProperty(prop);
+				if (key instanceof Text) {
+					text = (Text) key;
+					text.setText(value);
+					continue;
+
+				} else if (key instanceof Combo) {
+					combo = (Combo) key;
+				}
+
+				List<String> lovValues = Tools.getLovValues(session, (TCComponentItemRevisionType) session.getTypeComponent(objectType), prop);
+				if (lovValues == null || lovValues.size() <= 0) {
+					continue;
+				}
+				
+				lovValues.add(0, "");
+				int index = Tools.getIndex(lovValues, value); // get Index
+				for (String str : lovValues) {
+					combo.add(str.trim());
+				}
+
+				if (lovValues != null && lovValues.size() > 0) {
+					combo.select(index);
+				}
+
+			} catch (TCException e1) {
+				e1.printStackTrace();
+			}
+		}
+
+		// recompile 2023/12/05 END
+	}	
+	
+	protected void createButtonsForButtonBar(Composite var1) {
+		GridData var2 = new GridData(896);
+		var1.setLayoutData(var2);
+//        Button var3 = this.createButton(var1, 0, IDialogConstants.OK_LABEL, false);
+//        var3.setEnabled(true);
+//        var3.addSelectionListener(new SelectionAdapter() {
+//            public void widgetSelected(SelectionEvent var1) {
+//            }
+//        });
+
+		// recompile 2023/12/06 START
+		m_confirmBtn = this.createButton(var1, 0, IDialogConstants.OK_LABEL, false);
+		m_confirmBtn.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent var1) {
+			}
+		});
+		// recompile 2023/12/06 END
+
+		this.createButton(var1, 1, IDialogConstants.CANCEL_LABEL, true);		
+		
+		// recompile 2023/12/26 START
+		addListener();
+		// recompile 2023/12/26 END
+	}
+
+	private String getReviewDecision() {
+		return IssueHelper.getInstance().getProcessDecision(this.m_decisionCombo.getText());
+	}
+
+	private String getSignoffDecision() {
+		String var1 = this.signoffDecisions[0];
+		return var1;
+	}
+
+	private void doReviewIssueJob() {
+		Job var1 = new Job(Messages.getString("ReviewIssue.ReviewJob.BEGIN_MSG")) {
+			protected IStatus run(IProgressMonitor var1) {
+				try {
+					var1.beginTask(Messages.getString("ReviewIssue.ReviewJob.BEGIN_MSG"), -1);
+//					IssueHelper.getInstance().reviewIssue((TCComponent) ReviewIssueDialog.this.m_selectedIssue,
+//							ReviewIssueDialog.this.m_decision, ReviewIssueDialog.this.m_comments,
+//							ReviewIssueDialog.this.getSignoffDecision(), (String) null, (TCComponentUser) null);					
+					
+					// recompile 2023/12/09
+					saveComment(ReviewIssueDialog.this.m_decision, ReviewIssueDialog.this.m_comments);					
+					
+					IssueHelper.getInstance().reviewIssue((TCComponent) ReviewIssueDialog.this.m_selectedIssue,
+							ReviewIssueDialog.this.m_decision, ReviewIssueDialog.this.m_comments,
+							ReviewIssueDialog.this.getSignoffDecision(), (String) null, (TCComponentUser) null);	
+					// recompile 2023/12/09
+					
+				} catch (Exception var6) {
+					TcLogger.getLogger(ReviewIssueDialog.class).error(var6.getLocalizedMessage(), var6);
+				} finally {
+					var1.done();
+				}
+
+				return Status.OK_STATUS;
+			}
+		};
+		var1.setPriority(10);
+		var1.schedule();
+	}
+
+	public boolean reviewIssue(TCComponent paramTCComponent, String paramString1, String paramString2, String paramString3, String paramString4, TCComponentUser paramTCComponentUser) {
+		    boolean bool = true;
+		    IssueManagementService m_issueService = IssueManagementService.getService(session);
+		    IssueManagement.CastDecisionInput[] arrayOfCastDecisionInput = new IssueManagement.CastDecisionInput[1];
+		    arrayOfCastDecisionInput[0] = new IssueManagement.CastDecisionInput();
+		    (arrayOfCastDecisionInput[0]).targetIssue = (TCComponentChangeItemRevision)paramTCComponent;
+		    (arrayOfCastDecisionInput[0]).theDecision = paramString1;
+//		    (arrayOfCastDecisionInput[0]).theComment = paramString2;
+		    IssueManagement.CastReviewDecisionResp castReviewDecisionResp = m_issueService.castReviewDecisionOnIssues(arrayOfCastDecisionInput);
+		    if (castReviewDecisionResp.theServiceData.sizeOfPartialErrors() > 0) {
+		      final String details = IssueHelper.getInstance().getDetails(castReviewDecisionResp.theServiceData);
+		      Display.getDefault().asyncExec(new Runnable() {
+		            public void run() { MessageBox.post(Messages.getString("ReviewIssue.TITLE"), details, Messages.getString("ReviewIssue.ReviewJob"), 1); }
+		          });
+		      bool = false;
+		    } 
+		    return bool;
+		  }
+	  
+	  
+	/**
+	 * Save Sign Record
+	 * @param tcComponent
+	 * @param decision
+	 * @param comment
+	 * @return
+	 * @throws TCException 
+	 */
+	private void saveComment(String decision, String comment) throws TCException {
+		if (StrUtil.isBlankIfStr(comment)) {
+			comment = "No Comment";
+		}
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");		
+		decision = secondUserInfo + ": " + ReviewIssueDialog.this.m_decision + ": " + comment + ":" + sdf.format(new Date());
+		
+		TCProperty tcProperty1 = itemRev.getTCProperty("d9_IRComments");
+		
+		String value1 = tcProperty1.getStringValue();		
+		
+		StringBuffer buf1 = new StringBuffer();
+		buf1.append(decision);
+		if (StrUtil.isNotEmpty(value1)) {
+			buf1.append("\n\r");
+		}		
+		buf1.append(value1);		
+		
+		Tools.setBypass(session);
+		
+		itemRev.setProperty("d9_IRComments", buf1.toString());
+		
+//		Tools.closeBypass(session);
+		
+	}
+	
+	
+	protected void okPressed() {
+		this.m_decision = this.getReviewDecision();
+		this.m_comments = this.m_commentsText.getText();
+		
+		// Recompile 2023/12/26
+		Tools.setBypass(session);
+		savePropFlag = true;
+		
+		String msg = checkRequired(); // 校验属性是否必填
+		if (StrUtil.isNotBlank(msg)) {
+			MessageBox.post(getShell(), msg, "警告", MessageBox.WARNING);
+			return;
+		}
+		
+		
+		LoopProgerssDialog progerssDialog = new LoopProgerssDialog(getShell(), null,  "正在保存属性,请稍后...");
+		progerssDialog.run(true, new IProgressDialogRunnable() {
+			
+			@Override
+			public void run(BooleanFlag stopFlag) {
+				try {
+					if (stopFlag.getFlag()) {
+						return;
+					}
+					
+					if (savePropFlag) {						
+						saveCustProp(); // 保存属性
+					}
+					
+					stopFlag.setFlag(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+					savePropFlag = false;
+					stopFlag.setFlag(true);
+					Tools.closeBypass(session);
+					Tools.errorMsgBox(e.getLocalizedMessage(), "错误");
+				}					
+			}
+		});
+		
+		if (savePropFlag) { // 属性保存成功,才进行审核Issue任务
+			this.doReviewIssueJob();		
+			this.setReturnCode(0);
+			this.close();
+		}
+		
+		Tools.closeBypass(session);
+		// Recompile 2023/12/26
+	}
+
+	private void getLabelsForProperty() {
+		TCSession var1 = (TCSession) AIFUtility.getSessionManager().getDefaultSession();
+		TCComponentType var2 = null;
+
+		try {
+			var2 = var1.getTypeComponent("IssueReviewRecord");
+		} catch (TCException var6) {
+			TcLogger.getLogger(ReviewIssueDialog.class).error(var6.getLocalizedMessage(), var6);
+		}
+
+		if (var2 != null) {
+			String[] var3 = new String[] { "review_decision", "comment" };
+			TCPropertyDescriptor[] var4 = var2.getPropertyDescriptors(var3);
+			if (var4 != null) {
+				for (int var5 = 0; var5 < var4.length; ++var5) {
+					if (var4[var5].getName().equals("review_decision")) {
+						this.m_reviewDecisionLabel = var4[var5].getDisplayName();
+					} else if (var4[var5].getName().equals("comment")) {
+						this.m_commentLabel = var4[var5].getDisplayName();
+					}
+				}
+			}
+		}
+
+		// recompile 2023/12/05 START
+		itemRev = (TCComponentIssueReportRevision) m_selectedIssue;
+		objectType = itemRev.getTypeObject().getName();
+
+		System.out.println("==>> objectType: " + objectType);
+		try {
+			var2 = var1.getTypeComponent(objectType);
+		} catch (TCException var6) {
+			TcLogger.getLogger(ReviewIssueDialog.class).error(var6.getLocalizedMessage(), var6);
+		}
+
+		if (var2 != null) {
+			String[] custProp = getCustProp(); // Get Custom Prop
+			if (custProp == null || custProp.length <= 0) {
+//				Tools.errorMsgBox("Get Custom Prop Failure", "Error");
+				return;
+			}
+			TCPropertyDescriptor[] descriptors = var2.getPropertyDescriptors(custProp);
+			if (descriptors != null) {
+				for (int i = 0; i < descriptors.length; i++) {
+					System.out.println("==>> descriptors name is: " + descriptors[i].getName());
+					custLabelMap.put(descriptors[i].getDisplayName(), descriptors[i].getName());
+				}
+			}
+		}
+
+		// recompile 2023/12/05 END
+	}
+
+	/**
+	 * Recompile 2023/12/22
+	 * @throws TCException 
+	 */
+	private void loadAssignNodeValue() throws TCException {		
+		for (Entry<String, Set<Entry<Control, String>>> entry : sortMap.entrySet()) {
+			Combo tcUserCombo = null;
+			Combo actualUserCombo = null;
+			String tcUserValue = "";
+			String actualValue = "";
+			
+			Set<Entry<Control, String>> sets = entry.getValue();
+			tcUserList.clear();
+			for (Entry<Control, String> set : sets) {
+				Combo combo = null;
+				Text text = null;
+				
+				Control key = set.getKey();
+				String prop = set.getValue();	
+				
+				if (key instanceof Text) {
+					text = (Text) key;
+					TCComponentGroupMember member = (TCComponentGroupMember) itemRev.getRelatedComponent(prop);
+					TCComponentUser user = member.getUser();
+					String userId = user.getUserId();
+					String userName = user.getUserName();
+					text.setText(userName + "(" + userId + ")");
+					continue;
+				} else if (key instanceof Combo) {
+					combo = (Combo) key;
+				}
+				
+				TCComponent relatedComponent = itemRev.getRelatedComponent(prop);
+				if (ObjUtil.isNotEmpty(relatedComponent)) {
+					if (relatedComponent instanceof TCComponentGroupMember) {
+						TCComponentGroupMember member = (TCComponentGroupMember) itemRev.getRelatedComponent(prop);
+						TCComponentUser user = member.getUser();
+						String userId = user.getUserId();
+						String userName = user.getUserName();
+						tcUserValue = userName + "(" + userId + ")";
+					} else {
+						actualValue = relatedComponent.getProperty("d9_UserInfo");					
+					}
+				}
+				
+				int index = 0;
+				if (prop.replace(" ", "").endsWith("_ActualUser")) {
+					actualList.add(0, "");
+					if (StrUtil.isNotBlank(actualValue)) {
+						actualList.add(1, actualValue);
+						
+					}				
+					index = Tools.getIndex(actualList, actualValue); // get Index
+					setComboValue(combo, actualList, index);
+					
+					actualUserCombo = combo;
+				} else {				
+					if (CollUtil.isEmpty(tcUserList)) {
+						tcUserList.add(0, "");
+						if (StrUtil.isNotBlank(tcUserValue)) {
+							tcUserList.add(1, tcUserValue);
+						}			
+						
+					}
+					index = Tools.getIndex(tcUserList, tcUserValue); // get Index
+					setComboValue(combo, tcUserList, index);
+					tcUserCombo = combo;
+				}
+				
+				if (actualList.size() > 1) {
+					if (StrUtil.isNotEmpty(actualValue)) {
+						List<String> matchList = getMatchFirstUser(actualValue);
+						tcUserList.addAll(matchList);	
+						tcUserList = tcUserList.stream().filter(Tools.distinctByKey(str -> str)).collect(Collectors.toList());
+					}					
+					if (ObjUtil.isNotEmpty(tcUserCombo)) {
+						index = Tools.getIndex(tcUserList, tcUserValue); // get Index
+						setComboValue(tcUserCombo, tcUserList, index);
+					}				
+				}
+			}
+		}
+	}
+
+	
+	/**	
+	 * @param combo
+	 * @param list
+	 * @param value
+	 */
+	private void setComboValue(Combo combo, List<String> list, int index) {
+		Display.getDefault().syncExec(new Runnable() {			
+			@Override
+			public void run() {				
+				combo.removeAll();
+				for (String str : list) {							
+					combo.add(str.trim());
+				}
+
+				if (CollUtil.isNotEmpty(list)) {
+					combo.select(index);
+				}
+				
+				Listener[] listeners = combo.getListeners(SWT.Selection);
+				for (Listener listener : listeners) {
+					Event event = new Event();
+					event.type = SWT.Selection;
+					event.widget = combo;
+					listener.handleEvent(event);
+				}
+			}
+		});		
+	}
+	
+	
+	/*
+	 * Recompile 2023/12/23/17:14
+	 */
+	private void setAssignCompShow(boolean flag) {
+		assignCompList.forEach(e -> {
+			e.setVisible(flag);
+		});			
+	}
+	
+	
+	/**
+	 * Recompile 2023/12/06
+	 * 
+	 */
+ 	private void addListener() { 		
+		m_decisionCombo.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				Combo source = (Combo) e.getSource();				
+				String text = source.getText();
+				System.out.println("==>> review decision Combo Select value is : " + text);
+				
+				Optional<String> findAny = assignNodeList.stream().filter(str -> str.split("=")[0].replace(" ", "").startsWith(curTaskName.replace(" ", ""))).findAny();
+				if (findAny.isPresent()) {
+					if (StrUtil.isNotEmpty(text)) {
+						boolean flag = (source.getData(text) == null) ? false : source.getData(text).equals(assignUserDecisionActualValue);
+						if (flag) {
+							show = true;
+						} else {
+							show = false;
+						}
+					}					
+				} else {
+					show = false;
+				}
+				
+				if (show) {
+					setAssignCompValue();
+				} else {
+					Display.getDefault().syncExec(new Runnable() {						
+						@Override
+						public void run() {
+							setAssignCompShow(show);
+						}
+					});
+				}				
+			}		
+		});
+	
+		
+		for (Entry<String, Set<Entry<Control, String>>> entry : sortMap.entrySet()) {
+			Set<Entry<Control, String>> sets = entry.getValue();
+			List<String> curComboTcUserList = new ArrayList<String>();
+			
+			for (Entry<Control, String> set : sets) {
+				Combo combo = null;
+				Text text = null;				
+				Control key = set.getKey();
+				String prop = set.getValue();
+				
+				if (key instanceof Text) {
+					text = (Text) key;
+					continue;
+
+				} else if (key instanceof Combo) {
+					combo = (Combo) key;
+				}
+				
+				if (prop.replace(" ", "").endsWith("_ActualUser")) {
+					
+					Combo actualUserCombo = ((Combo)Tools.getMapKeyByValue(assignNodeCompMap, prop));
+					Combo tcUserCombo = ((Combo)Tools.getMapKeyByValue(assignNodeCompMap, prop.replace("_ActualUser", "")));
+					
+					actualUserCombo.addSelectionListener(new SelectionAdapter() {
+						@Override
+						public void widgetSelected(SelectionEvent e) {
+							Combo source = (Combo) e.getSource();
+							source.setListVisible(true);
+							String text = source.getText();
+							System.out.println("==>> select actual user is : " + text);						
+							
+							List<String> matchList = getMatchFirstUser(text);
+							curComboTcUserList.clear();
+							if (CollUtil.isNotEmpty(matchList)) {								
+								curComboTcUserList.addAll(matchList);
+							}
+							
+							setComboValue(tcUserCombo, curComboTcUserList, 0);
+						}
+					});					
+					
+					
+					actualUserCombo.addKeyListener(new KeyListener() {
+						
+						@Override
+						public void keyReleased(KeyEvent e) {
+							Combo source = (Combo) e.getSource();	
+							
+							int keyCode = e.keyCode;						
+							if (e.keyCode == SWT.CR || e.keyCode == SWT.KEYPAD_CR) {
+			                    e.doit = false; 
+			                }
+							
+							if (keyCode !=13 && keyCode != 16777296) {							
+								return;
+							}					
+							
+							source = (Combo) e.getSource();
+							String filter = S2TTransferUtil.toTraditionnalString(source.getText().toLowerCase());
+							
+							System.out.println("==>> filter: " + filter);
+							int selectionIndex = source.getSelectionIndex();
+							
+							String[] dataList = null;
+							if (StrUtil.isEmptyIfStr(filter)) {
+								dataList = actualList.toArray(new String[actualList.size()]);
+							} else {
+								dataList = (String[]) source.getItems();
+							}
+							
+							source.removeAll();
+							
+							for (String item : dataList) {
+								if(StrUtil.isNotEmpty(filter)) {
+									if (S2TTransferUtil.toTraditionnalString(item.toLowerCase()).contains(filter)) {
+										source.add(item);
+									}								
+								} else {
+									source.add(item);
+								}
+							}
+							
+							if (StrUtil.isNotEmpty(filter)) {
+								if (source.getItemCount() == 0) {
+									for (String item : dataList) {
+										source.add(item);
+									}
+								}							
+							}
+							
+							if (source.getItemCount() > 0) {
+			                    if (selectionIndex != -1) {
+			                    	source.select(selectionIndex);                    	
+			                    } else {
+			                    	source.select(0);
+			                    } 
+			                    
+			                    Listener[] listeners = source.getListeners(SWT.Selection);
+								for (Listener listener : listeners) {
+									Event event = new Event();
+									event.type = SWT.Selection;
+									event.widget = source;
+									listener.handleEvent(event);
+								}
+			                }
+						}
+						
+						@Override
+						public void keyPressed(KeyEvent e) {
+							
+						}
+					});		
+					
+					actualUserCombo.addTraverseListener(new TraverseListener() {
+			            @Override
+			            public void keyTraversed(TraverseEvent e) {
+			                if (e.detail == SWT.TRAVERSE_RETURN) {
+			                    e.doit = false;
+			                }
+			            }
+			        }); 
+					
+				}
+			}
+		} 		
+ 	}
+
+ 	
+ 	/**
+ 	 * get All Required Component
+ 	 */
+ 	private Map<Control, String> getTotalRequiredComp() {
+ 		Map<Control, String> retMap = new LinkedHashMap<Control, String>();
+ 		for (Map.Entry<Control, String> entry : custCompMap.entrySet()) {
+			Control key = entry.getKey();
+			String prop = entry.getValue();
+			if (checkPropRequired(addCustomList, prop)) { // check required
+				retMap.put(key, prop);
+			}
+		}
+
+		for (Map.Entry<Control, String> entry : assignNodeCompMap.entrySet()) {
+			Control key = entry.getKey();
+			String prop = entry.getValue();			
+			if (checkPropRequired(assignNodeList, prop)) { // check required
+				retMap.put(key, prop);
+			}
+		}	
+		
+		return retMap;
+ 	}
+ 	
+ 	
+ 	/**
+ 	 * Recompile 2023/12/26
+ 	 */
+ 	private void setAssignCompValue() {
+		try {
+//			LoopProgerssDialog progerssDialog = new LoopProgerssDialog(getShell(), null,  "Loading, Please Hold...");
+			LoopProgerssDialog progerssDialog = new LoopProgerssDialog(getShell(), null,  "正在加载,请稍后...");
+			progerssDialog.run(true, new IProgressDialogRunnable() {
+				
+				@Override
+				public void run(BooleanFlag stopFlag) {
+					try {
+						if (stopFlag.getFlag()) {
+							return;
+						}
+						
+						if (CollUtil.isEmpty(workList)) {
+							workList = Tools.getWorkerList(session);
+							System.out.println(workList.toString());
+						}								
+														
+//						actualList = workList.stream().map(e -> e.getStr("object_name") + "(" + e.getStr("item_id") + ")").collect(Collectors.toList());
+						actualList = workList.stream().map(e -> e.getStr("user_info")).collect(Collectors.toList());
+						loadAssignNodeValue(); 
+						
+//						sendListenerEvent(); // send listener event
+						stopFlag.setFlag(true);
+						
+						Display.getDefault().syncExec(new Runnable() {
+							
+							@Override
+							public void run() {
+								setAssignCompShow(show);
+							}
+						});
+					} catch (Exception e) {
+						e.printStackTrace();
+						Tools.warningMsgBox(e.getLocalizedMessage(), "警告");
+						stopFlag.setFlag(true);
+					}					
+				}
+			});
+		} catch (Exception e1) {
+			e1.printStackTrace();			
+		}
+	}
+ 	
+ 	
+	/**
+	 * get CustProp Array
+	 * Recompile 2023/12/26
+	 * @return
+	 */
+	private String[] getCustProp() {
+		String[] array = null;
+		// recompile 2023/12/20 START
+		TCComponent component = (TCComponent) this.m_selectedIssue;
+		try {
+			component.refresh();
+			component.clearCache();
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		String[] processInfo = IssueHelper.getInstance().getProcessInfo(component);
+		// recompile 2023/12/20 END
+		
+		
+//		String[] processInfo = IssueHelper.getInstance().getProcessInfo((TCComponent) this.m_selectedIssue);
+		curTaskName = processInfo[1];
+		System.out.println("==>> curTaskName: " + curTaskName);
+		Optional<String> findAny = addCustomList.stream().filter(str -> str.split("=")[0].replace(" ", "").equals(curTaskName.replace(" ", ""))).findAny();
+		if (findAny.isPresent()) {
+			String value = findAny.get();
+			System.out.println("==>> " + curTaskName + " match " + value);
+			String[] split = value.split("=")[1].split(";");
+			array = new String[split.length];
+			for (int i = 0; i < split.length; i++) {
+				array[i] = split[i].split("\\&&")[0];
+			}
+//			return value.split("=")[1].split(";");
+		}
+
+		return array;
+	}
+
+	/**
+	 * check Required
+	 * Recompile 2023/12/26
+	 * @param prop
+	 * @return
+	 */
+	private boolean checkPropRequired(List<String> list, String prop) {
+		Optional<String> findAny = list.stream().filter(str -> str.split("=")[0].replace(" ", "").startsWith(curTaskName.replace(" ", ""))).findAny();
+		if (findAny.isPresent()) {
+			String value = findAny.get();
+			String[] split = value.split("=")[1].split(";");
+			Optional<String> findAny2 = Stream.of(split).filter(str -> str.split("\\&&")[0].contains(prop)).findAny();
+			if (findAny2.isPresent()) {
+				String value2 = findAny2.get();
+				return Boolean.parseBoolean(value2.split("\\&&")[1]);
+			}
+		}
+
+		return false;
+	}
+	
+	/**
+	 * 校验必填项
+	 * @return
+	 */
+	private String checkRequired() {
+		String msg = "";
+		String value = null;
+		String displayName = null;
+		for (Map.Entry<Control, String> entry : custCompMap.entrySet()) {
+			Combo combo = null;
+			Text text = null;
+			String prop = entry.getValue();
+			displayName = getDisplayName(prop);
+			Control control = Tools.getMapKeyByValue(totalRequiredComp, prop);
+			if (ObjUtil.isEmpty(control)) {
+				continue;
+			}
+			
+			value = getCompValue(control); // 获取组件值
+			
+			if (StrUtil.isEmptyIfStr(value)) {
+				msg += "当前属性: " + displayName + ",未填写\n";
+			}
+		}
+		
+		String str = "";
+		for (Entry<String, Set<Entry<Control, String>>> entry : sortMap.entrySet()) {
+			Set<Entry<Control, String>> sets = entry.getValue();
+			boolean isWrite = true;
+			for (Entry<Control, String> set : sets) {
+//				Combo combo = null;
+//				Text text = null;				
+				String prop = set.getValue();
+				displayName = getDisplayName(prop);
+				
+				Control control = Tools.getMapKeyByValue(totalRequiredComp, prop);
+				if (ObjUtil.isEmpty(control)) {
+					continue;
+				}	
+				
+				if (!checkCompVisible(control)) { // 判断组件是否可见
+					continue;
+				}
+				value = getCompValue(control); // 获取组件值				
+				
+				if (StrUtil.isEmptyIfStr(value)) {
+					str += "当前属性: " + displayName + ",未填写\n";
+					isWrite = false;
+				}
+			}
+			
+			if (isWrite) {
+				str = "";
+				break;
+			}			
+		}
+		msg += str;
+		return msg;
+	}
+	
+	/**
+	 * 获取组件值
+	 * @param control
+	 * @return
+	 */
+	private String getCompValue(Control control) {
+		if (control instanceof Text) {
+			Text text = (Text) control;
+			return Display.getDefault().syncCall(() -> {
+	            return text.getText();
+	        });
+		} else if (control instanceof Combo) {
+			Combo combo = (Combo) control;
+			return Display.getDefault().syncCall(() -> {
+	            return combo.getText();
+	        });				
+		}
+		return "";
+	}
+	
+	/**
+	 * 判断组件是否可见
+	 * @param control
+	 * @return
+	 */
+	private boolean checkCompVisible(Control control) {
+		return Display.getDefault().syncCall(() -> {
+			return control.isVisible();
+		});		
+	}
+	
+	
+	/**
+	 * Recompile 2023/12/06
+	 * save Prop
+	 * @throws TCException 
+	 */
+	private void saveCustProp() throws TCException {
+		for (Map.Entry<Control, String> entry : custCompMap.entrySet()) {
+			Combo combo = null;
+			Text text = null;
+			Control key = entry.getKey();
+			String prop = entry.getValue();
+			propValue = getCompValue(key); // 获取组件值
+
+			itemRev.setProperty(prop, propValue); // Save Properties
+			itemRev.refresh();
+			itemRev.clearCache();
+		}
+		
+		
+		for (Map.Entry<Control, String> entry : assignNodeCompMap.entrySet()) {
+			Combo combo = null;
+			Text text = null;
+			Control key = entry.getKey();
+			String prop = entry.getValue();
+			
+			if (!checkCompVisible(key)) { // 判断组件是否可见
+				continue;
+			}
+			
+			assignNodeValue = getCompValue(key); // 获取组件值
+			
+			if (prop.endsWith("_ActualUser")) {
+//					Optional<JSONObject> findAny = workList.stream().filter(j -> assignNodeValue.equals(j.getStr("object_name") + "(" + j.getStr("item_id") + ")")).findAny();
+				Optional<JSONObject> findAny = workList.stream().filter(j -> assignNodeValue.equals(j.getStr("user_info"))).findAny();
+				if (findAny.isPresent()) {
+					JSONObject jsonObject = findAny.get();
+					String secondUserUid = jsonObject.getStr("uid");
+					Tools.setWorker(itemRev, session, secondUserUid, prop);
+				}				
+				
+			} else {
+				List<JSONArray> collect = workList.stream().map(e -> e.getJSONArray("parent")).collect(Collectors.toList());
+				if (CollUtil.isNotEmpty(collect)) {
+					for (JSONArray jsonArray : collect) {
+						boolean flag = false;
+						for (Object object : jsonArray) {
+							JSONObject parseObj = JSONUtil.parseObj(object);	
+							String firstUserUid = parseObj.getStr("uid");
+//								if (assignNodeValue.equals(parseObj.getStr("object_name") + "(" + parseObj.getStr("item_id") + ")")) {
+							if (assignNodeValue.equals(parseObj.getStr("user_info"))) {
+								Tools.setWorker(itemRev, session, firstUserUid,  StrUtil.upperFirst(prop));
+								flag = true;
+								break;
+							}
+						}
+						
+						if (flag) {
+							break;
+						}
+					}
+				}					
+			}
+		}		
+	}
+
+	
+	/**
+	 * Get Second Count by Match First Count
+	 * @param value
+	 * @return
+	 */
+	private List<String> getMatchFirstUser(String value) {
+		List<String> list = new ArrayList<String>();
+//		Optional<JSONObject> findAny = workList.stream().filter(j -> value.equals(j.getStr("object_name") + "(" + j.getStr("item_id") + ")")).findAny();
+		Optional<JSONObject> findAny = workList.stream().filter(j -> value.equals(j.getStr("user_info"))).findAny();
+		if (findAny.isPresent()) {
+			JSONObject jsonObject = findAny.get();
+			JSONArray jsonArray = jsonObject.getJSONArray("parent");
+			
+			for (Object object : jsonArray) {
+				JSONObject parseObj = JSONUtil.parseObj(object);								
+//				list.add(parseObj.getStr("object_name") + "(" + parseObj.getStr("item_id") + ")");
+				list.add(parseObj.getStr("user_info"));
+			}			
+		}
+		
+		return list;
+	}	
+	
+	private void autoUserIssueFolder() throws Exception {
+		String nickname = null;
+		IEclipsePreferences rootNode = Platform.getPreferencesService().getRootNode();
+		String string = rootNode.get("ssoUserPojo", null);
+		JSONObject parseObj = JSONUtil.parseObj(string);
+		String emp_no = parseObj.getStr("emp_no");
+		TCComponent[] executeQuery = Tools.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+				new String[] {emp_no});
+		if(executeQuery!=null && executeQuery.length >0) {
+			nickname = executeQuery[0].getProperty("object_name");
+		}
+	}
+	
+	/**
+	 * Recompile 2023/12/25
+	 * @return
+	 */
+
+	private String getSecondUserInfo() {
+		IEclipsePreferences rootNode = Platform.getPreferencesService().getRootNode();
+		String string = rootNode.get("ssoUserPojo", null);
+		if (StrUtil.isEmptyIfStr(string)) {
+			return "";
+		}
+		JSONObject parseObj = JSONUtil.parseObj(string);		
+		System.out.println(parseObj.getStr("emp_no"));
+		System.out.println(parseObj.getStr("name"));
+		String secondUserStr = parseObj.getStr("name") + "(" + parseObj.getStr("emp_no") + ")";
+		System.out.println("==>> 当前登录的二级账号信息为: " + secondUserStr);
+		return secondUserStr;		
+	}
+	
+	/**
+	 * set Actual Value And Display Value
+	 */
+	private void setDisplayAndActualName() {
+		Object[] trueLovValues = Tools.getLovValues("IsM0Issue Review Decisions", false);
+		Object[] displayValues = Tools.getLovValues("IsM0Issue Review Decisions", true);
+		if (ObjUtil.isNotEmpty(m_decisionCombo)) {
+			int index = Tools.getIndex(trueLovValues, assignUserDecisionActualValue);
+			m_decisionCombo.setData(displayValues[index].toString(), assignUserDecisionActualValue);
+		}
+	}
+	
+	
+	/**
+	 * 获取显示名
+	 * @param prop
+	 * @return
+	 */
+	private String getDisplayName(String prop) {
+		TCComponentType type = null;
+		try {
+			type = session.getTypeComponent(objectType);			
+		} catch (TCException var6) {
+			TcLogger.getLogger(ReviewIssueDialog.class).error(var6.getLocalizedMessage(), var6);
+		}
+		
+		if (ObjUtil.isNotEmpty(type)) {			
+			TCPropertyDescriptor[] descriptors = type.getPropertyDescriptors(new String[] {prop});
+			if (descriptors != null) {
+				for (int i = 0; i < descriptors.length; i++) {
+					if (descriptors[i].getName().equals(prop)) {
+						return descriptors[i].getDisplayName();
+					}
+				}
+			}
+		}		
+		return "";
+	}
+	
+	
+	/**
+	 * 根据Control getData的属性值进行分组
+	 * @return
+	 */
+	private Map<String, Set<Entry<Control,String>>> groupBy(Map<Control, String> map) {
+		Set<Entry<Control,String>> entrySet = map.entrySet();
+		Map<String, Set<Entry<Control,String>>> resultMap = new LinkedHashMap<String, Set<Entry<Control,String>>>();
+		
+		entrySet.forEach(e -> {
+			Control key = e.getKey();
+			String data = (String) key.getData();
+			Set<Entry<Control, String>> set = resultMap.get(data);
+			if (set == null) {
+				set = new LinkedHashSet<Entry<Control, String>>();
+				set.add(e);
+				resultMap.put(data, set);
+				
+			} else {
+				set.add(e);
+			}
+		});
+		
+		return resultMap;
+	}
+}

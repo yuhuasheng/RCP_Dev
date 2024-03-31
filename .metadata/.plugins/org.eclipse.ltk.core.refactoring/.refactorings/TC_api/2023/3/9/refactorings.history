@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring accessors="true" comment="Delete 2 elements from project &apos;TC_api&apos;&#x0D;&#x0A;- Original project: &apos;TC_api&apos;&#x0D;&#x0A;- Original elements:&#x0D;&#x0A;     tika-core-1.16.jar&#x0D;&#x0A;     tika-parsers-1.16.jar" description="Delete elements" element1="lib/tika-core-1.16.jar" element2="lib/tika-parsers-1.16.jar" elements="0" flags="589830" id="org.eclipse.jdt.ui.delete" resources="2" stamp="1677823563991" subPackages="false" version="1.0"/>
+</session>

@@ -1,0 +1,332 @@
+﻿package com.foxconn.electronics.managementebom.secondsource.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import com.foxconn.electronics.managementebom.secondsource.constants.Search2ndSourceConstant;
+import com.foxconn.electronics.managementebom.secondsource.domain.Sync2ndSourceInfo;
+import com.foxconn.electronics.managementebom.secondsource.domain.Sync2ndSourceParams;
+import com.foxconn.electronics.managementebom.secondsource.util.EBOMTreeTools;
+import com.foxconn.electronics.managementebom.updatebom.domain.EBOMLineBean;
+import com.foxconn.electronics.managementebom.updatebom.service.UpdateEBOMService;
+import com.foxconn.electronics.util.CommonTools;
+import com.foxconn.electronics.util.TCUtil;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.google.gson.Gson;
+import com.teamcenter.rac.kernel.ITypeName;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentProjectType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+
+public class SyncSecondSourceService {	
+	
+	private EBOMTreeTools ebomTreeTools;	
+	
+	private TCSession session;
+	
+	private TCComponentBOMWindow EBOMWindow = null;	
+	
+	private UpdateEBOMService updateEBOMService = null;
+	
+	private TCComponentItemRevision topItemRev = null;	
+	
+	
+	public static final String[] ALL_PART_ATTRS = {"item_id", "item_revision_id", "d9_EnglishDescription", "d9_DescriptionSAP", "d9_ManufacturerID", "d9_ManufacturerPN", "d9_MaterialGroup", "d9_MaterialType", 
+													"d9_ProcurementMethods", "d9_Un", "release_status_list", "d9_SAPRev", "d9_SupplierZF", "D9_HasSourceBOM_REL"};
+	
+	public static final String[] ALL_BOM_ATTRS = {"bl_sequence_no", "bl_occ_d9_Location", "bl_occ_d9_AltGroup", "bl_quantity", "bl_occ_d9_ReferenceDimension"};
+	
+	public SyncSecondSourceService() {
+		session = RACUIUtil.getTCSession();
+		ebomTreeTools = new EBOMTreeTools(session);
+		try {
+			this.updateEBOMService = new UpdateEBOMService();
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	/**
+	 *  获取同步2nd source参数
+	 * 
+	 * @param uid
+	 * @return
+	 */
+	public AjaxResult getSync2ndSourceParams(String syncFrom) {
+		try {
+			List<Sync2ndSourceParams> projectList = Collections.synchronizedList(new ArrayList<Sync2ndSourceParams>());
+			Map<String, Object> paramMap = new LinkedHashMap<String, Object>();
+			TCComponentUser user = session.getUser();
+			TCComponentProjectType projectType = (TCComponentProjectType) session.getTypeComponent(ITypeName.TC_Project);
+			TCComponentProject[] projects = projectType.extent(user, true);
+			Stream.of(projects).forEach(project -> {
+				Sync2ndSourceParams params = new Sync2ndSourceParams();
+				params.setProjectID(project.getProjectID().toUpperCase());
+				params.setProjectName(project.getProjectName());
+				projectList.add(params);
+			});	
+			paramMap.put("projectName", projectList);
+			return new AjaxResult(AjaxResult.STATUS_SUCCESS, "查询成功", paramMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new AjaxResult(AjaxResult.STATUS_SERVER_ERROR, "查询失败", null);
+	}
+
+	
+	/**
+	 * 获取单阶含有替代料的BOM结构 
+	 * @param uid
+	 * @return
+	 */
+	public AjaxResult getSingle2ndSourceEBOMStruct(String uid) {
+		try {
+			TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(uid);
+			EBOMWindow = topBomLine.getCachedWindow();			
+			if (EBOMWindow == null) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT,"BOMWindow已经被关闭");
+			}
+			
+			ebomTreeTools.setCurrentProjectID(getProjectId(topBomLine).toUpperCase());
+			
+			Sync2ndSourceInfo topBomInfo = ebomTreeTools.getSingle2ndSourceStruct(topBomLine);
+			if (CommonTools.isEmpty(topBomInfo)) {
+				throw new Exception("遍历BOMLine失败");				
+			}
+			
+			return new AjaxResult(AjaxResult.STATUS_SUCCESS, "查询成功", topBomInfo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR,"BOM数据获取失败");
+		}
+	}
+	
+	
+	/**
+	 * 获取含有替代料的BOM结构 
+	 * @param uid
+	 * @return
+	 */
+	public AjaxResult get2ndSourceEBOMStruct(String uid) {
+		try {
+			long startTime = System.currentTimeMillis();
+			TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(uid);
+			topItemRev = topBomLine.getItemRevision();
+			
+			EBOMWindow = topBomLine.window();
+			if (EBOMWindow == null) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT,"BOMWindow已经被关闭");
+			}
+			
+//			topBomLine.refresh();
+//            com.foxconn.tcutils.util.TCUtil.unpackageBOMStructure(topBomLine);
+//            topBomLine.refresh();
+            
+			updateEBOMService.loadAllProperties(topBomLine, ALL_PART_ATTRS, ALL_BOM_ATTRS);
+			String currentProjectID = getProjectId(topBomLine); // 返回专案ID
+
+			System.out.println("==>> currentProjectID: " + currentProjectID);
+			ebomTreeTools.setCurrentProjectID(currentProjectID.toUpperCase());			
+			
+			Sync2ndSourceInfo topBomInfo = ebomTreeTools.get2ndSourceStruct(topBomLine);			
+			if (CommonTools.isEmpty(topBomInfo)) {
+				throw new Exception("遍历BOMLine失败");				
+			}
+
+			TCComponent[] relatedComponents = topItemRev.getRelatedComponents("D9_HasSourceBOM_REL");
+			Map<String, TCComponentItemRevision> sourceBomMap = EBOMTreeTools.getTotalSourceBomMap(session, relatedComponents); // 获取所有的源机种BOM集合
+			
+			System.out.println("get2ndSourceEBOMStruct cast time ::  " + (System.currentTimeMillis() - startTime));
+			return new AjaxResult(AjaxResult.STATUS_SUCCESS, "查询成功", topBomInfo);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR,e.getLocalizedMessage());
+		}
+		
+	}
+	
+	/**
+	 *返回项目ID
+	 * @param topBomLine
+	 * @return
+	 * @throws TCException
+	 */
+	private String getProjectId(TCComponentBOMLine topBomLine) throws TCException {
+		TCComponentItem topItem = topBomLine.getItem();
+		TCProperty props = topItem.getTCProperty("project_list");
+		if (CommonTools.isNotEmpty(props)) {
+			TCComponent[] pjs = props.getReferenceValueArray();
+			return Stream.of(pjs).map(e -> ((TCComponentProject) e).getProjectID()).collect(Collectors.joining(","));
+		}
+		return "";
+	}
+	
+	
+	public AjaxResult getSingleSync2ndSourceStruct(String uid, String syncFrom, String projectID) {
+		try {
+			TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(uid);
+			EBOMWindow = topBomLine.getCachedWindow();
+			if (EBOMWindow == null) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT,"BOMWindow已经被关闭");
+			}
+			
+			ebomTreeTools.setSyncFrom(syncFrom);
+			ebomTreeTools.setProjectID(projectID);
+			
+			Sync2ndSourceInfo topBomInfo = ebomTreeTools.getSingleSync2ndSourceStruct(topBomLine);
+			if (CommonTools.isEmpty(topBomInfo)) {
+				throw new Exception("ͬ同步单阶2nd Source 失败");				
+			}
+			
+
+//			ebomTreeTools.setSingleAltGroup(topBomInfo, false); // Set 2nd Source GroupId
+			return  AjaxResult.success( "查询成功", topBomInfo);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR,e.getLocalizedMessage());
+		}
+	}
+	
+	
+	
+	/**
+	 * 获取同步2nd Source json数据集合
+	 * 
+	 * @param uid
+	 * @param syncFrom
+	 * @param projectName
+	 */
+	public AjaxResult getSync2ndSourceInfo(String uid, String syncFrom, String projectID) {
+		try {	
+			long startTime = System.currentTimeMillis();
+			TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(uid);
+			EBOMWindow = topBomLine.window();
+			if (EBOMWindow == null) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT,"BOMWindow已经被关闭");
+			}
+			
+//			topBomLine.refresh();
+//	        com.foxconn.tcutils.util.TCUtil.unpackageBOMStructure(topBomLine);
+//	        topBomLine.refresh();
+	            
+			updateEBOMService.loadAllProperties(topBomLine, ALL_PART_ATTRS, ALL_BOM_ATTRS);
+			
+			ebomTreeTools.setSyncFrom(syncFrom);
+			ebomTreeTools.setProjectID(projectID);
+			
+			Sync2ndSourceInfo topBomInfo = ebomTreeTools.getSync2ndSourceStruct(topBomLine);
+			if (CommonTools.isEmpty(topBomInfo)) {
+				throw new Exception("遍历BOMLine失败");				
+			}			
+			
+//			ebomTreeTools.setAltGroupNew(topBomInfo, false); //设置替代料群组编号
+			System.out.println("getSync2ndSourceInfo cast time ::  " + (System.currentTimeMillis() - startTime));
+			return  AjaxResult.success("查询成功", topBomInfo);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR,"BOM数据获取失败");
+		} 
+	}	
+	
+	/**
+	 * 查询2nd Source替代料列表(暂时没用)
+	 * @param HHPN
+	 * @param mfg
+	 * @param mfgPN
+	 * @return
+	 * @throws Exception 
+	 */
+	public List<Sync2ndSourceInfo> searchSync2ndSubList(String HHPN, String mfg, String mfgPN) throws Exception {
+
+		List<String> queryNames = new ArrayList<>();
+		List<String> queryValues = new ArrayList<>();
+		if (CommonTools.isNotEmpty(HHPN)) {
+			queryNames.add(Search2ndSourceConstant.HHPN);
+			queryValues.add(HHPN + "*");
+		}
+		if (CommonTools.isNotEmpty(mfg)) {
+			queryNames.add(Search2ndSourceConstant.MFG);
+			queryValues.add(mfg + "*");
+		}
+		if (CommonTools.isNotEmpty(mfgPN)) {
+			queryNames.add(Search2ndSourceConstant.MFG_PN);
+			queryValues.add(mfgPN + "*");
+		}
+		System.out.println("find parts param: " + HHPN + "   " + mfg + "    " + mfgPN);
+
+		TCComponent[] results = TCUtil.executeQuery(session, Search2ndSourceConstant.FIND_PARTS,
+				queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+		if (CommonTools.isEmpty(results)) {
+			return null;
+		}
+		return Stream.of(results).map(e -> {
+			Sync2ndSourceInfo bean = null;
+			try {
+				TCComponentItemRevision itemRev = ((TCComponentItem) e).getLatestItemRevision();
+				bean = EBOMTreeTools.tcPropMapping(new Sync2ndSourceInfo(), itemRev);
+				bean.setItemRevUid(itemRev.getUid());
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			return bean;
+		}).collect(Collectors.toList());
+	} 
+	
+	
+	/**
+	 * 保存2nd Source替代料信息
+	 * @param data
+	 * @return
+	 * @throws TCException 
+	 */
+	public AjaxResult save2ndSourceSubList(String data) throws TCException {		
+		Gson gson = new Gson();
+		Sync2ndSourceInfo topBomInfo = gson.fromJson(data, Sync2ndSourceInfo.class);		
+		System.out.println(gson.toJson(topBomInfo));
+		EBOMLineBean rootBean = null;
+		try {
+			com.foxconn.mechanism.util.TCUtil.setBypass(session);
+			TCComponentBOMLine topLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(topBomInfo.getBomLineUid());
+			EBOMWindow = topLine.window();
+			if (CommonTools.isEmpty(EBOMWindow)) {
+				throw new Exception("BOMWindow已经被关闭");
+			}	
+			
+//			ebomTreeTools.setAltGroupNew(topBomInfo, true);
+			ebomTreeTools.setAltGroup(topBomInfo);
+			ebomTreeTools.setEBOMWindow(EBOMWindow);	
+			
+			TCComponentBOMLine rootBomLine = ebomTreeTools.checkTopLineRevise(topBomInfo); //判断顶阶BOMLine是否需要升版
+			if (CommonTools.isNotEmpty(rootBomLine)) {
+				topLine = rootBomLine;
+			}
+			rootBean = new EBOMLineBean(topLine);
+			rootBean.setIsNewVersion(UpdateEBOMService.isNewRevsion(topLine.getItemRevision()));
+			ebomTreeTools.saveBOMTree(topBomInfo, "");	
+			return AjaxResult.success("替代料群组保存成功", rootBean);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR,e.getLocalizedMessage());
+		} finally {
+			EBOMWindow.save();		
+			com.foxconn.mechanism.util.TCUtil.closeBypass(session);
+		} 
+	}
+}

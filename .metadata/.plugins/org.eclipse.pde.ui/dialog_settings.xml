@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="osgiProject" value="false"/>
+	<item key="generatePluginActivator" value="false"/>
+	<item key="uiPlugin" value="false"/>
+	<item key="apiAnalysis" value="false"/>
+	<item key="rcpPlugin" value="false"/>
+	<list key="providers">
+		<item value="FOXCONN"/>
+	</list>
+	<section name="pluginsView">
+	</section>
+	<section name="quick_assist_proposal_size">
+	</section>
+	<section name="PDEFormActionManager">
+	</section>
+	<section name="PluginExportWizard">
+		<item key="exportType" value="1"/>
+		<item key="destination0" value="C:\Siemens\Teamcenter14_2tier\portal"/>
+		<item key="destination1" value="C:\Siemens\Teamcenter14_2tier\portal"/>
+		<item key="exportUpdate" value="true"/>
+		<item key="exportSource" value="false"/>
+		<item key="exportSourceFormat" value="Generate source bundles"/>
+		<item key="saveAsAnt" value="false"/>
+		<item key="qualifier" value="false"/>
+		<item key="qualifierName" value="202302150941"/>
+		<item key="allowBinaryCycles" value="true"/>
+		<item key="useWorkspaceCompiledClasses" value="false"/>
+		<item key="signJAR" value="false"/>
+		<item key="destination2" value="C:\Siemens\Teamcenter14\portal"/>
+	</section>
+	<section name="org.eclipse.pde.ui.dialogs.PluginSelectionDialog">
+		<item key="ShowStatusLine" value="true"/>
+		<item key="History" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#x0D;&#x0A;&lt;History/&gt;"/>
+		<section name="DialogBoundsSettings">
+			<item key="DIALOG_HEIGHT" value="500"/>
+			<item key="DIALOG_WIDTH" value="600"/>
+			<item key="DIALOG_X_ORIGIN" value="790"/>
+			<item key="DIALOG_Y_ORIGIN" value="221"/>
+			<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-12|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
+		</section>
+	</section>
+	<section name="editBundleContainerWizard">
+		<item key="location1" value="C:\Siemens\Teamcenter14_2tier\portal"/>
+	</section>
+	<section name="pde-form-editor">
+		<item key="org.eclipse.pde.ui.manifestEditor" value="bundle-context"/>
+	</section>
+	<section name="org.eclipse.pde.ui.PLUGIN_STATUS_DIALOG">
+		<item key="DIALOG_X_ORIGIN" value="760"/>
+		<item key="DIALOG_Y_ORIGIN" value="264"/>
+		<item key="DIALOG_WIDTH" value="416"/>
+		<item key="DIALOG_HEIGHT" value="396"/>
+		<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-12|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
+	</section>
+	<section name="org.eclipse.pde.ui.dialogs.FeatureSelectionDialog">
+		<item key="ShowStatusLine" value="true"/>
+		<item key="History" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#x0D;&#x0A;&lt;History/&gt;"/>
+		<section name="DialogBoundsSettings">
+			<item key="DIALOG_HEIGHT" value="500"/>
+			<item key="DIALOG_WIDTH" value="600"/>
+			<item key="DIALOG_X_ORIGIN" value="668"/>
+			<item key="DIALOG_Y_ORIGIN" value="195"/>
+			<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-12|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
+		</section>
+	</section>
+</section>

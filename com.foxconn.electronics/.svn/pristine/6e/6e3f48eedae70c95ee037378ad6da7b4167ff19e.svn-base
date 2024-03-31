@@ -1,0 +1,503 @@
+package com.foxconn.electronics.login;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.create.BOCreateDefinitionFactory;
+import com.teamcenter.rac.common.create.CreateInstanceInput;
+import com.teamcenter.rac.common.create.IBOCreateDefinition;
+import com.teamcenter.rac.common.create.ICreateInstanceInput;
+import com.teamcenter.rac.common.create.SOAGenericCreateHelper;
+import com.teamcenter.rac.kernel.ServiceData;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentForm;
+import com.teamcenter.rac.kernel.TCComponentIssueReportRevision;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.services.IOpenService;
+import com.teamcenter.schemas.soa._2006_03.exceptions.ServiceException;
+import com.teamcenter.services.internal.rac.core.PresentationManagementService;
+import com.teamcenter.services.internal.rac.core._2017_05.PresentationManagement.GetStylesheetPerPagePref;
+import com.teamcenter.services.internal.rac.core._2017_05.PresentationManagement.GetStylesheetPerPageResponse;
+import com.teamcenter.services.internal.rac.core._2017_05.PresentationManagement.StylesheetPerPageInputData;
+import com.teamcenter.services.rac.core.DataManagementService;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.CreateOrUpdateFormsResponse;
+import com.teamcenter.soa.client.model.ErrorStack;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.FormInfo;
+
+public class MyIssuesListHandler extends AbstractHandler {
+	public AbstractAIFUIApplication app;
+	public static TCSession session = null;
+	
+	public String MyIssues = "我創建的 Issues";
+	public String ExecuteIssues = "我執行的 Issues";
+	public String TrackingIssues = "我跟蹤的 Issues";
+	
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		System.out.println("11111111111111");
+		
+		app = AIFUtility.getCurrentApplication();
+		session = (TCSession) app.getSession();
+		
+		OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+		String nickname = null;
+		String emp_no = null;
+		String name_no = null;
+		if(userPojo!=null) {
+			nickname  = S2TTransferUtil.toTraditionnalString(userPojo.getNickname());
+			emp_no = userPojo.getEmp_no();
+			name_no = nickname+"("+emp_no+")"+" IssueHome";
+			System.out.println("nickname = "+nickname);
+			System.out.println("emp_no = "+emp_no);
+			
+			//name_no = nickname+"("+emp_no+") IssueHome";
+		} else {
+			//創建表單
+//			InterfaceAIFComponent[] targetComponent = app.getTargetComponents();
+//			if (targetComponent != null && targetComponent.length == 1) {
+//				DataManagementService dmService = DataManagementService.getService(session);
+//				if(targetComponent[0] instanceof TCComponentItemRevision) {
+//					TCComponentItemRevision revision = (TCComponentItemRevision)targetComponent[0];
+//					try {
+//						ModelObject createForm = getPublicMailForm(dmService, "publicMail", "Form", "IMAN_external_object_link", revision, Boolean.TRUE);
+//						System.out.println("1231321");
+//						
+//					} catch (ServiceException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					} catch (Exception e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//				}
+//				
+//			}
+			
+			return null;
+		}
+		
+		try {
+			TCUtil.setBypass(session);
+			
+			//獲取IOpenService
+			IOpenService currentOpenService = AIFUtility.getCurrentOpenService();
+			if(currentOpenService!=null) {
+				System.out.println("11111currentOpenService");
+			} else {
+				System.out.println("22222currentOpenService");
+				return null;
+			}
+			
+			TCComponent IssueHome = getMyIssuesbox(name_no,"D9_IssueHome");
+			TCComponent myIssuesFolder = null;
+			TCComponent executeIssuesFolder = null;
+			TCComponent trackingIssuesFolder = null;
+			if(IssueHome == null) {
+				IssueHome = createIssueFolder(session , "D9_IssueHome",name_no);
+				myIssuesFolder = createIssueFolder(session , "D9_IssueSearch",MyIssues);
+				executeIssuesFolder = createIssueFolder(session , "D9_IssueSearch",ExecuteIssues);
+				trackingIssuesFolder = createIssueFolder(session , "D9_IssueSearch",TrackingIssues);
+				IssueHome.add("contents", myIssuesFolder);
+				IssueHome.add("contents", executeIssuesFolder);
+				IssueHome.add("contents", trackingIssuesFolder);
+			} else {
+				AIFComponentContext[] children = IssueHome.getChildren();
+				for (AIFComponentContext aif :children) {
+					TCComponent folder = (TCComponent) aif.getComponent();
+					String object_name = folder.getProperty("object_name");
+					if(MyIssues.equals(object_name)) {
+						myIssuesFolder = folder;
+					} else if(ExecuteIssues.equals(object_name)) {
+						executeIssuesFolder = folder;
+					} else if(TrackingIssues.equals(object_name)) {
+						trackingIssuesFolder = folder;
+					}
+				}
+			}
+			
+			if(myIssuesFolder!=null) {
+				myIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				myIssuesFolder = createIssueFolder(session , "D9_IssueSearch",MyIssues);
+			}
+			if(executeIssuesFolder!=null) {
+				executeIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				executeIssuesFolder = createIssueFolder(session , "D9_IssueSearch",ExecuteIssues);
+			}
+			if(trackingIssuesFolder!=null) {
+				trackingIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				trackingIssuesFolder = createIssueFolder(session , "D9_IssueSearch",TrackingIssues);
+			}
+			
+			if(IssueHome!=null) {
+				IssueHome.setRelated("contents", new TCComponent[] {});
+			}
+			
+			
+			//打開
+			boolean open = currentOpenService.open(IssueHome);
+			IssueHome.add("contents", myIssuesFolder);
+			IssueHome.add("contents", executeIssuesFolder);
+			IssueHome.add("contents", trackingIssuesFolder);
+			
+			
+			ArrayList<TCComponentIssueReportRevision> myIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+			ArrayList<TCComponentIssueReportRevision> executeIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+			ArrayList<TCComponentIssueReportRevision> trackingIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+			
+//			我创建的 Issues
+			TCComponent[] executeQuery1 = TCUtil.executeQuery(session, "__find_my_issue_reports",
+					new String[] {"owning_user.user_id","d9_ActualUserID" }, new String[] { "$USERID",nickname+"("+emp_no+")" });
+			if (executeQuery1 != null && executeQuery1.length > 0) {
+				for (int i = 0; i < executeQuery1.length; i++) {
+					
+					if(executeQuery1[i] instanceof TCComponentIssueReportRevision) {
+						TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery1[i];
+						//String property = issue.getProperty("object_string");
+						//System.out.println("property1 = "+property);
+						myIssuesList.add(issue);
+					}
+				}
+			}
+			
+			//要执行的 Issues
+			TCComponent[] executeQuery2 = TCUtil.executeQuery(session, "__find_my_signoff_issues",
+					new String[] {"EPMTask:process_stage_list.fnd0StartedTasks.Signoff:Fnd0EPMSignoff.group_member.User:user.user_id","EPMTask:process_stage_list.EPMDoTask:fnd0StartedTasks.User:responsible_party.user_id" }, 
+					new String[] { "$USERID","$USERID" });
+			if (executeQuery2 != null && executeQuery2.length > 0) {
+				for (int i = 0; i < executeQuery2.length; i++) {
+					
+					if(executeQuery2[i] instanceof TCComponentIssueReportRevision) {
+						TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery2[i];
+						TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+						if(d9_IssueTL_ActualUser != null) {
+							String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+							System.out.println("item_id1 = "+item_id);
+							if(emp_no.equals(item_id)) {
+								executeIssuesList.add(issue);
+							}
+						}
+					}
+				}
+			}
+			
+			//要跟踪的 Issues
+			TCComponent[] executeQuery3 = TCUtil.executeQuery(session, "__find_my_track_issues",
+					new String[] {"D9_IssueTL:HasParticipant.GroupMember:assignee.User:user.user_id","d9_ActualUserID" }, 
+					new String[] { "$USERID","$USERID" });
+			if (executeQuery3 != null && executeQuery3.length > 0) {
+				for (int i = 0; i < executeQuery3.length; i++) {
+					
+					if(executeQuery3[i] instanceof TCComponentIssueReportRevision) {
+						TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery3[i];
+						TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+						if(d9_IssueTL_ActualUser != null) {
+							String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+							System.out.println("item_id2 = "+item_id);
+							if(emp_no.equals(item_id)) {
+								trackingIssuesList.add(issue);
+							}
+						}
+					}
+				}
+			}
+			
+			if (open) {
+				if(myIssuesList !=null && myIssuesList.size() > 0) {
+					myIssuesFolder.setRelated("contents", myIssuesList.toArray(new TCComponentItemRevision[] {}));
+					
+//					for (TCComponentIssueReportRevision component3:myIssuesList) {
+//						myIssuesFolder.add("contents", component3);
+//					}
+				}
+				
+				if(executeIssuesList !=null && executeIssuesList.size() > 0) {
+					executeIssuesFolder.setRelated("contents", executeIssuesList.toArray(new TCComponentItemRevision[] {}));
+					
+//					for (TCComponentIssueReportRevision component3:executeIssuesList) {
+//						executeIssuesFolder.add("contents", component3);
+//					}
+				}
+				
+				if(trackingIssuesList !=null && trackingIssuesList.size() > 0) {
+					trackingIssuesFolder.setRelated("contents", trackingIssuesList.toArray(new TCComponentItemRevision[] {}));
+					
+//					for (TCComponentIssueReportRevision component3:trackingIssuesList) {
+//						trackingIssuesFolder.add("contents", component3);
+//					}
+				}
+				
+			}
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			TCUtil.closeBypass(session);
+		}
+		
+		System.out.println("2222222222222222");
+		
+		return null;
+	}
+	
+
+	/**
+	 * 删除某个文件夹下的所有文件
+	 * 
+	 * @param delpath String
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 * @return boolean
+	 */
+	public static boolean deletefile(String delpath) throws Exception {
+		try {
+			File file = new File(delpath);
+			// 当且仅当此抽象路径名表示的文件存在且 是一个目录时，返回 true
+			if (!file.isDirectory()) {
+				file.delete();
+			} else if (file.isDirectory()) {
+				String[] filelist = file.list();
+				for (int i = 0; i < filelist.length; i++) {
+					File delfile = new File(delpath + File.separator + filelist[i]);
+					if (!delfile.isDirectory()) {
+						delfile.delete();
+						//System.out.println("【INFO】 " + delfile.getAbsolutePath() + "删除文件成功");
+					} else if (delfile.isDirectory()) {
+						deletefile(delpath + File.separator + filelist[i]);
+					}
+				}
+			}
+
+		} catch (FileNotFoundException e) {
+			//System.out.println("【ERROR】 " + "deletefile() Exception:" + e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	public static String getFilePath(String foldName) {
+		String tempPath = System.getProperty("java.io.tmpdir") + File.separator;
+		File file = new File(tempPath + foldName);
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+		return file.getAbsolutePath();
+	}
+	
+	
+	
+	/**
+	 * 读取文件信息到List
+	 * 
+	 * @param fileNow
+	 * @param strCharsetName
+	 * @return
+	 * @throws Exception
+	 * @author:
+	 */
+	public static List<String> getContent(File fileNow, String strCharsetName) throws Exception {
+		List<String> retLst = new ArrayList<String>();
+
+		String strLine = null;
+		BufferedReader br = null;
+		FileInputStream fis = null;
+		InputStreamReader isr = null;
+
+		try {
+			fis = new FileInputStream(fileNow);
+			if (strCharsetName != null && strCharsetName.length() > 0) {
+				isr = new InputStreamReader(fis, strCharsetName);
+			} else {
+				isr = new InputStreamReader(fis);
+			}
+			br = new BufferedReader(isr);
+			while ((strLine = br.readLine()) != null) {
+				retLst.add(strLine);
+			}
+		} finally {
+			if (fis != null)
+				fis.close();
+			if (isr != null)
+				isr.close();
+			if (br != null)
+				br.close();
+		}
+
+		return retLst;
+	}
+	
+	
+	public static boolean isContent(List<String> contentLst, String key, String user) {
+		for (String content : contentLst) {
+			String[] lineArr = content.split("=");
+			if (2 == lineArr.length) {
+				String lineKey = lineArr[0];
+				if(lineKey.equals(key)) {
+					System.out.println("lineKey ="+lineKey);
+					String lineValue = lineArr[1];
+					String[] pubUserArr = lineValue.split("##");
+					if (2 == pubUserArr.length) {
+						String[] realUserArr = pubUserArr[1].split("%%");
+						if (1 == realUserArr.length || 2 == realUserArr.length) {
+							String realUser = realUserArr[0];
+							System.out.println("------------------->"+realUser);
+							System.out.println("user------------------->"+user);
+							if(user.equals(realUser)) {
+								System.out.println("realUser = "+realUser);
+								
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return false;
+	}
+
+	
+	
+	 /**
+     * 創建 IssueFolder
+     * 
+     * @param session
+     * @param type
+     * @param name
+     * @return
+     */
+    public static TCComponent createIssueFolder(TCSession session, String type, String name)
+    {
+        List<ICreateInstanceInput>iputList = new ArrayList<>();
+        IBOCreateDefinition createDefinition = BOCreateDefinitionFactory.getInstance().getCreateDefinition(session, type);
+        CreateInstanceInput createInstanceInput = new CreateInstanceInput(createDefinition);
+        createInstanceInput.add("object_name", name);
+        iputList.add(createInstanceInput);
+        List<TCComponent> comps = null;
+        TCComponent folder = null;
+        try
+        {
+            comps = SOAGenericCreateHelper.create(session, createDefinition, iputList);
+            folder = (TCComponent)comps.get(0);
+        }
+        catch (TCException e)
+        {
+            e.printStackTrace();
+        }
+        return folder;
+    }
+    
+    
+    public TCComponent getMyIssuesbox(String name,String object_type) throws Exception {
+    	TCComponent folderComponent = null;
+    	
+    	TCComponent[] executeQuery = TCUtil.executeQuery(session, "常规...",
+				new String[] { "object_name","object_type","owning_user.user_id" }, new String[] { name,object_type,"$USERID" });
+		if (executeQuery != null && executeQuery.length > 0) {
+			folderComponent = executeQuery[0];
+		}
+		return folderComponent;
+    }
+    
+    
+    
+    public void getPresentationManagementService(TCComponentFolder homeFolder) {
+    	
+    	PresentationManagementService service = PresentationManagementService.getService(session);
+    	
+    	GetStylesheetPerPagePref getstylesheetperpagepref = new GetStylesheetPerPagePref();
+    	getstylesheetperpagepref.processEntireXRT=true;
+    	getstylesheetperpagepref.returnThumbnailTickets=false;
+    	getstylesheetperpagepref.stylesheetFormat="XRTOnly";
+    	
+    	StylesheetPerPageInputData data = new StylesheetPerPageInputData();
+    	data.boName = "";
+    	data.clientId="";
+    	data.stylesheetType="Summary";
+    	data.targetPage="";
+    	data.boReference = homeFolder;
+    	
+    	GetStylesheetPerPageResponse stylesheetPerPage = service.getStylesheetPerPage(getstylesheetperpagepref, new StylesheetPerPageInputData[] {data});
+    	ServiceData serviceData = stylesheetPerPage.serviceData;
+    	
+    	int sizeOfPartialErrors = serviceData.sizeOfPartialErrors();
+    	for (int i = 0; i < sizeOfPartialErrors; i++) {
+    		System.out.println(serviceData.getPartialError(i).getMessages());
+		}
+	}
+    
+    
+    
+    
+    public static ModelObject getPublicMailForm(DataManagementService dmService, String IMFormName, String IMFormType, String rel, TCComponent parent, boolean saveDB) throws Exception {
+    	AIFComponentContext[] related = parent.getRelated(rel);
+    	if(related !=null && related.length > 0) {
+    		for (int i = 0; i < related.length; i++) {
+    			InterfaceAIFComponent component = related[i].getComponent();
+    			if(component instanceof TCComponentForm) {
+    				String object_name = component.getProperty("object_name");
+    				if(object_name.equals(IMFormName)) {
+    					return (ModelObject)component;
+    				}
+    			}
+    		}
+    	}
+    	
+    	
+    	Map<String, String[]> propMap = new HashMap<String, String[]>();
+
+		FormInfo[] inputs = new FormInfo[1];
+		inputs[0] = new FormInfo();
+		inputs[0].clientId = "FormInfo";
+		inputs[0].description = "";
+		inputs[0].name = IMFormName;
+		inputs[0].formType = IMFormType;
+		inputs[0].saveDB = saveDB;
+		inputs[0].parentObject = parent;
+		inputs[0].relationName = rel;
+		inputs[0].attributesMap = propMap;
+		CreateOrUpdateFormsResponse response = dmService.createOrUpdateForms(inputs);
+		if (response.serviceData.sizeOfPartialErrors() > 0) {
+			System.out.println("create form error size:" + response.serviceData.sizeOfPartialErrors());
+			System.out.println(response.serviceData.getPartialError(0).toString());
+
+			for (int i = 0; i < response.serviceData.sizeOfPartialErrors(); i++) {
+				ErrorStack temp = response.serviceData.getPartialError(i);
+				for (int j = 0; j < temp.getErrorValues().length; j++) {
+					System.out.println("===>partial error:" + temp.getCodes()[j] + "   " + temp.getErrorValues()[j] + "  " + temp.getErrorValues()[j].getMessage());
+
+				}
+			}
+
+			throw new ServiceException("DataManagementService.createForms returned a partial error.");
+		}
+
+		return response.outputs[0].form;
+	}
+}

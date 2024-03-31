@@ -1,0 +1,404 @@
+package com.foxconn.sdebom.commands.pabom;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+
+import org.apache.poi.hssf.util.HSSFColor;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.pse.AbstractPSEApplication;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+import com.teamcenter.rac.util.MessageBox;
+
+import cn.hutool.core.util.RuntimeUtil;
+import cn.hutool.poi.excel.ExcelUtil;
+import cn.hutool.poi.excel.ExcelWriter;
+
+public class PABomHandler extends AbstractHandler {
+	public String outPath;
+	private TCComponentBOMLine topBOMLine;
+	private ProgressMonitorDialog progressMonitorDialog;
+	public int maximum = 1;
+	public int rowInt = 0;
+	public TCSession session;
+	
+	@Override
+	public Object execute(ExecutionEvent event) throws ExecutionException {
+		try {
+			AbstractAIFUIApplication app = AIFUtility.getCurrentApplication();
+			session = (TCSession) app.getSession();
+			TCComponent targetComponent = (TCComponent) app.getTargetComponent();
+			
+			String type = targetComponent.getType();
+//			if(!"D9_BOMTopNodeRevision".equals(type)) {
+//				MessageDialog.openWarning(shell, "Warn", "请选择BOM Virtual Top Revision类型对象再执行导出操作！");
+//				return null;
+//			}
+			
+			TCComponentBOMWindow createBOMWindow = TCUtil.createBOMWindow(RACUIUtil.getTCSession());
+			topBOMLine = TCUtil.getTopBomline(createBOMWindow, targetComponent);
+
+			IRunnableWithProgress iRunnableWithProgress = new IRunnableWithProgress() {
+				@Override
+				public void run(IProgressMonitor monitor){
+					try {
+						monitor.beginTask("正在导出PA BOM请等待...", maximum);
+						ArrayList<BOMInfo> exportHoder = exportHoder(monitor);
+						
+						
+						ExcelWriter writer = ExcelUtil.getWriter(true);
+						writer.setSheet("PA BOM");
+						tableTop(writer,exportHoder);
+						tableHoder(writer, exportHoder);
+						
+						File tempExcelFile = File.createTempFile("PABOM", ".xlsx");
+						String absolutePath = tempExcelFile.getAbsolutePath();
+						System.out.println("文件路径: " + absolutePath);
+						tempExcelFile.deleteOnExit();
+						writer.getWorkbook().removeSheetAt(0);
+						writer.setDestFile(tempExcelFile);
+						writer.close();
+						
+						monitor.done();
+						progressMonitorDialog.setBlockOnOpen(false);
+						
+						System.out.println("11文件路径: " + absolutePath);
+						RuntimeUtil.exec("cmd /c start " + absolutePath);
+					} catch (IOException e) {
+						// TODO: handle exception
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					
+				}
+			};
+				
+			try {
+				progressMonitorDialog = new ProgressMonitorDialog(AIFUtility.getActiveDesktop().getShell());
+				progressMonitorDialog.run(true, false, iRunnableWithProgress);
+			} catch (InvocationTargetException | InterruptedException e) {
+				progressMonitorDialog.setBlockOnOpen(false);
+				e.printStackTrace();
+			}
+
+			return null;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	
+	public ArrayList<BOMInfo> exportHoder(IProgressMonitor monitor) throws Exception {
+		ArrayList<BOMInfo> list = new ArrayList<BOMInfo>();
+		try {
+			TCComponentItemRevision itemRevision = topBOMLine.getItemRevision();
+			AIFComponentContext[] related = itemRevision.getRelated("D9_HasVariantHolder_REL");
+			if(related.length > 0) {
+				TCComponentItem hoderItem = ((TCComponentItemRevision) related[0].getComponent()).getItem();
+				
+				TCComponentBOMWindow bomWindow = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine topHoder = TCUtil.getTopBomline(bomWindow, hoderItem.getLatestItemRevision());
+				AIFComponentContext[] childrensAIF = topHoder.getChildren();
+				for (int i = 0; i < childrensAIF.length; i++) {
+					InterfaceAIFComponent component = childrensAIF[i].getComponent();
+					if(component instanceof TCComponentBOMLine) {
+						BOMInfo bomInfo = new BOMInfo();
+						
+						TCComponentBOMLine children = (TCComponentBOMLine)component;
+						String bl_rev_d9_Customer = children.getProperty("bl_rev_d9_Customer");
+						String bl_item_item_id = children.getProperty("bl_item_item_id");
+						String description = children.getProperty("bl_rev_d9_EnglishDescription");
+						String bl_quantity = children.getProperty("bl_quantity");
+						String d9_Un = children.getProperty("bl_Part Revision_d9_Un");
+						String d9_SupplierZF = children.getProperty("bl_Part Revision_d9_SupplierZF");
+						String revision_id = children.getProperty("bl_rev_item_revision_id");
+						String bl_occ_d9_Remark = children.getProperty("bl_occ_d9_Remark");
+						
+						int no = i+1;
+						bomInfo.setNo(""+no);
+						bomInfo.setIsSub("");
+						bomInfo.setLevel(""+1);
+						bomInfo.setD9_Customer(bl_rev_d9_Customer);
+						bomInfo.setItemid(bl_item_item_id);
+						bomInfo.setDescription(description);
+						bomInfo.setBl_quantity(bl_quantity);
+						bomInfo.setUn(d9_Un);
+						bomInfo.setD9_SupplierZF(d9_SupplierZF);
+						bomInfo.setState("");
+						bomInfo.setRevision(revision_id);
+						bomInfo.setEcn("");
+						bomInfo.setRemark(bl_occ_d9_Remark);
+						
+						list.add(bomInfo);	
+					}
+				}
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		} catch (NumberFormatException e) {
+			e.printStackTrace();
+		}
+		
+		return list;
+	}
+	
+	
+	
+	
+	public void tableTop(ExcelWriter writer, ArrayList<BOMInfo> exportHoder) {
+		// 设置表头
+		String [] excelTop1 = new String [] {"客戶型號","E24d HO\r\n(RMN:HSD-0039-F)","Foxconn型號","LP24QJ 重慶 (Commerical)"} ;
+		Font font = writer.createFont();
+		font.setColor(IndexedColors.WHITE1.getIndex());
+		font.setBold(true);
+		CellStyle blueBackgroundStyle = writer.createCellStyle();
+		blueBackgroundStyle.setAlignment(HorizontalAlignment.CENTER);
+		blueBackgroundStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		blueBackgroundStyle.setFont(font);
+		blueBackgroundStyle.setBorderBottom(BorderStyle.THIN); // 下边框
+		blueBackgroundStyle.setBorderLeft(BorderStyle.THIN);// 左边框
+		blueBackgroundStyle.setBorderTop(BorderStyle.THIN);// 上边框
+		blueBackgroundStyle.setBorderRight(BorderStyle.THIN);// 右边框
+		blueBackgroundStyle.setFillForegroundColor(IndexedColors.GREY_80_PERCENT.getIndex());
+		blueBackgroundStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		
+		Font font1 = writer.createFont();
+		font1.setBold(true);
+		CellStyle blueBackgroundStyle1 = writer.createCellStyle();
+		blueBackgroundStyle1.setAlignment(HorizontalAlignment.CENTER);
+		blueBackgroundStyle1.setVerticalAlignment(VerticalAlignment.CENTER);
+		blueBackgroundStyle1.setFont(font1);
+		blueBackgroundStyle1.setBorderBottom(BorderStyle.THIN); // 下边框
+		blueBackgroundStyle1.setBorderLeft(BorderStyle.THIN);// 左边框
+		blueBackgroundStyle1.setBorderTop(BorderStyle.THIN);// 上边框
+		blueBackgroundStyle1.setBorderRight(BorderStyle.THIN);// 右边框
+		blueBackgroundStyle1.setFillForegroundColor(IndexedColors.WHITE1.getIndex());
+		blueBackgroundStyle1.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		
+		writer.writeCellValue(0, 0, "客戶型號");
+		writer.merge(0, 0, 0, 4, "客戶型號", false);
+		writer.getCell(0, 0).setCellStyle(blueBackgroundStyle);
+		writer.setRowHeight(0, 50);
+		writer.writeCellValue(5, 0, "E24d HO \r\n (RMN:HSD-0039-F)");
+		writer.setColumnWidth(5, 25);
+		writer.getCell(5, 0).setCellStyle(blueBackgroundStyle1);
+		writer.writeCellValue(6, 0, "Foxconn型號");
+		writer.merge(0, 0, 6, 9, "Foxconn型號", false);
+		writer.getCell(6, 0).setCellStyle(blueBackgroundStyle);
+		writer.writeCellValue(10, 0, "LP24QJ 重慶 (Commerical)");
+		writer.merge(0, 0, 10, 23, "LP24QJ 重慶 (Commerical)", false);
+		writer.getCell(10, 0).setCellStyle(blueBackgroundStyle1);
+		
+		
+		CellStyle blueBackgroundStyle2 = writer.createCellStyle();
+		blueBackgroundStyle2.setAlignment(HorizontalAlignment.CENTER);
+		blueBackgroundStyle2.setVerticalAlignment(VerticalAlignment.CENTER);
+		blueBackgroundStyle2.setFont(font);
+		blueBackgroundStyle2.setBorderBottom(BorderStyle.THIN); // 下边框
+		blueBackgroundStyle2.setBorderLeft(BorderStyle.THIN);// 左边框
+		blueBackgroundStyle2.setBorderTop(BorderStyle.THIN);// 上边框
+		blueBackgroundStyle2.setBorderRight(BorderStyle.THIN);// 右边框
+		blueBackgroundStyle2.setFillForegroundColor(IndexedColors.GREY_50_PERCENT.getIndex());
+		blueBackgroundStyle2.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		
+		String [] excelTop2 = new String [] {"料號編碼中心","","出貨地區物料使用"} ;
+		writer.writeCellValue(0, 1, "料號編碼中心");
+		writer.merge(1, 1, 0, 5, "料號編碼中心", false);
+		writer.getCell(0, 1).setCellStyle(blueBackgroundStyle2);
+		writer.setRowHeight(1, 25);
+		writer.writeCellValue(6, 1, " ");
+		writer.merge(1, 1, 6, 12, " ", false);
+		writer.getCell(6, 1).setCellStyle(blueBackgroundStyle2);
+		writer.writeCellValue(13, 1, "出貨地區物料使用");
+		writer.merge(1, 1, 13, 23, "料號編碼中心", false);
+		writer.getCell(13, 1).setCellStyle(blueBackgroundStyle2);
+		
+		
+		CellStyle blueBackgroundStyle3 = writer.createCellStyle();
+		blueBackgroundStyle3.setAlignment(HorizontalAlignment.CENTER);
+		blueBackgroundStyle3.setVerticalAlignment(VerticalAlignment.CENTER);
+		blueBackgroundStyle3.setFont(font);
+		blueBackgroundStyle3.setBorderBottom(BorderStyle.THIN); // 下边框
+		blueBackgroundStyle3.setBorderLeft(BorderStyle.THIN);// 左边框
+		blueBackgroundStyle3.setBorderTop(BorderStyle.THIN);// 上边框
+		blueBackgroundStyle3.setBorderRight(BorderStyle.THIN);// 右边框
+		blueBackgroundStyle3.setFillForegroundColor(IndexedColors.AQUA.getIndex());
+		blueBackgroundStyle3.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		
+		String [] excelTop3 = new String [] {"序號\r\n(*註１)","替代料\r\n(*註2)","階次","客戶\r\nRegion/PN","料號","描  述","用量\r\n(每100PC)"
+				,"單位","廠商","狀態","版本","ECR變更說明","備注"} ;
+		
+		
+		for (int i = 0; i < excelTop3.length; i++) {
+			writer.writeCellValue(i, 2, excelTop3[i]);
+			writer.setRowHeight(2, 50);
+			
+			if(i==3) {
+				writer.setColumnWidth(i, 10);
+			}else if(i==4){
+				writer.setColumnWidth(i, 18);
+			}else if(i==5){
+				writer.setColumnWidth(i, 40);
+			}else {
+				writer.setColumnWidth(i, 9);
+			}
+			
+			writer.getCell(i, 2).setCellStyle(blueBackgroundStyle3);
+		}
+		
+		for (int i = 0; i < exportHoder.size(); i++) {
+			BOMInfo bomInfo = exportHoder.get(i);
+			String d9_Customer = bomInfo.getD9_Customer();
+			
+			writer.writeCellValue(13+i, 2, d9_Customer);
+			writer.setRowHeight(2, 50);
+			writer.getCell(13+i, 2).setCellStyle(blueBackgroundStyle3);
+		}
+		
+	}
+
+	public void tableHoder(ExcelWriter writer, ArrayList<BOMInfo> exportHoder) {
+		Font font1 = writer.createFont();
+		font1.setBold(true);
+		CellStyle blueBackgroundStyle1 = writer.createCellStyle();
+		blueBackgroundStyle1.setAlignment(HorizontalAlignment.CENTER);
+		blueBackgroundStyle1.setVerticalAlignment(VerticalAlignment.CENTER);
+		blueBackgroundStyle1.setFont(font1);
+		blueBackgroundStyle1.setBorderBottom(BorderStyle.THIN); // 下边框
+		blueBackgroundStyle1.setBorderLeft(BorderStyle.THIN);// 左边框
+		blueBackgroundStyle1.setBorderTop(BorderStyle.THIN);// 上边框
+		blueBackgroundStyle1.setBorderRight(BorderStyle.THIN);// 右边框
+		
+		
+		for (int i = 0; i < exportHoder.size(); i++) {
+			int row = i+3;
+			
+			BOMInfo bomInfo = exportHoder.get(i);
+			String no = bomInfo.getNo();
+			writer.writeCellValue(0, row, no);
+			writer.getCell(0, row).setCellStyle(blueBackgroundStyle1);
+			String isSub = bomInfo.getIsSub();
+			writer.writeCellValue(1, row, isSub);
+			writer.getCell(1, row).setCellStyle(blueBackgroundStyle1);
+			String level = bomInfo.getLevel();
+			writer.writeCellValue(2, row, level);
+			writer.getCell(2, row).setCellStyle(blueBackgroundStyle1);
+			String d9_Customer = bomInfo.getD9_Customer();
+			writer.writeCellValue(3, row, d9_Customer);
+			writer.getCell(3, row).setCellStyle(blueBackgroundStyle1);
+			String itemid = bomInfo.getItemid();
+			writer.writeCellValue(4, row, itemid);
+			writer.getCell(4, row).setCellStyle(blueBackgroundStyle1);
+			String description = bomInfo.getDescription();
+			writer.writeCellValue(5, row, description);
+			writer.getCell(5, row).setCellStyle(blueBackgroundStyle1);
+			String bl_quantity = bomInfo.getBl_quantity();
+			writer.writeCellValue(6, row, bl_quantity);
+			writer.getCell(6, row).setCellStyle(blueBackgroundStyle1);
+			String un = bomInfo.getUn();
+			writer.writeCellValue(7, row, un);
+			writer.getCell(7, row).setCellStyle(blueBackgroundStyle1);
+			String d9_SupplierZF = bomInfo.getD9_SupplierZF();
+			writer.writeCellValue(8, row, d9_SupplierZF);
+			writer.getCell(8, row).setCellStyle(blueBackgroundStyle1);
+			String state = bomInfo.getState();
+			writer.writeCellValue(9, row, state);
+			writer.getCell(9, row).setCellStyle(blueBackgroundStyle1);
+			String revision = bomInfo.getRevision();
+			writer.writeCellValue(10, row, revision);
+			writer.getCell(10, row).setCellStyle(blueBackgroundStyle1);
+			String ecn = bomInfo.getEcn();
+			writer.writeCellValue(11, row, ecn);
+			writer.getCell(11, row).setCellStyle(blueBackgroundStyle1);
+			String remark = bomInfo.getRemark();
+			writer.writeCellValue(12, row, remark);
+			writer.getCell(12, row).setCellStyle(blueBackgroundStyle1);
+			
+			
+		}
+		
+	}
+	
+	
+	
+	public void phantBOMLine(XSSFWorkbook xwb,XSSFSheet xSheet,BOMInfo bomInfo) {
+		String itemid = bomInfo.getItemid();
+		String description = bomInfo.getDescription();
+		String revision = bomInfo.getRevision();
+		
+		XSSFRow createRow = xSheet.createRow(rowInt);
+		rowInt = rowInt + 1;
+		
+		XSSFCellStyle style = xwb.createCellStyle();
+		style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		
+		XSSFCell createCell0 = createRow.createCell(0);
+		setCellValue_style(createCell0, "", style);
+		XSSFCell createCell1 = createRow.createCell(1);
+		setCellValue_style(createCell1, "", style);
+		XSSFCell createCell2 = createRow.createCell(2);
+		setCellValue_style(createCell2, itemid, style);
+		XSSFCell createCell3 = createRow.createCell(3);
+		setCellValue_style(createCell3, description, style);
+		XSSFCell createCell4 = createRow.createCell(4);
+		setCellValue_style(createCell4, "", style);
+		XSSFCell createCell5 = createRow.createCell(5);
+		setCellValue_style(createCell5, "", style);
+		XSSFCell createCell6 = createRow.createCell(6);
+		setCellValue_style(createCell6, "", style);
+		XSSFCell createCell7 = createRow.createCell(7);
+		setCellValue_style(createCell7, "", style);
+		XSSFCell createCell8 = createRow.createCell(8);
+		setCellValue_style(createCell8, revision, style);
+	}
+	
+	public void setCellValue_style(XSSFCell cell,String value, XSSFCellStyle style) {
+		if(style !=null) {
+			cell.setCellValue(value);
+			cell.setCellStyle(style);
+		} else {
+			cell.setCellValue(value);
+		}
+	}
+	
+}

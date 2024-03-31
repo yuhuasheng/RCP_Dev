@@ -1,0 +1,115 @@
+package com.foxconn.electronics.matrixbom.controller;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+
+import com.foxconn.electronics.matrixbom.service.MatrixBOMExportService;
+import com.foxconn.electronics.matrixbom.service.MatrixBOMService;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.CommonTools;
+import com.plm.tc.httpService.jhttp.GetMapping;
+import com.plm.tc.httpService.jhttp.HttpRequest;
+import com.plm.tc.httpService.jhttp.HttpResponse;
+import com.plm.tc.httpService.jhttp.PostMapping;
+import com.plm.tc.httpService.jhttp.RequestMapping;
+import com.plm.tc.httpService.jhttp.RequestParam;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+
+@RequestMapping("/electronics")
+public class MatrixBOMController {
+
+	private MatrixBOMService matrixBOMService;
+
+	public MatrixBOMController(AbstractAIFUIApplication app) {
+		matrixBOMService = new MatrixBOMService(app);
+		MatrixBOMExportService.setMatrixBOMService(matrixBOMService);
+	}
+
+	/**
+	 * 加载获取MatrixBOM中所有的图片
+	 * 
+	 * @param uid
+	 * @return
+	 */
+	@GetMapping("/getImg")
+	public AjaxResult getImg(@RequestParam("uid") String uid) {
+		System.out.println("uid = "+uid);
+		return matrixBOMService.getImg(uid);
+	}
+
+	/**
+	 * 获取MatrixBOM结构
+	 * 
+	 * @param uid
+	 * @return
+	 */
+	@GetMapping("/getMatrixBOMStruct")
+	public AjaxResult getMatrixBOMStruct(@RequestParam("uid") String uid) {
+		System.out.println("uid = "+uid);
+		return matrixBOMService.getMatrixBOMStruct(uid);
+	}
+	
+	
+	@PostMapping("/saveMatrixBOM")
+	public AjaxResult saveMatrixBOM(HttpRequest request) {
+		String data = request.getBody();		
+		System.out.println("==>> data: " + data);
+		return matrixBOMService.saveMatrixBOM(data);
+	}
+
+	@GetMapping("/exportMatrixBOM")
+	public AjaxResult exportMatrixBOM(@RequestParam("uid") String uid){
+		try {
+			String excelPath = MatrixBOMExportService.exportBOMExcel(uid);
+			System.out.println("==>> excelPath: " + excelPath);
+//			resp.file(excelPath);
+			return AjaxResult.success("导出成功");
+		} catch (Exception e) {
+			e.printStackTrace();
+//			AjaxResult error = AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR, e.getLocalizedMessage());
+//			resp.out(error.toString());
+			return AjaxResult.error(AjaxResult.STATUS_SERVER_ERROR, e.getLocalizedMessage());
+		}
+	}
+
+	public ExecutorService getExecutorService() {
+		return matrixBOMService.getEs();
+	}
+
+	public static void main(String[] args) throws ParseException {
+		String str = "2023-06-14T06:00:00+08:00";
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");// yyyy-MM-dd'T'HH:mm:ss
+		Date date1 = null;
+		try {
+			date1 = formatter.parse(str);
+			System.out.println("先 解析成Data=" + date1);// 解析Data=Wed Nov 07 18:37:42 CST 2018
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String sDate = sdf.format(date1);// 转换指定2格式=2018-11-07 18:37:42
+		System.out.println(sDate);
+
+		dealDateFormat("2021-04-05T13:08:22+08:00");
+	}
+
+	public static Calendar dealDateFormat(String oldDateStr) {
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+		try {
+			Date date = df.parse(oldDateStr);
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(date);
+			return cal;
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+}

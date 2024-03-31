@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy element &apos;IconsEnum.java&apos; to &apos;com.foxconn.electronics/src/com.foxconn.electronics.L10Ebom.constant&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.sdebom&apos;&#x0D;&#x0A;- Destination element: &apos;com.foxconn.electronics/src/com.foxconn.electronics.L10Ebom.constant&apos;&#x0D;&#x0A;- Original element: &apos;com.foxconn.sdebom.batcheditorebom.constants.IconsEnum.java&apos;" description="Copy compilation unit" destination="=com.foxconn.electronics/src&lt;com.foxconn.electronics.L10Ebom.constant" element1="/src&lt;com.foxconn.sdebom.batcheditorebom.constants{IconsEnum.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1689643842166" units="1" version="1.0"/>
+</session>

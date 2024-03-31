@@ -1,0 +1,40 @@
+source.. = src/
+output.. = bin/
+bin.includes = plugin.xml,\
+               META-INF/,\
+               .,\
+               icons/,\
+               plugin.properties,\
+               plugin_zh_CN.properties,\
+               plugin_zh_TW.properties,\
+               lib/commons-collections4-4.1.jar,\
+               lib/com.google.gson.jar,\
+               lib/commons-logging.jar,\
+               lib/httpclient-4.5.2.jar,\
+               lib/httpcore-4.4.4.jar,\
+               lib/httpmime-4.5.2.jar,\
+               lib/commons-compress-1.18.jar,\
+               lib/xmlbeans-3.1.0.jar,\
+               lib/JavaUtil.jar,\
+               lib/mybatis-3.5.7.jar,\
+               lib/logback-classic-1.2.3.jar,\
+               lib/logback-core-1.2.3.jar,\
+               lib/slf4j-api-1.7.32.jar,\
+               lib/swing2swt.jar,\
+               lib/httpService.jar,\
+               lib/commons-lang-2.6.jar,\
+               lib/fastjson-1.2.78.jar,\
+               lib/hutool-all-5.8.10.jar,\
+               lib/poi-4.1.2.jar,\
+               lib/poi-ooxml-4.1.2.jar,\
+               lib/poi-ooxml-schemas-4.1.2.jar,\
+               lib/spire.doc.free-5.2.0.jar,\
+               lib/fontbox-3.0.0-alpha3.jar,\
+               lib/pdfbox-3.0.0-alpha3.jar,\
+               lib/pdfbox-debugger-3.0.0-alpha3.jar,\
+               lib/pdfbox-tools-3.0.0-alpha3.jar,\
+               lib/preflight-3.0.0-alpha3.jar,\
+               lib/xmpbox-3.0.0-alpha3.jar,\
+               lib/commons-math3-3.6.1.jar,\
+               lib/plmnow_zh_transfer.jar
+javacDefaultEncoding.. = UTF-8                

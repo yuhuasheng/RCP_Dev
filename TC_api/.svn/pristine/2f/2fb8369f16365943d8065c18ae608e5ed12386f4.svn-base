@@ -1,0 +1,41 @@
+package com.foxconn.plm.tcapi.domain;
+
+public class SPASUser {
+
+	private String workId; // 工号
+	private String name; // 姓名
+	private String notes; // 邮箱
+	
+	public String getWorkId() {
+		return workId;
+	}
+	public void setWorkId(String workId) {
+		this.workId = workId;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public String getNotes() {
+		return notes;
+	}
+	public void setNotes(String notes) {
+		this.notes = notes;
+	}
+	@Override
+	public String toString() {
+		if(notes == null) {
+			notes= "";
+		}
+		return name + "(" + workId + ")" + "/" + notes;
+		//return "SPASUser [workId=" + workId + ", name=" + name + ", notes=" + notes + "]";
+	}
+	public SPASUser(String workId, String name, String notes) {
+		super();
+		this.workId = workId;
+		this.name = name;
+		this.notes = notes;
+	}
+}

@@ -1,0 +1,115 @@
+package com.foxconn.electronics.matrixbom.export.domain;
+
+import java.util.ArrayList;
+
+public class PackingMatrixExportBean{
+	private String no;
+	private String isSub;
+	private String level;
+	private String d9_Customer;
+	private String itemid;
+	private String description;
+	private String bl_quantity;
+	private String un;
+	private String d9_SupplierZF;
+	private String state;
+	private String revision;
+	private String ecn;
+	private String remark;
+	private boolean ischildren = false;
+	
+	public boolean getisChildren() {
+		return ischildren;
+	}
+	public void setisChildren(boolean ischildren) {
+		this.ischildren = ischildren;
+	}
+	private ArrayList<Integer> parent;
+	
+	
+	public ArrayList<Integer> getParent() {
+		return parent;
+	}
+	public void setParent(ArrayList<Integer> parent) {
+		this.parent = parent;
+	}
+	public String getNo() {
+		return no;
+	}
+	public void setNo(String no) {
+		this.no = no;
+	}
+	public String getIsSub() {
+		return isSub;
+	}
+	public void setIsSub(String isSub) {
+		this.isSub = isSub;
+	}
+	public String getLevel() {
+		return level;
+	}
+	public void setLevel(String level) {
+		this.level = level;
+	}
+	public String getD9_Customer() {
+		return d9_Customer;
+	}
+	public void setD9_Customer(String d9_Customer) {
+		this.d9_Customer = d9_Customer;
+	}
+	public String getItemid() {
+		return itemid;
+	}
+	public void setItemid(String itemid) {
+		this.itemid = itemid;
+	}
+	public String getDescription() {
+		return description;
+	}
+	public void setDescription(String description) {
+		this.description = description;
+	}
+	public String getBl_quantity() {
+		return bl_quantity;
+	}
+	public void setBl_quantity(String bl_quantity) {
+		this.bl_quantity = bl_quantity;
+	}
+	public String getUn() {
+		return un;
+	}
+	public void setUn(String un) {
+		this.un = un;
+	}
+	public String getD9_SupplierZF() {
+		return d9_SupplierZF;
+	}
+	public void setD9_SupplierZF(String d9_SupplierZF) {
+		this.d9_SupplierZF = d9_SupplierZF;
+	}
+	public String getState() {
+		return state;
+	}
+	public void setState(String state) {
+		this.state = state;
+	}
+	public String getRevision() {
+		return revision;
+	}
+	public void setRevision(String revision) {
+		this.revision = revision;
+	}
+	public String getEcn() {
+		return ecn;
+	}
+	public void setEcn(String ecn) {
+		this.ecn = ecn;
+	}
+	public String getRemark() {
+		return remark;
+	}
+	public void setRemark(String remark) {
+		this.remark = remark;
+	}
+	
+}

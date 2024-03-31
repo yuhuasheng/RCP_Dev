@@ -1,0 +1,274 @@
+package com.foxconn.electronics.issuemanagement.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.TCUtil;
+import com.plm.tc.httpService.jhttp.HttpRequest;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentParticipant;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+
+public class AssignWorkersService {
+
+	public TCSession getSession() {
+		return session;
+	}
+	public void setSession(TCSession session) {
+		this.session = session;
+	}
+	public ResourceBundle getReg() {
+		return reg;
+	}
+	public void setReg(ResourceBundle reg) {
+		this.reg = reg;
+	}
+	public TCComponentItemRevision getItemRevision() {
+		return itemRevision;
+	}
+	public void setItemRevision(TCComponentItemRevision itemRevision) {
+		this.itemRevision = itemRevision;
+	}
+	private TCSession session;
+	private ResourceBundle reg;
+	private TCComponentItemRevision itemRevision;
+	public AssignWorkersService(TCSession session, ResourceBundle reg, TCComponentItemRevision itemRevision) {
+		super();
+		this.session = session;
+		this.reg = reg;
+		this.itemRevision = itemRevision;
+	}
+	
+	public AjaxResult getWorkerList() {
+		try {
+			Map<String, JSONObject> map = new HashMap<String, JSONObject>();
+			// 查询系统的用户信息
+			List<JSONObject> userList = addUser("__WEB_find_user","user_id","*");
+			// 查询二级账号对应的一级账号的信息
+			String url = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site,"D9_SpringCloud_URL");
+			String result = HttpUtil.get(url + "/tc-service/issueManagement/getAll");
+			if(StrUtil.isNotBlank(result)) {
+				JSONObject obj = JSONUtil.parseObj(result);
+				if(!"0000".equals(obj.getStr("code"))) {
+					throw new TCException("查詢二級賬號對應的TC賬號出錯");
+				}
+				JSONArray jsonArray = obj.getJSONArray("data");
+				if(CollUtil.isNotEmpty(jsonArray)) {
+					for (Object o : jsonArray) {
+						JSONObject parseObj = JSONUtil.parseObj(o);
+						String keyUid = parseObj.getStr("secondAccountUid");
+						String userUid = parseObj.getStr("tcUid");
+						List<JSONObject> oList = userList.parallelStream().filter(item-> item.getStr("uid").equals(userUid)).collect(Collectors.toList());
+						if(CollUtil.isNotEmpty(oList)) {
+							map.put(keyUid, oList.get(0));
+						}
+					}
+				} else {
+					throw new TCException("未查詢到二級用戶對應的TC賬號");
+				}
+			}
+			Set<String> set = new HashSet<String>();
+			List<JSONObject> list = new ArrayList<JSONObject>();
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+					new String[] {"*"});
+			if (executeQuery != null && executeQuery.length > 0) {
+				for (int j = 0; j < executeQuery.length; j++) {
+					String uid = executeQuery[j].getUid();
+					JSONObject obj = JSONUtil.createObj();
+					obj.set("uid", uid);
+					obj.set("item_id", executeQuery[j].getProperty("item_id"));
+					obj.set("object_name", executeQuery[j].getProperty("object_name"));
+					obj.set("disabled", false);
+					if(ObjectUtil.isNotNull(map.get(uid))) {
+						String jsonStr = JSONUtil.toJsonStr(map.get(uid));
+						obj.set("parent", JSONUtil.parseObj(jsonStr));
+						set.add(jsonStr);
+					}
+					list.add(obj);
+				}
+			}
+			for (String jsonStr : set) {
+				list.add(JSONUtil.parseObj(jsonStr));
+			}
+			return AjaxResult.success(list);
+		}catch (Exception e) {
+			return AjaxResult.success(Collections.emptyList());
+		}
+	}
+	
+	private List<JSONObject> addUser(String name,String key,String value) throws Exception {
+		List<JSONObject> list = new ArrayList<JSONObject>();
+		TCComponent[] executeQuery = TCUtil.executeQuery(session, name, new String[] {key},
+				new String[] {value});
+		if (executeQuery != null && executeQuery.length > 0) {
+			for (int j = 0; j < executeQuery.length; j++) {
+				JSONObject obj = JSONUtil.createObj();
+				obj.set("uid", executeQuery[j].getUid());
+				if("__WEB_find_user".equals(name)) {
+					obj.set("item_id", executeQuery[j].getProperty("user_id"));
+					obj.set("object_name", executeQuery[j].getProperty("user_name"));
+					obj.set("disabled", true);
+				}else {
+					obj.set("item_id", executeQuery[j].getProperty("item_id"));
+					obj.set("object_name", executeQuery[j].getProperty("object_name"));
+					obj.set("disabled", false);
+				}
+				list.add(obj);
+			}
+		}
+		return list;
+	}
+	
+	
+	public AjaxResult getWorkers() {
+		Map<String, JSONObject> map = new LinkedHashMap<String, JSONObject>(16);
+		//initValue(map,"d9_ActualUserID","实际用户");
+		initValue(map,"d9_IssueTL","Issue TL");
+		initValue(map,"d9_IssueTL_ActualUser","Issue TL Actual User");
+		initValue(map,"d9_IssueFixOwner","Issue Fix Owner");
+		initValue(map,"d9_IssueFixOwner_ActualUser","Issue Fix Owner Actual User");
+		initValue(map,"d9_IssueTester","Issue Tester");
+		initValue(map,"d9_IssueTester_ActualUser","Issue Tester Actual User");
+		initValue(map,"d9_IssueSEPM","Issue SEPM");
+		initValue(map,"d9_IssueSEPM_ActualUser","Issue SEPM Actual User");
+		initValue(map,"d9_IssueHWPM","Issue HWPM");
+		initValue(map,"d9_IssueHWPM_ActualUser","Issue HWPM Actual User");
+		try {
+			itemRevision.refresh();
+			/**
+			String actualUser = itemRevision.getProperty("d9_ActualUserID");
+			String itemId = actualUser.substring(actualUser.indexOf("(")+1,actualUser.indexOf(")"));
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "D9_ItemID", new String[] {"item_id"},
+					new String[] {itemId});
+			if (executeQuery != null && executeQuery.length > 0) {
+				TCComponentItem item = (TCComponentItem) executeQuery[0];
+				JSONObject obj = map.get("d9_ActualUserID");
+				obj.set("uid", item.getUid());
+				obj.set("item_id", item.getProperty("item_id"));
+				obj.set("object_name", item.getProperty("object_name"));
+			}
+			**/
+			// 查询关系
+			AIFComponentContext[] componentContexts = itemRevision.getRelated(new String[] {"d9_IssueTL","d9_IssueTL_ActualUser","d9_IssueFixOwner","d9_IssueFixOwner_ActualUser","d9_IssueTester",
+					"d9_IssueTester_ActualUser","d9_IssueSEPM","d9_IssueSEPM_ActualUser","d9_IssueHWPM","d9_IssueHWPM_ActualUser"});
+			for (int i = 0; i < componentContexts.length; i++) {
+				AIFComponentContext componentContext = componentContexts[i];
+				InterfaceAIFComponent component = componentContext.getComponent();
+				String key = componentContext.getContext().toString();
+				JSONObject item = map.get(key);
+				if(key.endsWith("_ActualUser")) {
+					item.set("uid", component.getUid());
+					item.set("item_id", component.getProperty("item_id"));
+					item.set("object_name", component.getProperty("object_name"));
+				}else {
+					TCComponentGroupMember member = (TCComponentGroupMember) component;
+					TCComponentUser user = member.getUser();
+					item.set("uid", user.getUid());
+					item.set("item_id", user.getProperty("user_id"));
+					item.set("object_name", user.getProperty("user_name"));
+				}
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+		return AjaxResult.success(map.values());
+	}
+	
+	private void initValue(Map<String, JSONObject> map,String key,String label) {
+		JSONObject object = JSONUtil.createObj();
+		object.set("type",key);
+		object.set("label",label);
+		if(!key.endsWith("_ActualUser")) {
+			object.set("disabled",true);
+		}else {
+			object.set("parent",key.replace("_ActualUser", ""));
+			object.set("disabled",false);
+		}
+		map.put(key,object);
+	}
+	
+	
+	public AjaxResult setWorkers(HttpRequest req) {
+		String body = req.getBody();
+		JSONObject obj = JSONUtil.parseObj(body);
+		try {
+//			String actualUser = obj.getStr("d9_ActualUserID","");
+//			if(StrUtil.isNotBlank(actualUser)) {
+//				TCComponent objComponent = TCUtil.loadObjectByUid(actualUser);
+//				itemRevision.setProperty("d9_ActualUserID", objComponent.getProperty("object_name") + "(" + objComponent.getProperty("item_id") +")");
+//			}else {
+//				itemRevision.setProperty("d9_ActualUserID", "");
+//			}
+			setWorker(obj.getStr("d9_IssueTL_ActualUser",""),"d9_IssueTL_ActualUser");
+			setWorker(obj.getStr("d9_IssueFixOwner_ActualUser",""),"d9_IssueFixOwner_ActualUser");
+			setWorker(obj.getStr("d9_IssueTester_ActualUser",""),"d9_IssueTester_ActualUser");
+			setWorker(obj.getStr("d9_IssueSEPM_ActualUser",""),"d9_IssueSEPM_ActualUser");
+			setWorker(obj.getStr("d9_IssueHWPM_ActualUser",""),"d9_IssueHWPM_ActualUser");
+			setWorker(obj.getStr("d9_IssueTL",""),"D9_IssueTL");
+			setWorker(obj.getStr("d9_IssueFixOwner",""),"D9_IssueFixOwner");
+			setWorker(obj.getStr("d9_IssueTester",""),"D9_IssueTester");
+			setWorker(obj.getStr("d9_IssueSEPM",""),"D9_IssueSEPM");
+			setWorker(obj.getStr("d9_IssueHWPM",""),"D9_IssueHWPM");
+			return AjaxResult.success(true);
+		}catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.success(false);
+		}
+	}
+	
+	private void setWorker(String uid,String relate) throws TCException {
+		if(relate.endsWith("_ActualUser")) {
+			if(StrUtil.isNotBlank(uid)) {
+				TCComponent objComponent = TCUtil.loadObjectByUid(uid);
+				itemRevision.setRelated(relate, new TCComponent[] {objComponent});
+			}else {
+				itemRevision.setRelated(relate, new TCComponent[] {});
+			}
+		}else {
+			// 查詢工作者是否設置,如果設置了先移除
+			TCComponentParticipant[] participants = itemRevision.getParticipants();
+			for (int i = 0; i < participants.length; i++) {
+				if(relate.equals(participants[i].getType())) {
+					TCUtil.removeWorker(session,itemRevision,participants[i]);
+					break;
+				}
+			}
+			// 如果傳了一級賬號uid則直接設置
+			if(StrUtil.isNotBlank(uid)) {
+				TCComponent objComponent = TCUtil.loadObjectByUid(uid);
+				if(objComponent instanceof TCComponentUser) {
+					TCComponentUser user = (TCComponentUser)objComponent;
+					TCComponentGroupMember groupMember = user.getGroupMembers()[0];
+					TCUtil.setWorker(session, itemRevision, relate, groupMember);
+				}
+			}
+		}
+	}
+	
+}

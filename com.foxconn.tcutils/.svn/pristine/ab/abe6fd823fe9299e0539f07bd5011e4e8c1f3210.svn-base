@@ -1,0 +1,30 @@
+package com.foxconn.tcutils.swt.constant;
+
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
+import org.eclipse.wb.swt.SWTResourceManager;
+
+public class StyleRangeConstant {
+	
+	public static StyleRange INFOSTYLE = null;
+	public static StyleRange WARNSTYLE = null;
+	public static StyleRange ERRORSTYLE = null;
+	
+	static {
+		if (INFOSTYLE == null) {
+			INFOSTYLE = new StyleRange();
+		}		
+		INFOSTYLE.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_GREEN);
+		
+		if (WARNSTYLE == null) {
+			WARNSTYLE = new StyleRange();
+		}		
+		WARNSTYLE.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_YELLOW);
+		
+		if (ERRORSTYLE == null) {
+			ERRORSTYLE = new StyleRange();
+		}		
+		ERRORSTYLE.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_RED);
+		
+	}
+}

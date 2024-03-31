@@ -1,0 +1,152 @@
+package com.foxconn.mechanism.dtpac.matmaintain.domain;
+
+import com.foxconn.tcutils.util.TCPropertes;
+
+public class ExcelBean {
+
+	private String partType; 
+	private String matType; // 物料类型
+	private String matName; // 物料名称
+	private String type; // 类型
+	private String material; // 材质
+	private String length; // 长
+	private String width; // 宽
+	private String height; // 高
+	private String thickness; // 厚
+	private String density; // 密度
+	private String weight; // 重量
+	private String qty;
+	private String usageCalculation; //  用量计算
+	private String calcullationUnit; // 计算单位
+	private String costFactor; // 成本因子
+	private String cost;
+	
+	
+	public ExcelBean(String partType, String matType, String matName, String type, String material, String length,
+			String width, String height, String thickness, String density, String weight, String usageCalculation,
+			String calcullationUnit) {
+		super();
+		this.partType = partType;
+		this.matType = matType;
+		this.matName = matName;
+		this.type = type;
+		this.material = material;
+		this.length = length;
+		this.width = width;
+		this.height = height;
+		this.thickness = thickness;
+		this.density = density;
+		this.weight = weight;
+		this.usageCalculation = usageCalculation;
+		this.calcullationUnit = calcullationUnit;
+	}
+	
+	
+	public ExcelBean(String material, String costFactor) {
+		super();
+		this.material = material;
+		this.costFactor = costFactor;
+	}
+
+
+	public String getPartType() {
+		return partType;
+	}
+	public void setPartType(String partType) {
+		this.partType = partType;
+	}
+	public String getMatType() {
+		return matType;
+	}
+	public void setMatType(String matType) {
+		this.matType = matType;
+	}
+	public String getMatName() {
+		return matName;
+	}
+	public void setMatName(String matName) {
+		this.matName = matName;
+	}
+	public String getType() {
+		return type;
+	}
+	public void setType(String type) {
+		this.type = type;
+	}
+	public String getMaterial() {
+		return material;
+	}
+	public void setMaterial(String material) {
+		this.material = material;
+	}
+	public String getLength() {
+		return length;
+	}
+	public void setLength(String length) {
+		this.length = length;
+	}
+	public String getWidth() {
+		return width;
+	}
+	public void setWidth(String width) {
+		this.width = width;
+	}
+	public String getHeight() {
+		return height;
+	}
+	public void setHeight(String height) {
+		this.height = height;
+	}
+	public String getThickness() {
+		return thickness;
+	}
+	public void setThickness(String thickness) {
+		this.thickness = thickness;
+	}
+	public String getDensity() {
+		return density;
+	}
+	public void setDensity(String density) {
+		this.density = density;
+	}
+	public String getWeight() {
+		return weight;
+	}
+	public void setWeight(String weight) {
+		this.weight = weight;
+	}
+	
+	
+	public String getQty() {
+		return qty;
+	}
+	public void setQty(String qty) {
+		this.qty = qty;
+	}
+	public String getUsageCalculation() {
+		return usageCalculation;
+	}
+	public void setUsageCalculation(String usageCalculation) {
+		this.usageCalculation = usageCalculation;
+	}
+	public String getCalcullationUnit() {
+		return calcullationUnit;
+	}
+	public void setCalcullationUnit(String calcullationUnit) {
+		this.calcullationUnit = calcullationUnit;
+	}
+	
+	public String getCostFactor() {
+		return costFactor;
+	}
+	public void setCostFactor(String costFactor) {
+		this.costFactor = costFactor;
+	}
+	public String getCost() {
+		return cost;
+	}
+	public void setCost(String cost) {
+		this.cost = cost;
+	}
+	
+}

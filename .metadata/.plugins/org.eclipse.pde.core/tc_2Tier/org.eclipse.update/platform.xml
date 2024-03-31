@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config date="1680591362917" transient="false" version="3.0">
+<site enabled="true" policy="USER-EXCLUDE" updateable="true" url="platform:/base/">
+<feature id="org.eclipse.emf.ecore" url="features/org.eclipse.emf.ecore_2.16.0.v20181124-0637/" version="2.16.0.v20181124-0637">
+</feature>
+<feature id="org.eclipse.equinox.p2.user.ui" url="features/org.eclipse.equinox.p2.user.ui_2.4.200.v20181123-1405/" version="2.4.200.v20181123-1405">
+</feature>
+<feature id="com.teamcenter.servcies" url="features/com.teamcenter.services_14000.2.0/" version="14000.2.0">
+</feature>
+<feature id="org.eclipse.platform" url="features/org.eclipse.platform_4.10.0.v20181206-0815/" version="4.10.0.v20181206-0815">
+</feature>
+<feature id="org.eclipse.emf.common" url="features/org.eclipse.emf.common_2.15.0.v20180914-1817/" version="2.15.0.v20180914-1817">
+</feature>
+<feature id="org.eclipse.rcp" url="features/org.eclipse.rcp_4.10.0.v20181206-0815/" version="4.10.0.v20181206-0815">
+</feature>
+<feature id="com.teamcenter.rac.features.platform" url="features/com.teamcenter.rac.features.platform_14000.2.0/" version="1.0.0.qualifier">
+</feature>
+<feature id="org.eclipse.e4.rcp" url="features/org.eclipse.e4.rcp_1.6.300.v20181204-1801/" version="1.6.300.v20181204-1801">
+</feature>
+</site>
+</config>

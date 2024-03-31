@@ -1,0 +1,1270 @@
+package com.foxconn.decompile.util;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.protocol.HTTP;
+import org.apache.http.util.CharsetUtils;
+import org.apache.http.util.EntityUtils;
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.NamedReferenceContext;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentBOMWindowType;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentDatasetDefinition;
+import com.teamcenter.rac.kernel.TCComponentDatasetDefinitionType;
+import com.teamcenter.rac.kernel.TCComponentDatasetType;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentQuery;
+import com.teamcenter.rac.kernel.TCComponentQueryType;
+import com.teamcenter.rac.kernel.TCComponentRevisionRule;
+import com.teamcenter.rac.kernel.TCComponentRevisionRuleType;
+import com.teamcenter.rac.kernel.TCComponentTcFile;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCQueryClause;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.kernel.TCTextService;
+import com.teamcenter.rac.kernel.TCTypeService;
+import com.teamcenter.rac.kernel.TCUserService;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+
+public class TCUtil {
+	
+	static TCTextService tcTextService = null;
+	
+	static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+	
+	public static TCSession getTCSession() {
+		return RACUIUtil.getTCSession();
+	}
+	
+	
+	public static void setBypass(TCSession session) {
+		try {
+			TCUserService userService = session.getUserService();
+			userService.call("set_bypass", new String[] { "" });
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+
+	
+	public static void closeBypass(TCSession session) {
+		try {
+			TCUserService userService = session.getUserService();
+			userService.call("close_bypass", new String[] { "" });
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
+	public static boolean isNull(String info) {
+		return info == null || info.trim().length() < 1;
+	}
+	
+
+	public static String getTextValue(String name) {
+		if (tcTextService == null) {
+			tcTextService = getTCSession().getTextService();
+		}
+		String res = null;
+		try {
+			String value = tcTextService.getTextValue(name);
+			if (isNull(value)) {
+				res = name;
+			} else {
+				res = value;
+			}
+		} catch (TCException e) {
+			res = name;
+			e.printStackTrace();
+		}
+		return res;
+	}
+	
+	
+	public static TCComponent getItem(TCComponent itemRevComp) {
+		try {
+			if (itemRevComp instanceof TCComponentItemRevision) {
+				TCComponentItemRevision itemRev = (TCComponentItemRevision) itemRevComp;
+				if (itemRev != null) {
+					return itemRev.getItem();
+				}
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	
+	public static boolean isExistItem(TCComponentFolder folder, TCComponent itemComp, String sRel) {
+		try {
+			TCComponent[] items = folder.getRelatedComponents(sRel);
+			for (TCComponent tcComp : items) {
+				TCComponentItem tempItem = null;
+				if (tcComp instanceof TCComponentItem) {
+					tempItem = (TCComponentItem) tcComp;
+				} else if (tcComp instanceof TCComponentItemRevision) {
+					tempItem = ((TCComponentItemRevision) tcComp).getItem();
+				}
+				if (tempItem != null) {
+					if (tempItem.getUid().equals(itemComp.getUid())) {
+						return true;
+					}
+				}
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+	
+	public static boolean isReleased(TCComponent com) {
+		if (com == null) {
+			return false;
+		}
+		try {
+			com.refresh();
+			TCComponent[] relStatus = com.getReferenceListProperty("release_status_list");
+			if (relStatus != null && relStatus.length > 0) {
+				return true;
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	public static TCComponentBOMLine openBomWindow(TCSession session, TCComponent com) {
+		TCComponentBOMLine topBomline = null;
+		try {
+			TCComponentItemRevision rev = null;
+			TCComponentItem item = null;
+			TCComponentRevisionRuleType imancomponentrevisionruletype = (TCComponentRevisionRuleType) session
+					.getTypeComponent("RevisionRule");
+			TCComponentRevisionRule imancomponentrevisionrule = imancomponentrevisionruletype.getDefaultRule();
+			TCComponentBOMWindowType imancomponentbomwindowtype = (TCComponentBOMWindowType) session
+					.getTypeComponent("BOMWindow");
+			TCComponentBOMWindow imancomponentbomwindow = imancomponentbomwindowtype.create(imancomponentrevisionrule);
+			if (com instanceof TCComponentItem) {
+				item = (TCComponentItem) com;
+				topBomline = imancomponentbomwindow.setWindowTopLine(item, item.getLatestItemRevision(), null, null);
+			} else if (com instanceof TCComponentItemRevision) {
+				rev = (TCComponentItemRevision) com;
+				topBomline = imancomponentbomwindow.setWindowTopLine(rev.getItem(), rev, null, null);
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return topBomline;
+	}
+	
+	
+	public static List<TCComponentBOMLine> getTCComponmentBOMLines(TCComponentBOMLine rootLine,
+			List<TCComponentBOMLine> lines, boolean unpacked) throws TCException {
+		if (lines == null) {
+			lines = new ArrayList<TCComponentBOMLine>();
+		}
+		AIFComponentContext[] componmentContext = rootLine.getChildren();
+		if (componmentContext != null) {
+			for (int i = 0; i < componmentContext.length; i++) {
+				TCComponentBOMLine bomLine = (TCComponentBOMLine) componmentContext[i].getComponent();
+				if (unpacked) {
+					if (bomLine.isPacked()) {
+						TCComponentBOMLine[] packedLines = bomLine.getPackedLines();
+						bomLine.unpack();
+						if (packedLines != null && packedLines.length > 0) {
+							lines.add(bomLine);
+							lines.addAll(Arrays.asList(packedLines));
+						} else {
+							lines.add(bomLine);
+						}
+					} else {
+						lines.add(bomLine);
+					}
+				} else {
+					lines.add(bomLine);
+				}
+				getTCComponmentBOMLines(bomLine, lines, unpacked);
+			}
+		}
+		return lines;
+	}
+	
+	
+	public static List<TCComponentBOMLine> getTCComponmentBOMSingleLines(TCComponentBOMLine rootLine,
+			List<TCComponentBOMLine> lines, boolean unpacked) throws TCException {
+		if (lines == null) {
+			lines = new ArrayList<TCComponentBOMLine>();
+		}
+		AIFComponentContext[] componmentContext = rootLine.getChildren();
+		if (componmentContext != null) {
+			for (int i = 0; i < componmentContext.length; i++) {
+				TCComponentBOMLine bomLine = (TCComponentBOMLine) componmentContext[i].getComponent();
+				if (unpacked) {
+					if (bomLine.isPacked()) {
+						TCComponentBOMLine[] packedLines = bomLine.getPackedLines();
+						bomLine.unpack();
+						if (packedLines != null && packedLines.length > 0) {
+							lines.add(bomLine);
+							lines.addAll(Arrays.asList(packedLines));
+						} else {
+							lines.add(bomLine);
+						}
+					} else {
+						lines.add(bomLine);
+					}
+				} else {
+					lines.add(bomLine);
+				}
+				
+				if(bomLine.hasSubstitutes()) {
+					TCComponentBOMLine[] substitutes = bomLine.listSubstitutes();
+					 for(TCComponentBOMLine substitute: substitutes) {
+						 lines.add(substitute);
+					 }
+				}
+				
+			}
+		}
+		return lines;
+	}
+	
+	public static String getPreference(TCSession session, int scope, String preferenceName) {
+		return session.getPreferenceService().getString(scope, preferenceName);
+	}
+	
+	
+	public static HashMap<String, String> getHashMapPreference(TCSession session, int scope, String preferenceName,
+			String separate) {
+		String[] strArray = getArrayByPreference(session, scope, preferenceName);
+		HashMap map = new HashMap();
+		String key = "";
+		String value = "";
+		String[] tempArray = null;
+		String temp = "";
+		int length = 0;
+		if (strArray == null || strArray.length == 0) {
+			return null;
+		}
+		for (int i = 0; i < strArray.length; i++) {
+			tempArray = strArray[i].split(separate);
+			length = tempArray.length;
+			if (length > 0) {
+				if (length == 2) {
+					map.put(tempArray[0], tempArray[1]);
+				} else {
+					temp = "";
+					for (int j = 0; j < length - 1; j++) {
+						temp = temp + tempArray[j + 1];
+					}
+					map.put(tempArray[0], temp);
+				}
+			} else {
+				map.put(strArray[i], strArray[i]);
+			}
+		}
+		return map;
+	}
+	
+	
+	@SuppressWarnings("deprecation")
+	public static String[] getArrayByPreference(TCSession session, int scope, String preferenceName) {
+		TCPreferenceService preferenceService = session.getPreferenceService();
+		String[] strArray = preferenceService.getStringArray(scope, preferenceName);
+		return strArray;
+	}
+	
+	
+	public static List<InterfaceAIFComponent> search(String searchName, String[] keys, String[] values) {
+		List<InterfaceAIFComponent> res;
+		InterfaceAIFComponent[] temp;
+		try {
+			temp = getTCSession().search(searchName, keys, values);
+			if (temp == null || temp.length < 1) {
+				res = new ArrayList<InterfaceAIFComponent>();
+			} else {
+				res = Arrays.asList(temp);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			res = new ArrayList<InterfaceAIFComponent>();
+		}
+		return res;
+	}
+
+	public static TCComponent[] executeQuery(TCSession session, String queryName, String[] keys, String[] values)
+			throws Exception {
+		TCComponentQueryType imancomponentquerytype = (TCComponentQueryType) session.getTypeComponent("ImanQuery");
+		TCComponentQuery query = (TCComponentQuery) imancomponentquerytype.find(queryName);
+		if (keys.length != values.length) {
+			throw new Exception("queryAttributies length is not equal queryValues length");
+		}
+		String[] queryAttributeDisplayNames = new String[keys.length];
+		TCQueryClause[] elements = query.describe();
+		for (int i = 0; i < keys.length; i++) {
+			for (TCQueryClause element : elements) {
+				if (element.getAttributeName().equals(keys[i])) {
+					queryAttributeDisplayNames[i] = element.getUserEntryNameDisplay();
+				}
+			}
+			if (queryAttributeDisplayNames[i] == null || queryAttributeDisplayNames[i].equals("")) {
+				throw new Exception("queryAttribute\"" + keys[i] + "不存在");
+			}
+		}
+		System.out.println("queryAttributeDisplayNames:" + Arrays.toString(queryAttributeDisplayNames));
+		System.out.println("queryValues:" + Arrays.toString(values));
+		return query.execute(queryAttributeDisplayNames, values);
+	}
+	
+	
+	public static File getDataSetFile(TCComponentDataset ds) {
+		File file = null;
+		try {
+			TCComponentTcFile[] tcFiles = ds.getTcFiles();
+			if (tcFiles.length > 0) {
+				TCComponentTcFile tcFile = tcFiles[0];
+				file = tcFile.getFmsFile();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return file;
+	}
+
+	
+	public static TCComponentDataset createDataSet(TCSession session, String selectFilepath, String dsType, String dsName, String ref_type) {
+		TCComponentDataset dataset = null;
+		try {
+			TCTypeService type = session.getTypeService();
+			TCComponentDatasetType datasettype = (TCComponentDatasetType) type.getTypeComponent("Dataset");
+			dataset = datasettype.create(dsName, "", dsType);
+			String p[] = new String[1];
+			String n[] = new String[1];
+			p[0] = selectFilepath;
+			System.out.println("selectFilepath == " + selectFilepath);
+			n[0] = ref_type;
+//			System.out.println("ref_type == " + ref_type);
+			dataset.setFiles(p, n);
+		
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+		return dataset;
+	}
+	
+	
+	public static void updateDataset(TCSession session, TCComponent itemComp, String relName, String fileFullPath) throws TCException {
+		try {
+//			session.enableBypass(true);
+			setBypass(session); // 开启旁路
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) itemComp;
+			TCComponentDataset findDataSet = TCUtil.findDataSet((TCComponentItemRevision) itemComp, relName, fileFullPath.split("\\\\")[fileFullPath.split("\\\\").length - 1]);
+			if (findDataSet != null) {
+				updateDataset(session, findDataSet, fileFullPath);
+			}
+		} finally {
+//			session.enableBypass(false);
+			closeBypass(session); // 关闭旁路
+		}
+	}
+	
+	public static void updateDataset(TCSession session, TCComponentDataset dataset, String filePath) {
+		try {
+			TCComponentDatasetDefinitionType dsdefType = (TCComponentDatasetDefinitionType) session.getTypeComponent("DatasetType");
+			TCComponentDatasetDefinition definition = dsdefType.find(dataset.getType());
+			NamedReferenceContext[] contexts = definition.getNamedReferenceContexts();
+			String namedReference = contexts[0].getNamedReference();
+			dataset.removeNamedReference(namedReference);
+
+			dataset.setFiles(new String[] { filePath }, new String[] { namedReference });
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+
+	public static TCComponentDataset findDataSet(TCComponentItemRevision itemRev, String relName, String findFileName)
+			throws TCException {
+		TCComponent[] datesets = itemRev.getRelatedComponents(relName);
+		for (TCComponent tcComponent : datesets) {
+			if (tcComponent instanceof TCComponentDataset) {
+				TCComponentDataset tcComponentDataset = (TCComponentDataset) tcComponent;
+				for (String fileName : tcComponentDataset.getFileNames(null)) {
+					if (fileName.equalsIgnoreCase(findFileName)) {
+						return tcComponentDataset;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	
+	public static void linkDataSet(TCSession session, TCComponent itemComp, String relName, String fileFullPath, String fileName) throws TCException {
+		try {			
+//			session.enableBypass(true);
+			setBypass(session);
+			
+			TCComponentItemRevision itemRev = null;
+			if (itemComp instanceof TCComponentItem) {
+				itemRev = ((TCComponentItem) itemComp).getLatestItemRevision();
+			}
+			if (itemComp instanceof TCComponentItemRevision) {
+				itemRev = (TCComponentItemRevision) itemComp;
+			}
+						
+			TCComponentDataset findDataSet = TCUtil.findDataSet((TCComponentItemRevision) itemRev, relName, 
+					fileFullPath.split("\\\\")[fileFullPath.split("\\\\").length - 1]);
+			if (findDataSet != null) {
+//				itemRev.remove("IMAN_specification", findDataSet);
+//				itemRev.remove("IMAN_external_object_link", findDataSet);
+				itemRev.remove(relName, findDataSet);
+			}
+			
+			TCComponentDataset dataSet = TCUtil.createDataSet(session, fileFullPath, "Text", fileName, "Text");
+//			if (itemComp instanceof TCComponentItemRevision) {
+//				itemRev.add("IMAN_specification", dataSet);
+//				itemRev.add("IMAN_external_object_link", dataSet);
+				itemRev.add(relName, dataSet);
+//			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+//			session.enableBypass(false);
+			closeBypass(session);
+		}
+	}
+	
+	
+	public static String downloadFile(TCComponentDataset dataset, String dir, String fileExtensions, String refName, String itemRevObjectName, boolean rename) {
+		File newFile = null;
+		File exportFile = null;
+		try {
+			TCComponentTcFile[] tcfiles = dataset.getTcFiles();
+			if (tcfiles == null || tcfiles.length == 0) {
+				return "";
+			}
+			TCComponentTcFile tcfile = null;
+			String fileName = null;
+			for (int i = 0; i < tcfiles.length; i++) {
+				tcfile = tcfiles[i];
+				fileName = tcfile.getProperty("original_file_name");
+//				System.out.println("==>> Physical file: " + fileName);
+				if (fileName.toLowerCase().contains(fileExtensions)) {
+					break;
+				}
+			}
+			if (null == tcfile) {
+				return "";
+			}
+			
+			if (StrUtil.isBlank(fileName)) {
+				return "";
+			}
+			
+			//exportFile = dataset.getFile(refName, tcfile.toString(), dir);
+			exportFile = tcfile.getFmsFile();
+			String newFileName = null;
+			if (rename) {
+				if (dir.endsWith("\\")) {
+					newFileName = dir + itemRevObjectName + fileExtensions;
+				} else {
+					newFileName = dir + File.separator + itemRevObjectName + fileExtensions;
+				}
+				newFile = new File(newFileName);
+				if (exportFile.exists() && exportFile.isFile()) {
+					if (newFile.exists()) { 
+						newFile.delete();
+					}
+					exportFile.renameTo(newFile);
+				}
+				return newFile.getAbsolutePath();
+			} else if (StrUtil.isNotBlank(dir)) {
+				if (dir.endsWith("\\")) {
+					newFileName = dir + fileName;
+				} else {
+					newFileName = dir + File.separator + fileName;
+				}
+				
+				newFile = new File(newFileName);
+				if (exportFile.exists() && exportFile.isFile()) {
+					if (newFile.exists()) { // 判断新文件是否存在
+						newFile.delete();
+					}
+					exportFile.renameTo(newFile);
+				}
+				return newFile.getAbsolutePath();
+			}
+			return exportFile.getAbsolutePath();
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	
+	public static String downloadFile(TCComponentDataset dataset, String dir, boolean isCopy, String fileExtensions,
+			TCSession session, String itemRevObjectName, boolean rename) {
+		try {
+			File newfile = null;
+			File tempfile = null;
+			String fileName = "";
+			
+			// TCUtil.byPass(true);
+			// session.enableBypass(true);
+			TCComponentTcFile[] files = dataset.getTcFiles();
+			if (files == null || files.length == 0) {
+				return "";
+			}
+			// if (files.length == 1) {
+			// exportFile = files[0].getFile(dir, rename);
+			// return exportFile.getAbsolutePath();
+			// }
+			int k = 0;
+			for (int i = 0; i < files.length; i++) {
+				TCComponentTcFile onetcfile = files[i];
+				fileName = onetcfile.getProperty("original_file_name");
+				System.out.println("==>> Physical file: " + fileName);
+				if (!fileName.toLowerCase().contains(fileExtensions)) {
+					continue;
+				}
+				tempfile = onetcfile.getFmsFile();
+				if (rename) {
+					fileName = itemRevObjectName + "-" + String.valueOf(++k) + fileExtensions;
+				}
+				if (isCopy) {
+					newfile = new File(dir + File.separator + fileName);
+					// 判断文件是否存在
+					if (newfile.exists()) {
+						newfile.delete();
+					}
+					copyFile(tempfile, newfile);
+				}
+				// exportFile = files[0].getFile(dir, filename);
+			}
+			if (isCopy) {
+				return newfile.getAbsolutePath();
+			} else {
+				return tempfile.getAbsolutePath();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			
+			// TCUtil.byPass(false);
+		}
+		return "";
+	}
+
+	/**
+	 * 复制文件
+	 * 
+	 * @param sourceFile
+	 * @param targetFile
+	 * @throws IOException
+	 */
+	public static void copyFile(File sourceFile, File targetFile) throws IOException {
+		BufferedInputStream inBuff = null;
+		BufferedOutputStream outBuff = null;
+		try {
+			
+			inBuff = new BufferedInputStream(new FileInputStream(sourceFile));
+			
+			outBuff = new BufferedOutputStream(new FileOutputStream(targetFile));
+			
+			byte[] b = new byte[1024 * 5];
+			int len;
+			while ((len = inBuff.read(b)) != -1) {
+				outBuff.write(b, 0, len);
+			}
+			
+			outBuff.flush();
+		} finally {
+			
+			if (inBuff != null)
+				inBuff.close();
+			if (outBuff != null)
+				outBuff.close();
+		}
+	}
+	
+	
+	public static List<TCComponent> getProjects(TCComponent component) {
+		List<TCComponent> prjLst = new ArrayList<TCComponent>();
+		TCProperty props;
+		try {
+			if (component != null) {
+				props = component.getTCProperty("project_list");
+				if (null == props) {
+					return prjLst;
+				}
+				TCComponent[] coms = props.getReferenceValueArray();
+				if (null == coms || coms.length < 1) {
+					return prjLst;
+				}
+				prjLst = Arrays.asList(coms);
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return prjLst;
+	}
+	
+	public static void sendMailForApprove(String actionLogTitle, String[] approveContentArr, String[] notifyContentArr, String[] finishContentArr, Map<String, String> nodeMap, List<String> projectLst, List<String> itemLst, List<String> itemIdLst, List<String> itemUidLst, Map<String, List<String>> pubMailMap) {
+		if (approveContentArr.length != 12 || notifyContentArr.length != 12 || finishContentArr.length != 9)
+			return;
+		
+		JSONArray actionLogs = new JSONArray();
+		
+		try {		
+			for (Map.Entry<String, String> nodeEntry : nodeMap.entrySet()) {
+				String nodeName = nodeEntry.getKey();
+				String nodeType = nodeEntry.getValue();
+				if (pubMailMap.containsKey(nodeName.trim())) {
+					List<String> pubMailLst = pubMailMap.get(nodeName.trim());
+					if (4 == pubMailLst.size() && !"".equals(pubMailLst.get(3).trim())) {
+						String projectName = projectLst.stream().collect(Collectors.joining(","));
+						String itemName = itemLst.stream().collect(Collectors.joining(","));
+						String itemId="";
+						String itemUid="";
+						if(itemIdLst!=null) {
+						   itemId = itemIdLst.stream().collect(Collectors.joining(","));
+						   itemUid = itemUidLst.stream().collect(Collectors.joining(","));
+						}
+						String pubUserInfo = pubMailLst.get(1).toUpperCase();
+						String realUserInfo = pubMailLst.get(2).toUpperCase();;
+						String realMailInfo = pubMailLst.get(3);
+						
+						if (!"".equals(itemName) && !"".equals(nodeName) && !"".equals(pubUserInfo) && !"".equals(realUserInfo) && !"".equals(realMailInfo)) {
+                           if(projectName==null) {
+                             projectName="";
+                            }
+							List<String> pubUserLst = Arrays.asList(pubUserInfo.split(",")).stream().collect(Collectors.toList());
+							List<String> realUserLst = Arrays.asList(realUserInfo.split(",")).stream().collect(Collectors.toList());
+							List<String> realMailLst = Arrays.asList(realMailInfo.split(",")).stream().collect(Collectors.toList());
+							if (pubUserLst.size() == realUserLst.size() && pubUserLst.size() == realMailLst.size()) {
+								for (int i = 0; i < pubUserLst.size(); i++) {								
+									// 邮件发送开始时间
+									Date startDate = new Date();
+									
+									String pubUser = pubUserLst.get(i);
+									String realUser = realUserLst.get(i);
+									String realMail = realMailLst.get(i);
+									
+									if (TCUtil.isNull(pubUser) || TCUtil.isNull(realUser) || TCUtil.isNull(realMail))
+										continue;
+									
+									// Test : START
+//									realMail = "yang.y.li@foxconn.com";
+//									realMail = "cheryl.l.wang@foxconn.com";
+									// Test : END
+									String mailUrl=TCUtil.getPreference(getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+									
+
+									// Test : START
+//									mailUrl = "http://192.168.154.128:8700";
+									// Test : END
+									
+									StringBuilder titles = new StringBuilder();
+									StringBuilder contents = new StringBuilder();
+											
+									if ("EPMAddStatusTask".equals(nodeType)) {
+										titles.append(finishContentArr[0])																										
+										.append(projectName)
+										.append(finishContentArr[1])
+										.append(itemName)
+										.append(finishContentArr[2]);
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(finishContentArr[3])
+										.append(realUser)
+										.append(finishContentArr[4])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(finishContentArr[5])																										
+										.append(projectName)
+										.append(finishContentArr[6])
+										.append(itemName)
+										.append(finishContentArr[7])										
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(finishContentArr[8])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");
+									} else if("EPMTask".equals(nodeType) || "EPMAcknowledgeTask".equals(nodeType)) {
+										titles.append(notifyContentArr[0])
+										.append(realUser)
+										.append(notifyContentArr[1])
+										.append(pubUser)
+										.append(notifyContentArr[2])
+										.append(projectName)
+										.append(notifyContentArr[3])
+										.append(itemName)
+										.append(notifyContentArr[4]);																											
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(notifyContentArr[5])
+										.append(realUser)
+										.append(notifyContentArr[6])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(notifyContentArr[7])
+										.append(pubUser)
+										.append(notifyContentArr[8])
+										.append(projectName)
+										.append(notifyContentArr[9])
+										.append(itemName)
+										.append(notifyContentArr[10])
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(notifyContentArr[11])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");
+									} else {
+										titles.append(approveContentArr[0])
+										.append(realUser)
+										.append(approveContentArr[1])
+										.append(pubUser)
+										.append(approveContentArr[2])
+										.append(projectName)
+										.append(approveContentArr[3])
+										.append(itemName)
+										.append(approveContentArr[4]);																											
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(approveContentArr[5])
+										.append(realUser)
+										.append(approveContentArr[6])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(approveContentArr[7])
+										.append(pubUser)
+										.append(approveContentArr[8])
+										.append(projectName)
+										.append(approveContentArr[9])
+										.append(itemName)
+										.append(approveContentArr[10])
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(approveContentArr[11])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");
+									}																		
+											
+									TCUtil.sendExternalEmail(mailUrl, realMail, titles.toString(), contents.toString());
+									
+									
+									Date endDate = new Date();
+									
+									
+									JSONObject actionLog = new JSONObject();
+									actionLog.put("functionName", actionLogTitle);
+									actionLog.put("creator", getTCSession().getUser().getUserId());
+									actionLog.put("creatorName", getTCSession().getUser().getUserName());
+									actionLog.put("project", projectName);
+									actionLog.put("rev", "");
+									actionLog.put("itemId", (null == itemIdLst) ? "" : itemId);
+									actionLog.put("revUid", (null == itemUidLst) ? "" : itemUid);
+									actionLog.put("startTime", sdf.format(startDate));
+									actionLog.put("endTime", sdf.format(endDate));
+									
+									if (actionLogs != null) {
+										actionLogs.add(actionLog);
+									}
+								}
+							}																					
+						}
+					}
+				}
+			}
+			
+			if (actionLogs != null && actionLogs.size() > 0) {
+				String url=TCUtil.getPreference(getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+				HttpUtil.post(url + "/tc-integrate/actionlog/addlog", actionLogs.toJSONString());  
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void sendMailForReject(String actionLogTitle, String[] rejectContentArr, String[] notifyContentArr, String[] finishContentArr, String rejectUser, Map<String, String> nodeMap, List<String> projectLst, List<String> itemLst, List<String> itemIdLst, List<String> itemUidLst, Map<String, List<String>> pubMailMap) {
+		if (rejectContentArr.length != 15 || notifyContentArr.length != 12 || finishContentArr.length != 9)
+			return;
+		
+		JSONArray actionLogs = new JSONArray();
+		
+		try {		
+			for (Map.Entry<String, String> nodeEntry : nodeMap.entrySet()) {
+				String nodeName = nodeEntry.getKey();
+				String nodeType = nodeEntry.getValue().split("\\&&")[0];
+				String operation = nodeEntry.getValue().split("\\&&")[1];
+				if (pubMailMap.containsKey(nodeName.trim())) {
+					List<String> pubMailLst = pubMailMap.get(nodeName.trim());
+					if (4 == pubMailLst.size() && !"".equals(pubMailLst.get(3).trim())) {
+						String projectName = projectLst.stream().collect(Collectors.joining(","));
+						String itemName = itemLst.stream().collect(Collectors.joining(","));
+						String pubUserInfo = pubMailLst.get(1).toUpperCase();
+						String realUserInfo = pubMailLst.get(2).toUpperCase();
+						String realMailInfo = pubMailLst.get(3);						
+						
+						if (!"".equals(rejectUser) && !"".equals(projectName) && !"".equals(itemName) && !"".equals(nodeName) && !"".equals(pubUserInfo) && !"".equals(realUserInfo) && !"".equals(realMailInfo)) {
+
+							List<String> pubUserLst = Arrays.asList(pubUserInfo.split(",")).stream().collect(Collectors.toList());
+							List<String> realUserLst = Arrays.asList(realUserInfo.split(",")).stream().collect(Collectors.toList());
+							List<String> realMailLst = Arrays.asList(realMailInfo.split(",")).stream().collect(Collectors.toList());
+							if (pubUserLst.size() == realUserLst.size() && pubUserLst.size() == realMailLst.size()) {
+								for (int i = 0; i < pubUserLst.size(); i++) {
+									
+									// 邮件发送开始时间
+									Date startDate = new Date();
+									
+									String pubUser = pubUserLst.get(i);
+									String realUser = realUserLst.get(i);
+									String realMail = realMailLst.get(i);
+									
+									if (TCUtil.isNull(pubUser) || TCUtil.isNull(realUser) || TCUtil.isNull(realMail))
+										continue;
+									
+									// Test : START
+//									realMail = "yang.y.li@foxconn.com";
+//									realMail = "cheryl.l.wang@foxconn.com";
+									// Test : END
+									String mailUrl=TCUtil.getPreference(getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+									
+
+									// Test : START
+//									mailUrl = "http://192.168.154.128:8700";
+									// Test : END
+									
+									StringBuilder titles = new StringBuilder();
+									StringBuilder contents = new StringBuilder();
+											
+									if ("EPMAddStatusTask".equals(nodeType)) {
+										titles.append(finishContentArr[0])																										
+										.append(projectName)
+										.append(finishContentArr[1])
+										.append(itemName)
+										.append(finishContentArr[2]);
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(finishContentArr[3])
+										.append(realUser)
+										.append(finishContentArr[4])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(finishContentArr[5])																										
+										.append(projectName)
+										.append(finishContentArr[6])
+										.append(itemName)
+										.append(finishContentArr[7])										
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(finishContentArr[8])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");
+									} else if(("EPMTask".equals(nodeType) && CommonTools.isEmpty(operation)) || "EPMAcknowledgeTask".equals(nodeType)) {
+										titles.append(notifyContentArr[0])
+										.append(realUser)
+										.append(notifyContentArr[1])
+										.append(pubUser)
+										.append(notifyContentArr[2])
+										.append(projectName)
+										.append(notifyContentArr[3])
+										.append(itemName)
+										.append(notifyContentArr[4]);																											
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(notifyContentArr[5])
+										.append(realUser)
+										.append(notifyContentArr[6])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(notifyContentArr[7])
+										.append(pubUser)
+										.append(notifyContentArr[8])
+										.append(projectName)
+										.append(notifyContentArr[9])
+										.append(itemName)
+										.append(notifyContentArr[10])
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(notifyContentArr[11])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");
+									} else {
+										titles.append(rejectContentArr[0])																										
+										.append(projectName)
+										.append(rejectContentArr[1])
+										.append(itemName)
+										.append(rejectContentArr[2])
+										.append(rejectUser)
+										.append(rejectContentArr[3])
+										.append(realUser)
+										.append(rejectContentArr[4])
+										.append(pubUser)
+										.append(rejectContentArr[5]);
+										
+										contents.append("<html>")
+										.append("<head></head>")
+										.append("<body>")
+										.append("<p><h3>Dear ")
+										.append(rejectContentArr[6])
+										.append(realUser)
+										.append(rejectContentArr[7])
+										.append("</h3></p>")
+										.append("<br/>")
+										.append("<p><span style='text-indent:2em;'><h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+										.append(rejectContentArr[8])																										
+										.append(projectName)
+										.append(rejectContentArr[9])
+										.append(itemName)
+										.append(rejectContentArr[10])
+										.append(rejectUser)
+										.append(rejectContentArr[11])
+										.append(realUser)
+										.append(rejectContentArr[12])
+										.append(pubUser)
+										.append(rejectContentArr[13])
+										.append("</h3></span></p>")
+										.append("<br/><br/>")
+										.append("<p><h3>")
+										.append(rejectContentArr[14])
+										.append("</h3></p>")	
+										.append("</body>")
+										.append("</html>");	
+									}																		
+													            
+									TCUtil.sendExternalEmail(mailUrl, realMail, titles.toString(), contents.toString());
+									
+								
+									Date endDate = new Date();
+									
+									
+									JSONObject actionLog = new JSONObject();
+									actionLog.put("functionName", actionLogTitle);
+									actionLog.put("creator", getTCSession().getUser().getUserId());
+									actionLog.put("creatorName", getTCSession().getUser().getUserName());
+									actionLog.put("project", projectName);
+									actionLog.put("rev", "");									
+									actionLog.put("itemId", "");
+									actionLog.put("revUid", "");
+									
+									actionLog.put("startTime", sdf.format(startDate));
+									actionLog.put("endTime", sdf.format(endDate));
+									
+									if (actionLogs != null) {
+										actionLogs.add(actionLog);
+									}
+								}
+							}																					
+						}
+					}
+				}
+			}
+			
+			if (actionLogs != null && actionLogs.size() > 0) {
+				String url=TCUtil.getPreference(getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+				HttpUtil.post(url + "/tc-integrate/actionlog/addlog", actionLogs.toJSONString());  
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	@SuppressWarnings("unused")
+	public static void sendExternalEmail(String mailUrl, String to, String title, String content) {
+		String state = "";
+		try {
+
+			Map<String, String> httpmap = new HashMap<String, String>();
+			httpmap.put("requestPath", mailUrl);
+			httpmap.put("ruleName", "/tc-mail/teamcenter/sendMail3");			
+			
+			httpmap.put("sendTo", to);
+//			httpmap.put("sendTo", "hua-sheng.yu@foxconn.com");
+			httpmap.put("subject", title);
+			httpmap.put("htmlmsg", content);
+			
+			System.out.println(httpmap);
+
+			String ruleName = httpmap.get("ruleName").toString().trim();
+			String requestPath = httpmap.get("requestPath").toString().trim();
+			String url = requestPath + ruleName;
+			HttpClient httpClient = new DefaultHttpClient();
+			HttpPost httpPost = new HttpPost(url);
+			Gson gson = new Gson();
+			String params = gson.toJson(httpmap);
+			ContentType contentType = ContentType.create(HTTP.PLAIN_TEXT_TYPE, HTTP.UTF_8);
+			StringBody contentBody = new StringBody(params, contentType);
+			MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+			builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);			
+//			builder.addPart("data", contentBody);
+			builder.addPart("data", contentBody).setCharset(CharsetUtils.get("UTF-8")).build();
+			HttpEntity entity = builder.build();
+			httpPost.setEntity(entity);
+			HttpResponse response = httpClient.execute(httpPost);
+			if (HttpStatus.SC_OK == response.getStatusLine().getStatusCode()) {
+				HttpEntity entitys = response.getEntity();				
+				if (entitys != null) {
+//					state = EntityUtils.toString(entitys);
+					state = EntityUtils.toString(entitys, "utf-8");
+				}
+			}
+			httpClient.getConnectionManager().shutdown();
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static List<SPASUser> getActualUserInfo(TCSession session, String actualUserIds) {
+		List<SPASUser> actualUserLst = null;
+		try {
+			String result = "";
+			HashMap httpmap = new HashMap();
+			httpmap.put("empId", actualUserIds);
+			String springUrl = getPreference(session, TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+
+			String url = springUrl + "/tc-integrate/spas/getTeamRosterByEmpId";
+			HttpClient httpClient = new DefaultHttpClient();
+			HttpPost httpPost = new HttpPost(url);
+			Gson gson = new Gson();
+			String params = gson.toJson(httpmap);
+			StringBody contentBody = new StringBody(params, Charset.defaultCharset());
+			MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+			builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+			builder.addPart("data", contentBody).setCharset(CharsetUtils.get("UTF-8")).build();
+			HttpEntity entity = builder.build();
+			httpPost.setEntity(entity);
+			HttpResponse response = httpClient.execute(httpPost);
+			if (HttpStatus.SC_OK == response.getStatusLine().getStatusCode()) {
+				result = EntityUtils.toString(response.getEntity(), "utf-8");
+			}
+			httpClient.getConnectionManager().shutdown();
+			if (!result.equals("")) {
+				Gson gson1 = new Gson();
+				actualUserLst =  gson1.fromJson(result, new TypeToken<List<SPASUser>>() {}.getType());		
+				if (CollUtil.isNotEmpty(actualUserLst)) {
+//					try {
+						checkActualUserInfo(actualUserLst);
+//					} catch (Exception e) {
+//						e.printStackTrace();
+//					}					
+					if (CollUtil.isNotEmpty(actualUserLst)) {
+						return actualUserLst;
+					}
+					
+				}
+			} else {
+				System.out.println("SPAS集成查询失败..");
+			}
+						
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+		return null;
+
+	}
+	
+	
+	/**
+	 * 校验SPAS返回字段信息是否符合要求
+	 * @param actualUserLst
+	 * @return
+	 */
+	private static void checkActualUserInfo(List<SPASUser> actualUserLst) {		
+		actualUserLst.removeIf(obj -> CommonTools.isEmpty(obj)); // 移除null
+		actualUserLst.removeIf(obj -> CommonTools.isEmpty(obj.getNotes()));
+		actualUserLst.removeIf(obj -> CommonTools.isEmpty(obj.getName()));
+		actualUserLst.removeIf(obj -> CommonTools.isEmpty(obj.getNotes().trim()) || CommonTools.isEmpty(obj.getName().trim())); // 移除邮箱和名字为空的记录
+	}
+	
+	
+	public static String parseNode(String node) {
+		String retStr = node;
+		
+		try {
+			if (node.contains(" - ")) {
+				retStr = node.split(" - ")[0];
+			} else if (node.contains("/")) {
+				retStr = node.split("/")[node.split("/").length-1];
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return retStr;
+	}
+	
+	public static String parseBracket(String content) {
+		String retStr = content;
+		
+		try {
+			if (content.contains("(") && content.contains(")")) {
+				return content.substring(content.indexOf("(")+1, content.indexOf(")"));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return retStr;
+	}
+
+	
+	/**
+	 * 判断是否为BOM结构
+	 * @param itemRev
+	 * @return
+	 * @throws TCException
+	 */
+	public static boolean isBom(TCComponentItemRevision itemRev) throws TCException {
+		itemRev.refresh();
+		TCComponent[] relatedComponents = itemRev.getRelatedComponents("ps_children");
+		if (CommonTools.isNotEmpty(relatedComponents)) {
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * 创建BOMWindow
+	 * @param session
+	 * @return
+	 */
+	public static TCComponentBOMWindow createBOMWindow(TCSession session) {
+		TCComponentBOMWindow window = null;
+		try {
+			TCComponentRevisionRuleType imancomponentrevisionruletype = (TCComponentRevisionRuleType) session
+					.getTypeComponent("RevisionRule");
+			TCComponentRevisionRule imancomponentrevisionrule = imancomponentrevisionruletype.getDefaultRule();
+			TCComponentBOMWindowType imancomponentbomwindowtype = (TCComponentBOMWindowType) session
+					.getTypeComponent("BOMWindow");
+			window = imancomponentbomwindowtype.create(imancomponentrevisionrule);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return window;
+	}
+
+	/**
+	 * 获取顶层BOMWindow
+	 * @param bomWindow
+	 * @param com
+	 * @return
+	 */
+	public static TCComponentBOMLine getTopBomline(TCComponentBOMWindow bomWindow, TCComponent com) {
+		TCComponentBOMLine topBomline = null;
+		try {
+			TCComponentItemRevision rev = null;
+			TCComponentItem item = null;
+			if (com instanceof TCComponentItem) {
+				item = (TCComponentItem) com;
+				topBomline = bomWindow.setWindowTopLine(item, item.getLatestItemRevision(), null, null);
+			} else if (com instanceof TCComponentItemRevision) {
+				rev = (TCComponentItemRevision) com;
+				topBomline = bomWindow.setWindowTopLine(rev.getItem(), rev, null, null);
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return topBomline;
+	}
+	  
+	/**
+     * 获取数组类型首选项值
+     * @param session
+     * @param scope 首选项级别
+     * @param preferenceName 首选项名称
+     * @return
+     */
+    public static List<String> getArrayPreference(int scope, String preferenceName) 
+    {
+       try {
+    	TCPreferenceService tCPreferenceService=RACUIUtil.getTCSession().getPreferenceService();
+    	tCPreferenceService.refresh();
+        String[] array = tCPreferenceService.getStringArray(scope, preferenceName);
+        return Arrays.asList(array);
+        }catch(Exception e) {
+        	System.out.println(e);
+        }
+       return null;
+    }
+	
+}

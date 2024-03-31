@@ -1,0 +1,273 @@
+package com.foxconn.electronics.issuemanagement.service;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
+import org.eclipse.wb.swt.SWTResourceManager;
+import com.foxconn.electronics.issuemanagement.dialog.ImportIssueDialog;
+import com.foxconn.electronics.util.ExcelUtils;
+import com.foxconn.tcutils.util.IndeterminateLoadingDialog;
+import com.foxconn.tcutils.util.IndeterminateLoadingDialog.Action;
+import com.foxconn.tcutils.util.Pair;
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.util.MessageBox;
+
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.TimeInterval;
+import cn.hutool.core.util.StrUtil;
+
+public class ImportIssueService {
+	
+	private ImportIssueDialog window;
+	
+	public ImportIssueService(ImportIssueDialog window) {
+		this.window = window;
+	}
+	
+	public void onImport(String filPath) {
+		if(StrUtil.isEmpty(filPath)) {
+			MessageBox.post(window.shell,"請先導入文件", "Info", MessageBox.INFORMATION);
+			return;
+		}
+		StyleRange infoStyle = new StyleRange();
+		infoStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_GREEN);
+		
+		StyleRange warnStyle = new StyleRange();				
+		warnStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_YELLOW);
+		
+		StyleRange errorStyle = new StyleRange();				
+		errorStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_RED);
+		IndeterminateLoadingDialog.Action action = new IndeterminateLoadingDialog.Action() {
+			
+			private boolean isCancel=false;
+			
+			private String getActualProp(List<String> actualProps,String p) {
+				for(String s : actualProps) {
+					String[] split = s.split("=");
+					if(p.equals(split[0].trim())) {
+						return split[1].trim();
+					}
+				}
+				return null;
+			}
+			
+			private Map<Integer,String> readRow(XSSFRow row ,int lastIndex) {
+				Map<Integer,String> map = new HashMap<>();
+				if(row==null) {
+					return map;
+				}
+				for(int i=0;i<=lastIndex;i++) {							
+					Cell cell = row.getCell(i);
+					if(cell==null) {
+						continue;
+					}
+					String value = ExcelUtils.getCellValueToString(cell);
+					if(StrUtil.isEmpty(value)) {
+						continue;
+					}
+					value = value.trim();
+					if(StrUtil.isEmpty(value)) {
+						continue;
+					}
+					map.put(i, value);
+				}
+				return map;
+			}
+			
+			@SuppressWarnings("deprecation")
+			@Override
+			public void run() {
+				XSSFWorkbook workbook = null;		
+				int lastIndex = 0;
+				TimeInterval timer = DateUtil.timer();
+				Map<Integer,Pair<String, String>> actualPropIndexMap = new HashMap<>();
+				try {
+					TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("正在讀取Excel文件... "), window.styledText, infoStyle);
+					workbook = new XSSFWorkbook(new FileInputStream(filPath));
+					XSSFSheet sheet = workbook.getSheetAt(0);
+					String sheetName = sheet.getSheetName().toUpperCase();
+					String itemType;
+					String tcPreferenceName;
+					if(sheetName.startsWith("HP")){
+						itemType = "D9_IR_HP";
+						tcPreferenceName = "D9_IMPORT_ISSUE_HP_PROP_MAPPING";
+					}else if(sheetName.startsWith("DELL")) {
+						itemType = "D9_IR_DELL";
+						tcPreferenceName = "D9_IMPORT_ISSUE_DELL_PROP_MAPPING";
+					}else if(sheetName.startsWith("Lenovo".toUpperCase())) {
+						itemType = "D9_IR_LENOVO";
+						tcPreferenceName = "D9_IMPORT_ISSUE_LENOVO_PROP_MAPPING";
+					}else {
+					   TCUtil.writeErrorLog(S2TTransferUtil.toTraditionnalString("表名稱不符合規則 "), window.styledText, errorStyle);
+					   return;
+					}
+					// 读取首选项
+					TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("正在讀取首選項... "), window.styledText, infoStyle);
+					List<String> actualProps = TCUtil.getArrayPreference(window.session,TCPreferenceService.TC_preference_site,tcPreferenceName);
+					// 檢查是否配置itemId
+					// 檢查是否配置發佈狀態
+					boolean hasItemId = false;
+					String releaseColumn = null;
+					String releaseValue = null;
+					for(String prop:actualProps) {
+						String[] split = prop.split("=");						
+						if("item_id".equals(split[1].trim())) {
+							hasItemId = true;
+							break;
+						}
+						if(split[0].trim().startsWith("$TCRelease")) {
+							// 發佈標誌
+							releaseColumn = split[1].trim();
+							releaseValue = split[2].trim();
+						}						
+					}
+					
+					if(!hasItemId) {
+						TCUtil.writeErrorLog(S2TTransferUtil.toTraditionnalString("首選項未配置ItemId "), window.styledText, errorStyle);
+						return;
+					}
+					if(releaseColumn==null) {
+						TCUtil.writeErrorLog(S2TTransferUtil.toTraditionnalString("首選項未配置發佈標誌 "), window.styledText, errorStyle);
+						return;
+					}
+					for(int i=0;i<300;i++) {
+						Cell cell = sheet.getRow(0).getCell(i);
+						if(cell==null) {
+							break;
+						}
+						String excelColumn = ExcelUtils.getCellValueToString(cell);
+						if(StrUtil.isEmpty(excelColumn)) {
+							break;
+						}
+						excelColumn = excelColumn.trim();
+						String actualProp = getActualProp(actualProps, excelColumn);
+						if(actualProp == null) {							
+							//TCUtil.writeErrorLog(S2TTransferUtil.toTraditionnalString(String.format("第%d列【%s】無法識別，請聯繫管理員",i+1,excelColumn)), window.styledText, errorStyle);
+							continue;
+						}
+						lastIndex = i;
+						actualPropIndexMap.put(i, new Pair<String,String>(excelColumn,actualProp));
+					}
+					TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("開始導入... "), window.styledText, infoStyle);
+					for(int i=1;i<Integer.MAX_VALUE;i++) {	
+						Map<Integer, String> rowMap = readRow(sheet.getRow(i),lastIndex);
+						if(rowMap.isEmpty()) {
+							// 文件尾，返回
+							break;
+						}
+						Set<Integer> keySet = rowMap.keySet();
+						Iterator<Integer> iterator = keySet.iterator();
+						Map<String,Object> tcMap = new HashMap<>();
+						boolean needRelease = false;
+						while (iterator.hasNext()) {
+							Integer columnIndex = iterator.next();
+							String value = rowMap.get(columnIndex);
+							Pair<String, String> pair = actualPropIndexMap.get(columnIndex);
+							if(pair==null) {
+								continue;
+							}
+							String excelColnum = pair.getKey();
+							if(releaseColumn.equals(excelColnum)&&releaseValue.equals(value)) {
+								needRelease = true;
+							}
+							String d9Props = pair.getValue();
+							String[] split = d9Props.split(",");
+							for(String prop : split) {
+								tcMap.put(prop, value);
+							}
+						}
+						TCComponentItem findItem = null;
+						Object o = tcMap.remove("item_id");
+						if(o!=null&&StrUtil.isNotEmpty((String)o)) {
+							findItem = TCUtil.findItem((String)o);
+						}
+						try {
+							if(findItem==null) {
+								// 創建對象
+								TCComponentItem createCom = (TCComponentItem) TCUtil.createCom(window.session, itemType, "", tcMap);
+								if(needRelease) {
+									TCComponentItemRevision latestItemRevision = createCom.getLatestItemRevision();
+									String itemId = latestItemRevision.getProperty("item_id");
+									String revNum = latestItemRevision.getProperty("item_revision_id");
+									String workflowName = "issue fast release process：" + itemId + "/" + revNum;
+									TCUtil.createProcess("issue fast release process", workflowName, "", new TCComponent[] {latestItemRevision});
+								}
+								window.folder.add("contents", createCom);
+								TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString(String.format("第%d行導入成功!",i)), window.styledText, infoStyle);
+							}else {
+								// 更新對象
+								TCComponentItemRevision latestItemRevision = findItem.getLatestItemRevision();
+								Set<String> tcMapkeySet = tcMap.keySet();
+								Iterator<String> tcMapIterator = tcMapkeySet.iterator();
+								while (tcMapIterator.hasNext()) {
+									String d9Prop = tcMapIterator.next();
+									Object value = tcMap.get(d9Prop);
+									// 更新屬性
+									try {
+										latestItemRevision.setProperty(d9Prop, (String)value);
+									}catch (Exception e) {
+										e.printStackTrace();
+										TCUtil.writeWarnLog(S2TTransferUtil.toTraditionnalString(String.format("第%d行更新【%s】失敗:%s",i,d9Prop,e.getLocalizedMessage())), window.styledText, warnStyle);
+									}
+								}
+								if(needRelease&&!TCUtil.isReleased(latestItemRevision)) {
+									String itemId = latestItemRevision.getProperty("item_id");
+									String revNum = latestItemRevision.getProperty("item_revision_id");
+									String workflowName = "issue fast release process：" + itemId + "/" + revNum;
+									TCUtil.createProcess("issue fast release process", workflowName, "", new TCComponent[] {latestItemRevision});
+								}
+							}
+						}catch (Exception e) {
+							e.printStackTrace();
+							TCUtil.writeWarnLog(S2TTransferUtil.toTraditionnalString(String.format("第%d行導入失敗:%s",i,e.getLocalizedMessage())), window.styledText, warnStyle);
+						}	
+						// 繼續讀下一行
+						if(isCancel) {
+							TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("用戶取消導入"), window.styledText, warnStyle);
+							break;
+						}
+					}
+					TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("導入完成"), window.styledText, infoStyle);
+				}catch(Exception e) {
+					e.printStackTrace();
+					MessageBox.post(window.shell, e.toString(), "ERR", MessageBox.ERROR);
+				}finally {
+					try {
+						if(workbook!=null) {
+							workbook.close();
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString("耗時："+timer.intervalPretty()), window.styledText, infoStyle);
+				}
+			}
+
+			@Override
+			public void cencel() {				
+				isCancel = true;
+			}
+			
+			
+		};
+		
+		new IndeterminateLoadingDialog(window.shell, "導入...", action);
+	}
+
+}

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring accessors="true" comment="Delete 6 elements from project &apos;com.foxconn.packagetest&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.packagetest&apos;&#x0D;&#x0A;- Original elements:&#x0D;&#x0A;     com.google.gson.jar&#x0D;&#x0A;     fastjson-1.2.78.jar&#x0D;&#x0A;     hutool-all-5.8.10.jar&#x0D;&#x0A;     poi-4.1.2.jar&#x0D;&#x0A;     poi-ooxml-4.1.2.jar&#x0D;&#x0A;     poi-ooxml-schemas-4.1.2.jar" description="Delete elements" element1="lib/poi-4.1.2.jar" element2="lib/hutool-all-5.8.10.jar" element3="lib/poi-ooxml-schemas-4.1.2.jar" element4="lib/com.google.gson.jar" element5="lib/fastjson-1.2.78.jar" element6="lib/poi-ooxml-4.1.2.jar" elements="0" flags="589830" id="org.eclipse.jdt.ui.delete" resources="6" stamp="1678854149012" subPackages="false" version="1.0"/>
+</session>

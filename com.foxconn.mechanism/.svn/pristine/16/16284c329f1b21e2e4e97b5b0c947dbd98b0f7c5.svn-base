@@ -1,0 +1,12 @@
+package com.foxconn.mechanism.custommaterial.custommaterialnumrequest;
+
+public class SupplierEntity {
+	public String name;
+	public String contact;
+	public String fax;
+	public String tel;
+	public String address;
+	public String manufacturerID;
+	
+
+}

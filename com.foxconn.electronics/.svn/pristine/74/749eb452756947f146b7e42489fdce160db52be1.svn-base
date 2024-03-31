@@ -1,0 +1,77 @@
+package com.foxconn.electronics.L10Ebom.dialog;
+
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.widgets.Dialog;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+
+ 
+
+public class CustomDialog extends Dialog {
+    private Shell dialogShell;
+    private Text text;
+
+ 
+
+    public CustomDialog(Shell parent) {
+        super(parent);
+    }
+
+ 
+
+    public void open() {
+        Shell parent = getParent();
+        dialogShell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
+        dialogShell.setLayout(new FillLayout());
+
+ 
+
+        text = new Text(dialogShell, SWT.BORDER);
+        text.setText("Editable text");
+
+ 
+
+        dialogShell.open();
+        dialogShell.pack();
+
+ 
+
+        Display display = parent.getDisplay();
+        while (!dialogShell.isDisposed()) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+    }
+
+ 
+
+    public static void main(String[] args) {
+        Display display = new Display();
+        Shell shell = new Shell(display);
+        shell.setText("Parent Shell");
+
+ 
+
+        shell.setLayout(new FillLayout());
+        Text parentText = new Text(shell, SWT.BORDER);
+        parentText.setText("Parent editable text");
+
+ 
+
+        // 创建自定义对话框
+        CustomDialog dialog = new CustomDialog(shell);
+        dialog.open();
+
+ 
+
+        while (!shell.isDisposed()) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+        display.dispose();
+    }
+}

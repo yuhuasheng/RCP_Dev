@@ -1,0 +1,11 @@
+source.. = src/
+output.. = bin/
+bin.includes = plugin.xml,\
+               META-INF/,\
+               .,\
+               icons/,\
+               com.teamcenter.rac.issuemanager_14000.2.0.jar,\
+               hutool-all-5.8.10.jar,\
+               plmnow_zh_transfer.jar,\
+               TcSoaCommon_14000.2.0.jar,\
+               TcSoaCoreRac_14000.2.0.jar

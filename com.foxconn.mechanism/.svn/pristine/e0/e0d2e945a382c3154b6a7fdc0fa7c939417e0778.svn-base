@@ -1,0 +1,215 @@
+package com.foxconn.mechanism.mntL5MgfEcnManagement;
+
+import java.awt.EventQueue;
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CCombo;
+import org.eclipse.swt.custom.TableEditor;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
+import com.teamcenter.rac.aif.AbstractAIFDialog;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.util.Registry;
+
+public class RelateExsitingECNDialog extends Dialog {
+
+	public Shell shell = null;
+	public AbstractAIFUIApplication app;
+	
+	public RelateExsitingECNDialog(Registry reg, AbstractAIFUIApplication app,Shell parent,TCComponentFolder folder) {
+		super(parent);
+		this.shell = parent;
+		this.app = app;
+		createContents();
+
+	}
+	
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					new RelateExsitingECNDialog(null, null, new Shell(),null);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	protected void createContents() {
+
+		Shell parent = shell;
+
+		shell = new Shell(shell, SWT.DIALOG_TRIM | SWT.CLOSE | SWT.PRIMARY_MODAL | SWT.RESIZE | SWT.MAX);
+
+		shell.setSize(1000, 400);
+		shell.setImage(Registry.getRegistry(AbstractAIFDialog.class).getImage("aifDesktop.ICON"));
+		Rectangle parentBounds = parent.getBounds();
+		Rectangle shellBounds = shell.getBounds();
+		shell.setLocation(parentBounds.x + (parentBounds.width - shellBounds.width) / 2,
+				parentBounds.y + (parentBounds.height - shellBounds.height) / 2);
+		String title = "添加現有ECN";
+		// 收尾
+		shell.setText(title);
+		shell.setLayout(new FormLayout());
+		
+		Button bt_close = new Button(shell, SWT.NONE);
+		bt_close.setText("關閉");
+		FormData formData = new FormData();
+		formData.top = new FormAttachment(100,-35);
+		formData.right = new FormAttachment(100,-10);
+		formData.width = 60;
+		bt_close.setLayoutData(formData);
+		
+		Button bt_complete = new Button(shell, SWT.NONE);
+		bt_complete.setText("完成");
+		formData = new FormData();
+		formData.right = new FormAttachment(bt_close,-10,SWT.LEFT);
+		formData.top = new FormAttachment(bt_close,0,SWT.TOP);
+		formData.width = 60;
+		bt_complete.setLayoutData(formData);
+		
+		Table table = new Table(shell, SWT.BORDER | SWT.FULL_SELECTION);
+		FormData fd_table = new FormData();
+		fd_table.top = new FormAttachment(0, 10);
+		fd_table.left = new FormAttachment(0, 10);
+		fd_table.right = new FormAttachment(bt_close, 0,SWT.RIGHT);
+		fd_table.bottom = new FormAttachment(bt_close, -10,SWT.TOP);
+		table.setLayoutData(fd_table);
+		table.setHeaderVisible(true);
+		table.setLinesVisible(true);
+		// 设置列编辑器
+		final TableEditor editor = new TableEditor(table);
+		editor.horizontalAlignment = SWT.LEFT;
+		editor.grabHorizontal = true;
+
+		table.addListener(SWT.MouseDown, new Listener() {
+		    public void handleEvent(Event event) {
+		        Control oldEditor = editor.getEditor();
+		        if (oldEditor != null) {
+		            oldEditor.dispose();
+		        }
+
+		 
+
+		        Point point = new Point(event.x, event.y);
+		        final TableItem item = table.getItem(point);
+		        if (item == null) {
+		            return;
+		        }
+
+		 
+
+		        int columnIndex = -1;
+		        for (int i = 0; i < table.getColumnCount(); i++) {
+		            Rectangle bounds = item.getBounds(i);
+		            if (bounds.contains(point)) {
+		                columnIndex = i;
+		                break;
+		            }
+		        }
+
+		 
+		        final int cIndex = columnIndex;
+		        if (cIndex != 7) {
+		            return;
+		        }
+		        
+		        Object bean = item.getData("bean");
+		        
+		        
+		       
+		        // 创建编辑器控件（这里使用Text作为示例）
+		        final CCombo cmb = new CCombo(table, SWT.NONE);
+//		        cmb.add(cmb_project.getText());
+		        String option = (String)item.getData("original");
+		        cmb.add(option);
+				if(!"历史专案".equals(option)) {
+					cmb.add("历史专案");
+				}
+		        cmb.select((int) item.getData("selected"));
+		        cmb.setEditable(false);
+
+		        // 设置编辑器控件到TableEditor
+		        editor.setEditor(cmb, item, columnIndex);
+
+		        // 添加事件监听，当编辑器控件失去焦点或按下回车键时保存修改并清除编辑器
+		        cmb.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						// 处理事件
+						String text = ((CCombo) e.getSource()).getText();
+						Object data = (Object) item.getData("bean");
+		                item.setText(cIndex, text);
+		                item.setData("selected",cmb.getSelectionIndex());
+		                cmb.dispose();
+					}
+				});
+		    }
+		});
+		
+		TableColumn tableColumn = new TableColumn(table,SWT.BORDER_SOLID);
+		tableColumn.setWidth(50);
+		tableColumn.setText("選擇");
+		
+		tableColumn = new TableColumn(table,SWT.BORDER_SOLID);
+		tableColumn.setWidth(150);
+		tableColumn.setText("序號");
+		
+		TableColumn tblclmnNewColumn = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn.setWidth(100);
+		tblclmnNewColumn.setText("ECN.NO");
+		
+		TableColumn tblclmnNewColumn_1 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_1.setMoveable(true);
+		tblclmnNewColumn_1.setWidth(100);
+		tblclmnNewColumn_1.setText("概述");
+		
+		TableColumn tblclmnNewColumn_2 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_2.setWidth(150);
+		tblclmnNewColumn_2.setText("實際用戶");
+		
+		
+		TableColumn tblclmnNewColumn_3 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_3.setWidth(150);
+		tblclmnNewColumn_3.setText("Change Category");
+		
+		TableColumn tblclmnNewColumn_4 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_4.setWidth(100);
+		tblclmnNewColumn_4.setText("Reason Code");
+		
+		TableColumn tblclmnNewColumn_5 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_5.setWidth(150*2);
+		tblclmnNewColumn_5.setText("變更描述");
+		
+		TableColumn tblclmnNewColumn_6 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_6.setWidth(150*2);
+		tblclmnNewColumn_6.setText("Change Analyst");
+		
+		shell.open();
+		shell.layout();
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+	}
+	
+	
+}

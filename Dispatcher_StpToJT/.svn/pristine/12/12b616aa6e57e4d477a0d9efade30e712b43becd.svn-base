@@ -1,0 +1,5 @@
+tc_properties=C:\\Siemens\\Dispatcher\\Module\\Translators\\conf\\tc.properties
+step_to_jt_exe=C:\\Siemens\\Teamcenter14.1\\Visualization\\JT_STEP\\Program\\jt_step.exe
+step_to_jt_config=C:\\Siemens\\Teamcenter14.1\\Visualization\\JT_STEP\\etc\\steptojt.config
+to_userId=hua-sheng.yu@foxconn.com,dong.d.li@foxconn.com
+subject=Teamcenter Stp转JT邮件提醒

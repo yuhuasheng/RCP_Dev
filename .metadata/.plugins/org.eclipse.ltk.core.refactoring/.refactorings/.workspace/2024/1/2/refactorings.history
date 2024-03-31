@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Delete resource &apos;com.foxconn.historydataimport&apos;" deleteContents="true" description="Delete resource &apos;com.foxconn.historydataimport&apos;" element1="/com.foxconn.historydataimport" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1705042885961"/>
+</session>

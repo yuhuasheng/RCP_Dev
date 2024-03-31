@@ -1,0 +1,319 @@
+package com.foxconn.electronics.document;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import com.foxconn.electronics.domain.Constants;
+import com.foxconn.electronics.util.TCUtil;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCPropertes;
+import com.google.gson.Gson;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCSession;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ArrayUtil;
+
+public class DocPlaceOnFileService {
+	 private TCSession session;
+	 private String D9_Allow_TandBInfo_Item;
+	 private String D9_MODEL_TYPE;
+	 private final String Layout = "Layout";
+     private final String EE = "EE";
+     private final String PSU = "PSU";
+	 private List<String> itemRevlist;
+     private List<String> modelTypeList;
+     private String providerName;
+     private String serviceName;
+     private String dept = null;
+     
+     public DocPlaceOnFileService(final TCSession session) throws TCException {
+         this.D9_Allow_TandBInfo_Item = "D9_Allow_TandBInfo_Item";
+         this.D9_MODEL_TYPE = "D9_Model_Type";
+         this.itemRevlist = null;
+         this.modelTypeList = null;
+         this.providerName = "FOXCONN";
+         this.serviceName = "checkplacementnew";
+         this.session = session;
+         this.itemRevlist = TCUtil.getArrayPreference(TCPreferenceService.TC_preference_site, D9_Allow_TandBInfo_Item);
+         if (CollUtil.isEmpty(itemRevlist)) {
+             throw new TCException("首选项: " + D9_Allow_TandBInfo_Item + ", 不存在，请和TC管理员联系");
+         }
+         modelTypeList = TCUtil.getArrayPreference(TCPreferenceService.TC_preference_site, D9_MODEL_TYPE);
+     }
+	 
+     
+     public void doPlacement(TCComponent tcComponent, String projectId, String path) {
+         try {
+             TCComponentItemRevision itemRev = (TCComponentItemRevision)tcComponent;
+             String itemId = itemRev.getProperty("item_id");
+             System.out.println("==>> itemId: " + itemId);
+             String version = itemRev.getProperty("item_revision_id");
+             System.out.println("==>> version: " + version);
+             
+             if (!TCUtil.isReleased(itemRev)) { // 判断是否已经发行
+            	 System.err.println("零组件ID为: " + itemId + ", 版本号为: " + version + ", 未发行");
+                 return;
+             }
+             
+             if (!checkItemRevType(itemRev)) {
+                 System.err.println("零组件ID为: " + itemId + ", 版本号为: " + version + ", 对象版本类型不符合要求");
+                 return;
+             }
+             if (!this.checkDataset(itemRev)) {
+                 System.err.println("零组件ID为: " + itemId + ", 版本号为: " + version + ", 不存在placement文件");
+                 return;
+             }
+             
+             TCComponentFolder projectFolder = getProjectFolder(projectId);
+             if (projectFolder == null) {
+                 System.err.println("专案ID为:  " + projectId + ", 不存在专案文件夹");
+                 return;
+             }
+             
+             if (path.endsWith("Power&PI&INV&LED CONV BD") || path.endsWith("LED driver BD") || path.endsWith("LED Lighting BD") || path.endsWith("LED Lighting  Driver BD") 
+            		 || path.endsWith("DC JACK") || path.endsWith("Safety POWER BD")) {
+				path = path.replace(Layout, PSU);
+				dept = PSU;
+			 } else {
+				path = path.replace(Layout, EE);
+				dept = EE;
+			 }
+             
+             path.substring(0, path.lastIndexOf("/"));
+             System.out.println("==>> path: " + path);
+             
+             Map<String, TCComponent> map = new LinkedHashMap<String, TCComponent>();
+             getFolderPath(projectFolder, map, "", false, dept);
+             
+             List<TCComponent> revList = getEEItemRevList(map, path);
+             if (CollUtil.isEmpty(revList)) {
+            	 System.err.println("专案文件路径为: " + path + "不存在EE PCBA对象版本");
+                 return;
+             }
+             
+             List<TCComponent> filterEEList = filterEEList(revList);
+             if (CommonTools.isEmpty(filterEEList)) {
+				return;
+             }             
+            
+//             Gson gson = new Gson();
+//             List<String> EERevUidList = revList.stream().map(TCComponent::getUid).collect(Collectors.toList());
+            String EERevUid = filterEEList.stream().map(TCComponent::getUid).collect(Collectors.joining(";"));
+             
+//           TCComponent[] primaryObjects = { (TCComponent)itemRev };
+            TCComponent[] secondaryObjects = filterEEList.stream().toArray(TCComponent[]::new);
+           
+           TCComponent[] primaryObjects = new TCComponent[secondaryObjects.length];
+           for (int i = 0; i < secondaryObjects.length; i++) {
+          	 primaryObjects[i] = itemRev;
+           }
+           
+           Map<String, String> requestMap = new HashMap<String, String>();
+           requestMap.put("LayoutRevUid", itemRev.getUid());
+           requestMap.put("EERevUid", EERevUid);
+           System.out.println(requestMap);
+           
+           final boolean request = com.foxconn.tcutils.util.TCUtil.sendDispatcherRequest(providerName, serviceName, 3, primaryObjects, secondaryObjects, null, 0, null, null, requestMap);
+           if (request) {
+               System.out.println("==>> 提交Layout更新EE正反面信息Dispatcher请求成功");
+           }
+         }
+         catch (Exception e) {
+             e.printStackTrace();
+         }
+     }
+     
+     
+     
+     private boolean checkDataset(TCComponentItemRevision itemRev) throws TCException {
+         final TCComponent[] EDAHasDerivedDatasetObjects = itemRev.getRelatedComponents("EDAHasDerivedDataset");
+         final TCComponent[] imanSpecification = itemRev.getRelatedComponents("IMAN_specification");
+         boolean anyMatch = false;
+         if (ArrayUtil.isNotEmpty(EDAHasDerivedDatasetObjects)) {
+             anyMatch = Stream.of(EDAHasDerivedDatasetObjects).anyMatch(obj -> {
+                 try {
+                     if (obj instanceof TCComponentDataset) {
+                         return "D9_Placement".equals(obj.getTypeObject().getName());
+                     }
+                 }
+                 catch (Exception e1) {
+                     e1.printStackTrace();
+                 }
+                 return false;
+             });
+         } else if (ArrayUtil.isNotEmpty(imanSpecification)) {
+             anyMatch = Stream.of(imanSpecification).anyMatch(obj -> {
+                 try {
+                     if (obj instanceof TCComponentDataset) {
+                    	 String type = obj.getTypeObject().getName();
+                    	 String objectName = obj.getProperty("object_name");
+                         return ("MSExcel".equals(type) || "MSExcelX".equals(type)) && objectName.contains("Location");
+                     }
+                 }
+                 catch (Exception e2) {
+                     e2.printStackTrace();
+                 }
+                 return false;
+             });
+         }
+         return anyMatch;
+     }
+     
+     
+     private TCComponentFolder getProjectFolder(String projectId) throws Exception {
+         final TCComponent[] queryResult = TCUtil.executeQuery(this.session, Constants.FIND_PROJECT_FOLDER, new String[] { Constants.SPAS_ID }, new String[] { projectId });
+         if (queryResult == null || queryResult.length <= 0) {
+             System.out.println("专案ID为: " + projectId + ", 查询专案文件夹失败");
+             return null;
+         }
+         return (TCComponentFolder)queryResult[0];
+     }
+     
+     
+     
+     private void getFolderPath(TCComponent current, Map<String, TCComponent> map, String path, boolean flag, String dept) throws TCException {
+         String objectName = current.getProperty("object_name");
+         if (dept.equals(objectName)) {
+             flag = true;
+         }
+         if (!(current instanceof TCComponentFolder)) {
+             return;
+         }
+         path = String.valueOf(path) + objectName + "/";
+         
+         current.refresh();
+         AIFComponentContext[] children = current.getChildren();
+         if (ArrayUtil.isEmpty((Object[])children) || !checkFolder(children)) {
+             if (!map.containsKey(path) && flag) {
+                 map.put(path.substring(0, path.length() - 1), current);
+             }
+             return;
+         }
+         
+         for (AIFComponentContext child : children) {
+			getFolderPath((TCComponent)child.getComponent(), map, path, flag, dept);
+         }         
+     }
+     
+     
+     private boolean checkFolder(AIFComponentContext[] contexts) {
+         return Stream.of(contexts).anyMatch(context -> {
+             try {
+            	 TCComponent component = (TCComponent)context.getComponent();
+                 return component instanceof TCComponentFolder;
+             }
+             catch (Exception e) {
+                 e.printStackTrace();
+                 return false;
+             }
+         });
+     }
+     
+     
+     private List<TCComponent> getEEItemRevList(Map<String, TCComponent> map, String path) throws TCException {
+         TCComponent folder = null;
+         List<TCComponent> list = new ArrayList<TCComponent>();
+         Optional<Map.Entry<String, TCComponent>> findFolder = map.entrySet().stream().filter(m -> m.getKey().equals(path)).findAny();
+         if (findFolder.isPresent()) {
+             folder = findFolder.get().getValue();
+         }
+         
+         if (folder == null) {
+             return null;
+         }
+         
+         folder.refresh();         
+         AIFComponentContext[] children = folder.getChildren();
+         if (ArrayUtil.isEmpty((Object[])children)) {
+             return null;
+         }
+         Stream.of(children).forEach(context -> {
+             try {
+            	 InterfaceAIFComponent component = context.getComponent();
+            	 TCComponentItemRevision itemRev = null;
+                 if (component instanceof TCComponentItemRevision) {
+                	 itemRev = (TCComponentItemRevision)component;
+                     if (this.checkItemRevType(itemRev) && TCUtil.isBOM(itemRev)) {
+                    	 list.add(itemRev);
+                     }
+                 }
+             }
+             catch (Exception e) {
+                 e.printStackTrace();
+             }
+             return;
+         });
+         return list;
+     }
+     
+     
+     
+     private boolean checkItemRevType(TCComponentItemRevision itemRev) {
+         return itemRevlist.stream().anyMatch(str -> {
+             try {
+                 return itemRev.getTypeObject().getName().equals(str);
+             }
+             catch (Exception e) {
+                 e.printStackTrace();
+                 return false;
+             }
+         });
+     }    
+    
+     
+     /**
+      * 过滤EE对象版本记录，图号相同的只获取最大版本的对象
+      * @param EElist
+      * @return
+      * @throws Exception
+      */
+    private List<TCComponent> filterEEList(List<TCComponent> EElist) throws Exception {   	
+    	List<TCComponent> resultList = new ArrayList<TCComponent>();
+    	List<TCComponent> filterList = EElist.stream().filter(CommonTools.distinctByKey(component -> {
+    		try {
+				return component.getProperty("item_id");
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+    	})).collect(Collectors.toList()); // 移除EE集合中零组件ID相同的记录
+    	
+    	for (TCComponent tcComponent : filterList) {
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+			TCComponentItem item = itemRev.getItem();
+			TCComponent[] relatedComponents = item.getRelatedComponents("revision_list");
+			List<TCComponent> reverseList = new ArrayList<TCComponent>(Arrays.asList(relatedComponents));
+			Collections.reverse(reverseList); // 反转list集合
+			
+			for (TCComponent component : reverseList) {
+				boolean anyMatch = EElist.stream().anyMatch(e -> {
+					return e.getUid().equals(component.getUid());
+				});
+				
+				if (anyMatch) {
+					resultList.add(component);
+					break;
+				}
+			}
+		}
+    	
+    	return resultList;
+    } 	
+}

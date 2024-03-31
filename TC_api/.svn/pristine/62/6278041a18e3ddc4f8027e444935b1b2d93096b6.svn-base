@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="lib/CAE0SoaSimProcStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/castor-0.9.4.1-xml.jar"/>
+	<classpathentry kind="lib" path="lib/com.teamcenter.contmgmtpublish.dc.jar"/>
+	<classpathentry kind="lib" path="lib/com.teamcenter.contmgmtpublish.util.jar"/>
+	<classpathentry kind="lib" path="lib/com.teamcenter.utility_1.0.0.jar"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.11.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang.jar"/>
+	<classpathentry kind="lib" path="lib/commons-logging-1.2.jar"/>
+	<classpathentry kind="lib" path="lib/DCCore.jar"/>
+	<classpathentry kind="lib" path="lib/DCTransSvcs.jar"/>
+	<classpathentry kind="lib" path="lib/DispatcherClient.jar"/>
+	<classpathentry kind="lib" path="lib/DispatcherClientTask.jar"/>
+	<classpathentry kind="lib" path="lib/docmgt_dc_batchprint.jar"/>
+	<classpathentry kind="lib" path="lib/docmgt_dc_rendermgt.jar"/>
+	<classpathentry kind="lib" path="lib/fileserver.jar"/>
+	<classpathentry kind="lib" path="lib/fscclient.jar"/>
+	<classpathentry kind="lib" path="lib/httpclient-4.5.13.jar"/>
+	<classpathentry kind="lib" path="lib/httpcore-4.4.13.jar"/>
+	<classpathentry kind="lib" path="lib/httpmime-4.5.13.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-annotations-2.13.2.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-core-2.13.2.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-databind-2.13.2.2.jar"/>
+	<classpathentry kind="lib" path="lib/jakarta.activation.jar"/>
+	<classpathentry kind="lib" path="lib/jakarta.xml.bind-api.jar"/>
+	<classpathentry kind="lib" path="lib/javax.activation-api.jar"/>
+	<classpathentry kind="lib" path="lib/jaxb-impl.jar"/>
+	<classpathentry kind="lib" path="lib/KeyManagerClient.jar"/>
+	<classpathentry kind="lib" path="lib/KeyManagerInterface.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-api-2.17.1.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-core-2.17.1.jar"/>
+	<classpathentry kind="lib" path="lib/logwriter.jar"/>
+	<classpathentry kind="lib" path="lib/mail.jar"/>
+	<classpathentry kind="lib" path="lib/org.apache.commons.io_1.4.jar"/>
+	<classpathentry kind="lib" path="lib/serializer.jar"/>
+	<classpathentry kind="lib" path="lib/TcSimTranslators.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaAdministrationStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCadStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCaeStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaClient_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCommon_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaContMgmtBaseStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCoreStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaDocumentManagementStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaGlobalMultiSiteStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaStrongModel_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaStrongModelContmgmtBase_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaWorkflowStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/tctp_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/teamcenter_sso_applib.jar"/>
+	<classpathentry kind="lib" path="lib/teamcenter_sso_common.jar"/>
+	<classpathentry kind="lib" path="lib/teamcenter_sso_ldapcustom.jar"/>
+	<classpathentry kind="lib" path="lib/transclient.jar"/>
+	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaStructureManagementStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/fastjson-1.2.78.jar"/>
+	<classpathentry kind="lib" path="lib/com.google.gson.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaQueryStrong_14000.2.0.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jdk-11.0.17">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

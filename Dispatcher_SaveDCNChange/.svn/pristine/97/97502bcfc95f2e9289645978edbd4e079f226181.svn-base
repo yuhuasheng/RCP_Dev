@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.foxconn.savedcnchange.mapper.SaveDCNServiceMapper">
+	
+   <insert id="insertBeforeChange">
+   		INSERT INTO XPLM.BOM_BEFORE_CHANGE_TABLE
+   		<trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="dcnItemId !=null">
+                BEFORE_CHANGE_CHANGE_NUM,
+            </if>
+            <if test="parentUid != null">
+                BEFORE_CHANGE_MATERIAL_PUID,
+            </if>
+            <if test="parentId != null">
+                BEFORE_CHANGE_MATERIAL_NUM,
+            </if>
+            <if test="parentVersion != null">
+                BEFORE_CHANGE_MATERIAL_REV,
+            </if>
+            <if test="findNum != null">
+                BEFORE_CHANGE_FIND_NUM,
+            </if>
+            <if test="childUid != null">
+                BEFORE_CHANGE_COMPONENT_PUID,
+            </if>
+            <if test="childItemId != null">
+                BEFORE_CHANGE_COMPONENT_NUM,
+            </if>
+            <if test="childVersion != null">
+                BEFORE_CHANGE_COMPONENT_REV,
+            </if>
+            <if test="bomUsage != null">
+                BEFORE_CHANGE_BOM_USAGE,
+            </if>
+            <if test="alternativeBOM != null">
+                BEFORE_CHANGE_ALTERNATIVE_BOM,
+            </if>
+            <if test="basicUnit != null">
+                BEFORE_CHANGE_BASE_QUANTITY,
+            </if>
+            <if test="referenceDimension != null">
+                BEFORE_CHANGE_ITEM_TEXT,
+            </if>
+            <if test="itemCategory != null">
+                BEFORE_CHANGE_ITEM_CATEGORY,
+            </if>
+            <if test="qty != null">
+                BEFORE_CHANGE_COMPONENT_QTY,
+            </if>
+            <if test="unit != null">
+                BEFORE_CHANGE_COMPONENT_UNIT,
+            </if>
+            <if test="sortString != null">
+                BEFORE_CHANGE_SORTSTRING,
+            </if>
+            <if test="altItemGroup != null">
+                BEFORE_CHANGE_ALT_GROUP,
+            </if>
+            <if test="priority != null">
+                BEFORE_CHANGE_PRIORITY,
+            </if>
+            <if test="strategy != null">
+                BEFORE_CHANGE_STRATEGY,
+            </if>
+            <if test="usageProb != null">
+                BEFORE_CHANGE_USAGEPROB,
+            </if>
+            <if test="location != null">
+                BEFORE_CHANGE_LOCATION,
+            </if> 
+             <if test="sapRev != null">
+                SAP_REV,
+            </if>           
+        </trim>
+        
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="dcnItemId !=null">
+                #{dcnItemId,jdbcType=VARCHAR},
+            </if>
+            <if test="parentUid != null">
+                #{parentUid,jdbcType=VARCHAR},
+            </if>
+            <if test="parentId != null">
+                #{parentId,jdbcType=VARCHAR},
+            </if>
+            <if test="parentVersion != null">
+                #{parentVersion,jdbcType=VARCHAR},
+            </if>
+            <if test="findNum != null">
+                #{findNum, jdbcType=INTEGER},
+            </if>
+            <if test="childUid != null">
+                #{childUid,jdbcType=VARCHAR},
+            </if>
+            <if test="childItemId != null">
+                #{childItemId,jdbcType=VARCHAR},
+            </if>
+            <if test="childVersion != null">
+                #{childVersion,jdbcType=VARCHAR},
+            </if>
+            <if test="bomUsage != null">
+                #{bomUsage,jdbcType=VARCHAR},
+            </if>
+            <if test="alternativeBOM != null">
+               #{alternativeBOM,jdbcType=VARCHAR},
+            </if>
+            <if test="basicUnit != null">
+                #{basicUnit,jdbcType=VARCHAR},
+            </if>
+            <if test="referenceDimension != null">
+                #{referenceDimension,jdbcType=VARCHAR},
+            </if>
+            <if test="itemCategory != null">
+                #{itemCategory,jdbcType=VARCHAR},
+            </if>
+            <if test="qty != null">
+                #{qty,jdbcType=VARCHAR},
+            </if>
+            <if test="unit != null">
+                #{unit,jdbcType=VARCHAR},
+            </if>
+            <if test="sortString != null">
+                #{sortString,jdbcType=VARCHAR},
+            </if>
+            <if test="altItemGroup != null">
+                #{altItemGroup,jdbcType=VARCHAR},
+            </if>
+            <if test="priority != null">
+                #{priority,jdbcType=VARCHAR},
+            </if>
+            <if test="strategy != null">
+                #{strategy,jdbcType=VARCHAR},
+            </if>
+            <if test="usageProb != null">
+                #{usageProb,jdbcType=VARCHAR},
+            </if>
+            <if test="location != null">
+                #{location,jdbcType=CLOB},
+            </if>  
+            <if test="sapRev != null">
+                #{sapRev,jdbcType=CLOB},
+            </if>
+        </trim>
+   </insert>
+	
+   <select id="getBeforeChangeRecords" resultType="java.lang.Integer">
+   		SELECT COUNT(*) 
+   			FROM 
+   				XPLM.BOM_BEFORE_CHANGE_TABLE
+   		<where>
+   		  <if test="dcnItemId != null and dcnItemId !=''">
+	          AND BEFORE_CHANGE_CHANGE_NUM = #{dcnItemId}
+	  	  </if>
+	      <if test="parentUid != null and parentUid !=''">
+	          AND BEFORE_CHANGE_MATERIAL_PUID = #{parentUid}
+	      </if>
+	      <if test="childUid != null and childUid !=''">
+	          AND BEFORE_CHANGE_COMPONENT_PUID = #{childUid}
+	      </if>
+     </where>		
+   </select>	   			
+   
+   <update id="updateBeforeChange">
+   		UPDATE XPLM.BOM_BEFORE_CHANGE_TABLE
+   		 <set>   			           
+            <if test="findNum != null">
+                BEFORE_CHANGE_FIND_NUM = #{findNum, jdbcType=INTEGER},
+            </if>            
+            <if test="bomUsage != null">
+                BEFORE_CHANGE_BOM_USAGE = #{bomUsage,jdbcType=VARCHAR},
+            </if>
+            <if test="alternativeBOM != null">
+               BEFORE_CHANGE_ALTERNATIVE_BOM = #{alternativeBOM,jdbcType=VARCHAR},
+            </if>
+            <if test="basicUnit != null">
+                BEFORE_CHANGE_BASE_QUANTITY = #{basicUnit,jdbcType=VARCHAR},
+            </if>
+            <if test="referenceDimension != null">
+                BEFORE_CHANGE_ITEM_TEXT = #{referenceDimension,jdbcType=VARCHAR},
+            </if>
+            <if test="itemCategory != null">
+                BEFORE_CHANGE_ITEM_CATEGORY = #{itemCategory,jdbcType=VARCHAR},
+            </if>
+            <if test="qty != null">
+                BEFORE_CHANGE_COMPONENT_QTY = #{qty,jdbcType=VARCHAR},
+            </if>
+            <if test="unit != null">
+                BEFORE_CHANGE_COMPONENT_UNIT = #{unit,jdbcType=VARCHAR},
+            </if>
+            <if test="sortString != null">
+                BEFORE_CHANGE_SORTSTRING = #{sortString,jdbcType=VARCHAR},
+            </if>
+            <if test="altItemGroup != null">
+                BEFORE_CHANGE_ALT_GROUP = #{altItemGroup,jdbcType=VARCHAR},
+            </if>
+            <if test="priority != null">
+                BEFORE_CHANGE_PRIORITY = #{priority,jdbcType=VARCHAR},
+            </if>
+            <if test="strategy != null">
+                BEFORE_CHANGE_STRATEGY = #{strategy,jdbcType=VARCHAR},
+            </if>
+            <if test="usageProb != null">
+                BEFORE_CHANGE_USAGEPROB = #{usageProb,jdbcType=VARCHAR},
+            </if>
+            <if test="location != null">
+                BEFORE_CHANGE_LOCATION = #{location,jdbcType=CLOB},
+            </if>  
+            <if test="sapRev != null">
+                SAP_REV = #{sapRev,jdbcType=VARCHAR},
+            </if>
+   		</set>
+   		
+   		<where>
+   		  <if test="dcnItemId != null and dcnItemId !=''">
+	          AND BEFORE_CHANGE_CHANGE_NUM = #{dcnItemId}
+	  	  </if>
+	      <if test="parentUid != null and parentUid !=''">
+	          AND BEFORE_CHANGE_MATERIAL_PUID = #{parentUid}
+	      </if>
+	      <if test="childUid != null and childUid !=''">
+	          AND BEFORE_CHANGE_COMPONENT_PUID = #{childUid}
+	      </if>
+     	</where>
+   </update>
+   
+   <insert id="insertAfterChange">
+   		INSERT INTO XPLM.BOM_AFTER_CHANGE_TABLE   		
+   		<trim prefix="(" suffix=")" suffixOverrides=",">   			
+            <if test="dcnItemId !=null">
+                AFTER_CHANGE_CHANGE_NUM,
+            </if>
+            <if test="parentUid != null">
+                AFTER_CHANGE_MATERIAL_PUID,
+            </if>
+            <if test="parentId != null">
+                AFTER_CHANGE_MATERIAL_NUM,
+            </if>
+            <if test="parentVersion != null">
+                AFTER_CHANGE_MATERIAL_REV,
+            </if>
+            <if test="findNum != null">
+                AFTER_CHANGE_FIND_NUM,
+            </if>
+            <if test="childUid != null">
+                AFTER_CHANGE_COMPONENT_PUID,
+            </if>
+            <if test="childItemId != null">
+                AFTER_CHANGE_COMPONENT_NUM,
+            </if>
+            <if test="childVersion != null">
+                AFTER_CHANGE_COMPONENT_REV,
+            </if>
+            <if test="bomUsage != null">
+                AFTER_CHANGE_BOM_USAGE,
+            </if>
+            <if test="alternativeBOM != null">
+                AFTER_CHANGE_ALTERNATIVE_BOM,
+            </if>
+            <if test="basicUnit != null">
+                AFTER_CHANGE_BASE_QUANTITY,
+            </if>
+            <if test="referenceDimension != null">
+                AFTER_CHANGE_ITEM_TEXT,
+            </if>
+            <if test="itemCategory != null">
+                AFTER_CHANGE_ITEM_CATEGORY,
+            </if>
+            <if test="qty != null">
+                AFTER_CHANGE_COMPONENT_QTY,
+            </if>
+            <if test="unit != null">
+                AFTER_CHANGE_COMPONENT_UNIT,
+            </if>
+            <if test="sortString != null">
+                AFTER_CHANGE_SORTSTRING,
+            </if>
+            <if test="altItemGroup != null">
+                AFTER_CHANGE_ALT_GROUP,
+            </if>
+            <if test="priority != null">
+                AFTER_CHANGE_PRIORITY,
+            </if>
+            <if test="strategy != null">
+                AFTER_CHANGE_STRATEGY,
+            </if>
+            <if test="usageProb != null">
+                AFTER_CHANGE_USAGEPROB,
+            </if>
+            <if test="location != null">
+                AFTER_CHANGE_LOCATION,
+            </if> 
+            <if test="sapRev != null">
+                SAP_REV,
+            </if>           
+        </trim>
+        
+        <trim prefix="values (" suffix=")" suffixOverrides=",">        	
+            <if test="dcnItemId !=null">
+                #{dcnItemId,jdbcType=VARCHAR},
+            </if>
+            <if test="parentUid != null">
+                #{parentUid,jdbcType=VARCHAR},
+            </if>
+            <if test="parentId != null">
+                #{parentId,jdbcType=VARCHAR},
+            </if>
+            <if test="parentVersion != null">
+                #{parentVersion,jdbcType=VARCHAR},
+            </if>
+            <if test="findNum != null">
+                #{findNum, jdbcType=INTEGER},
+            </if>
+            <if test="childUid != null">
+                #{childUid,jdbcType=VARCHAR},
+            </if>
+            <if test="childItemId != null">
+                #{childItemId,jdbcType=VARCHAR},
+            </if>
+            <if test="childVersion != null">
+                #{childVersion,jdbcType=VARCHAR},
+            </if>
+            <if test="bomUsage != null">
+                #{bomUsage,jdbcType=VARCHAR},
+            </if>
+            <if test="alternativeBOM != null">
+               #{alternativeBOM,jdbcType=VARCHAR},
+            </if>
+            <if test="basicUnit != null">
+                #{basicUnit,jdbcType=VARCHAR},
+            </if>
+            <if test="referenceDimension != null">
+                #{referenceDimension,jdbcType=VARCHAR},
+            </if>
+            <if test="itemCategory != null">
+                #{itemCategory,jdbcType=VARCHAR},
+            </if>
+            <if test="qty != null">
+                #{qty,jdbcType=VARCHAR},
+            </if>
+            <if test="unit != null">
+                #{unit,jdbcType=VARCHAR},
+            </if>
+            <if test="sortString != null">
+                #{sortString,jdbcType=VARCHAR},
+            </if>
+            <if test="altItemGroup != null">
+                #{altItemGroup,jdbcType=VARCHAR},
+            </if>
+            <if test="priority != null">
+                #{priority,jdbcType=VARCHAR},
+            </if>
+            <if test="strategy != null">
+                #{strategy,jdbcType=VARCHAR},
+            </if>
+            <if test="usageProb != null">
+                #{usageProb,jdbcType=VARCHAR},
+            </if>
+            <if test="location != null">
+                #{location,jdbcType=CLOB},
+            </if>
+            <if test="sapRev != null">
+                #{sapRev,jdbcType=VARCHAR},
+            </if>   
+        </trim>        
+        
+   </insert>
+	
+   <select id="getAfterChangeRerords" resultType="java.lang.Integer">
+   	SELECT COUNT(*) 
+   		FROM 
+   			XPLM.BOM_AFTER_CHANGE_TABLE
+	<where>
+	  <if test="dcnItemId != null and dcnItemId !=''">
+	      AND AFTER_CHANGE_CHANGE_NUM = #{dcnItemId}
+	  </if>
+      <if test="parentUid != null and parentUid !=''">
+          AND AFTER_CHANGE_MATERIAL_PUID = #{parentUid}
+      </if>
+      <if test="childUid != null and childUid !=''">
+          AND AFTER_CHANGE_COMPONENT_PUID = #{childUid}
+      </if>
+     </where>   
+   </select>
+   
+   <update id="updateAfterChange">
+   		UPDATE XPLM.BOM_AFTER_CHANGE_TABLE
+   		<set>   			           
+            <if test="findNum != null">
+                AFTER_CHANGE_FIND_NUM = #{findNum, jdbcType=INTEGER},
+            </if>            
+            <if test="bomUsage != null">
+                AFTER_CHANGE_BOM_USAGE = #{bomUsage,jdbcType=VARCHAR},
+            </if>
+            <if test="alternativeBOM != null">
+               AFTER_CHANGE_ALTERNATIVE_BOM = #{alternativeBOM,jdbcType=VARCHAR},
+            </if>
+            <if test="basicUnit != null">
+                AFTER_CHANGE_BASE_QUANTITY = #{basicUnit,jdbcType=VARCHAR},
+            </if>
+            <if test="referenceDimension != null">
+                AFTER_CHANGE_ITEM_TEXT = #{referenceDimension,jdbcType=VARCHAR},
+            </if>
+            <if test="itemCategory != null">
+                AFTER_CHANGE_ITEM_CATEGORY = #{itemCategory,jdbcType=VARCHAR},
+            </if>
+            <if test="qty != null">
+                AFTER_CHANGE_COMPONENT_QTY = #{qty,jdbcType=VARCHAR},
+            </if>
+            <if test="unit != null">
+                AFTER_CHANGE_COMPONENT_UNIT = #{unit,jdbcType=VARCHAR},
+            </if>
+            <if test="sortString != null">
+                AFTER_CHANGE_SORTSTRING = #{sortString,jdbcType=VARCHAR},
+            </if>
+            <if test="altItemGroup != null">
+                AFTER_CHANGE_ALT_GROUP = #{altItemGroup,jdbcType=VARCHAR},
+            </if>
+            <if test="priority != null">
+                AFTER_CHANGE_PRIORITY = #{priority,jdbcType=VARCHAR},
+            </if>
+            <if test="strategy != null">
+                AFTER_CHANGE_STRATEGY = #{strategy,jdbcType=VARCHAR},
+            </if>
+            <if test="usageProb != null">
+                AFTER_CHANGE_USAGEPROB = #{usageProb,jdbcType=VARCHAR},
+            </if>
+            <if test="location != null">
+                AFTER_CHANGE_LOCATION = #{location,jdbcType=CLOB},
+            </if>  
+            <if test="sapRev != null">
+                SAP_REV = #{sapRev,jdbcType=VARCHAR},
+            </if>
+   		</set>
+   		
+   		<where>
+   		  <if test="dcnItemId != null and dcnItemId !=''">
+	          AND AFTER_CHANGE_CHANGE_NUM = #{dcnItemId}
+	      </if>	      	
+	      <if test="parentUid != null and parentUid !=''">
+	          AND AFTER_CHANGE_MATERIAL_PUID = #{parentUid}
+	      </if>
+	      <if test="childUid != null and childUid !=''">
+	          AND AFTER_CHANGE_COMPONENT_PUID = #{childUid}
+	      </if>
+     	</where>
+   </update>    
+   
+   <insert id="insertMaterial">
+		INSERT INTO XPLM.MATERIAL_TABLE
+	   		<trim prefix="(" suffix=")" suffixOverrides=",">
+	            <if test="dcnItemId !=null">
+	                MATERIAL_CHANGE_NUM,
+	            </if>
+	            <if test="itemId != null">
+	                MATERIAL_NUM,
+	            </if>
+	            <if test="version != null">
+	                MATERIAL_REV,
+	            </if>
+	            <if test="uid != null">
+	                MATERIAL_PUID,
+	            </if>
+	            <if test="enDescription != null">
+	                MATERIAL_DESCRIPTION_EN,
+	            </if>
+	            <if test="chDescription != null">
+	                MATERIAL_DESCRIPTION_ZF,
+	            </if>
+	            <if test="unit != null">
+	                MATERIAL_BASE_UNIT,
+	            </if>
+	            <if test="materialGroup != null">
+	                MATERIAL_GROUP,
+	            </if>
+	            <if test="materialType != null">
+	                MATERIAL_TYPE,
+	            </if>
+	            <if test="manufacturerPN != null">
+	                MATERIAL_MFG_PN,
+	            </if>
+	            <if test="manufacturerID != null">
+	                MATERIAL_MFG_ID,
+	            </if>
+	            <if test="procurementMethods != null">
+	                MATERIAL_PROCUREMENT_TYPE,
+	            </if>
+	            <if test="grossWeight != null">
+	                MATERIAL_GROSS_WEIGHT,
+	            </if>
+	            <if test="netWeight != null">
+	                MATERIAL_NET_WEIGHT,
+	            </if>
+	            <if test="weightUnit != null">
+	                MATERIAL_WEIGHT_UNIT,
+	            </if>  
+	            <if test="sapRev != null">
+	                SAP_REV,
+	            </if>  
+	            <if test="supplierZF != null">
+	                SUPPLIERZF,
+	            </if>        
+	        </trim>
+	        
+	        <trim prefix="values (" suffix=")" suffixOverrides=",">
+	            <if test="dcnItemId !=null">
+	               #{dcnItemId,jdbcType=VARCHAR},
+	            </if>
+	            <if test="itemId != null">
+	                #{itemId,jdbcType=VARCHAR},
+	            </if>
+	            <if test="version != null">
+	                #{version,jdbcType=VARCHAR},
+	            </if>
+	            <if test="uid != null">
+	                #{uid, jdbcType=VARCHAR},
+	            </if>
+	            <if test="enDescription != null">
+	                #{enDescription,jdbcType=VARCHAR},
+	            </if>
+	            <if test="chDescription != null">
+	                #{chDescription,jdbcType=VARCHAR},
+	            </if>
+	            <if test="unit != null">
+	                #{unit,jdbcType=VARCHAR},
+	            </if>
+	            <if test="materialGroup != null">
+	                #{materialGroup,jdbcType=VARCHAR},
+	            </if>
+	            <if test="materialType != null">
+	                #{materialType,jdbcType=VARCHAR},
+	            </if>
+	            <if test="manufacturerPN != null">
+	                #{manufacturerPN,jdbcType=VARCHAR},
+	            </if>
+	            <if test="manufacturerID != null">
+	                #{manufacturerID,jdbcType=VARCHAR},
+	            </if>
+	            <if test="procurementMethods != null">
+	                #{procurementMethods,jdbcType=VARCHAR},
+	            </if>
+	            <if test="grossWeight != null">
+	                #{grossWeight,jdbcType=VARCHAR},
+	            </if>
+	            <if test="netWeight != null">
+	                #{netWeight,jdbcType=VARCHAR},
+	            </if>
+	            <if test="weightUnit != null">
+	                #{weightUnit,jdbcType=VARCHAR},
+	            </if>  
+	            <if test="sapRev != null">
+	                #{sapRev,jdbcType=VARCHAR},
+	            </if>
+	             <if test="supplierZF != null">
+	                #{supplierZF,jdbcType=VARCHAR},
+	            </if>
+	        </trim>
+        
+   </insert>
+  
+   <select id="getMaterialRerords" resultType="java.lang.Integer">
+   	SELECT COUNT(*) 
+   		FROM 
+   			XPLM.MATERIAL_TABLE
+	<where>
+      <if test="dcnItemId != null and dcnItemId !=''">
+          AND MATERIAL_CHANGE_NUM = #{dcnItemId}
+      </if>
+      <if test="uid != null and uid !=''">
+          AND MATERIAL_PUID = #{uid}
+      </if>
+     </where>   
+   </select>	
+  
+   <update id="updateMaterial">
+   		UPDATE XPLM.MATERIAL_TABLE
+   		<set>
+   			<if test="enDescription != null">
+                MATERIAL_DESCRIPTION_EN = #{enDescription,jdbcType=VARCHAR},
+            </if>
+            <if test="chDescription != null">
+                MATERIAL_DESCRIPTION_ZF = #{chDescription,jdbcType=VARCHAR},
+            </if>
+            <if test="unit != null">
+                MATERIAL_BASE_UNIT = #{unit,jdbcType=VARCHAR},
+            </if>
+            <if test="materialGroup != null">
+                MATERIAL_GROUP = #{materialGroup,jdbcType=VARCHAR},
+            </if>
+            <if test="materialType != null">
+                MATERIAL_TYPE = #{materialType,jdbcType=VARCHAR},
+            </if>
+            <if test="manufacturerPN != null">
+                MATERIAL_MFG_PN = #{manufacturerPN,jdbcType=VARCHAR},
+            </if>
+            <if test="manufacturerID != null">
+                MATERIAL_MFG_ID = #{manufacturerID,jdbcType=VARCHAR},
+            </if>
+            <if test="procurementMethods != null">
+                MATERIAL_PROCUREMENT_TYPE = #{procurementMethods,jdbcType=VARCHAR},
+            </if>
+            <if test="grossWeight != null">
+                MATERIAL_GROSS_WEIGHT = #{grossWeight,jdbcType=VARCHAR},
+            </if>
+            <if test="netWeight != null">
+                MATERIAL_NET_WEIGHT = #{netWeight,jdbcType=VARCHAR},
+            </if>
+            <if test="weightUnit != null">
+                MATERIAL_WEIGHT_UNIT = #{weightUnit,jdbcType=VARCHAR},
+            </if>  
+            <if test="sapRev != null">
+                SAP_REV = #{sapRev,jdbcType=VARCHAR},
+            </if>
+            <if test="supplierZF != null">
+                SUPPLIERZF = #{supplierZF,jdbcType=VARCHAR},
+            </if>
+   		</set>
+   		
+	   	<where>
+	      <if test="dcnItemId != null and dcnItemId !=''">
+	          AND MATERIAL_CHANGE_NUM = #{dcnItemId}
+	      </if>
+	      
+	      <if test="uid != null and uid !=''">
+	          AND MATERIAL_PUID = #{uid}
+	      </if>
+	     </where>  
+   </update>	
+    
+     
+   <insert id="insertDCNChange">
+    	INSERT INTO XPLM.CHANGE_TABLE
+   		<trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="dcnItemId !=null">
+                CHANGE_NUM,
+            </if>
+            <if test="plantCode != null">
+                CHANGE_PLANT_CODE,
+            </if>
+            <if test="status != null">
+                CHANGE_STATUS,
+            </if>
+            <if test="validDate != null">
+                CHANGE_VALID_FROM,
+            </if>
+            <if test="description != null">
+                CHANGE_DESCRIPTION,
+            </if>
+            <if test="actualUserId != null">
+                CHANGE_ORIGINATOR,
+            </if>	                       
+        </trim>
+        
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="dcnItemId !=null">
+               #{dcnItemId,jdbcType=VARCHAR},
+            </if>
+            <if test="plantCode != null">
+                #{plantCode,jdbcType=VARCHAR},
+            </if>
+            <if test="status != null">
+                #{status,jdbcType=VARCHAR},
+            </if>
+            <if test="validDate != null">
+                #{validDate, jdbcType=DATE},
+            </if>
+            <if test="description != null">
+                #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="actualUserId != null">
+                #{actualUserId,jdbcType=VARCHAR},
+            </if>	            
+        </trim>
+    </insert>
+    	
+   <select id="getDCNChangeRecord" resultType="java.lang.Integer">
+		SELECT COUNT(*) 
+			FROM 
+				XPLM.CHANGE_TABLE
+		<where>
+		  <if test="dcnItemId != null and dcnItemId !=''">
+		      AND CHANGE_NUM = #{dcnItemId}
+		  </if>	      
+		</where>
+   </select>
+   
+	
+   <update id="updateDCNChange">
+		UPDATE XPLM.CHANGE_TABLE
+   		<set>
+   			<if test="plantCode != null">
+                CHANGE_PLANT_CODE = #{plantCode,jdbcType=VARCHAR},
+            </if>
+            <if test="status != null">
+                CHANGE_STATUS = #{status,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null">
+                CHANGE_DESCRIPTION = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="actualUserId != null">
+                CHANGE_ORIGINATOR = #{actualUserId,jdbcType=VARCHAR},
+            </if>            
+   		</set>
+   		
+	   	<where>
+	      <if test="dcnItemId != null and dcnItemId !=''">
+	          AND CHANGE_NUM = #{dcnItemId}
+	      </if>
+	     </where>
+	</update>	
+	
+</mapper>

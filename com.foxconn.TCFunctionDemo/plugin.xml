@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension point="org.eclipse.ui.commands">   
+   		<command 
+			name="hello word" 
+			id="com.hanhe.FirstTset.command">
+		</command>
+		
+		<command
+         	name="新建文件夹"
+         	id="com.origin.custom.handler.newFolderHandler">
+      	</command>
+      	
+      	<command 
+			name="新建Form" 
+			id="com.origin.custom.handler.newFormHandler">
+		</command>
+		
+		<command 
+			name="新建Item" 
+			id="com.origin.custom.handler.newItemHandler">
+		</command>
+		
+		<command 
+			name="新建Dataset" 
+			id="com.origin.custom.handler.newDatasetHandler">
+		</command>
+		
+		<command 
+			name="出差查询" 
+			id="com.origin.custom.handler.ExecQueryHandler">
+		</command>
+		
+		<command 
+			name="BOMWindow" 
+			id="com.origin.custom.handler.BOMWindowHandler">
+		</command>
+		
+		<command 
+			name="SearchBOM" 
+			id="com.origin.custom.handler.SearchBOMLineHandler">
+		</command>
+		
+		<command 
+			name="CompareBOM" 
+			id="com.origin.custom.handler.CompareBOMHandler">
+		</command>
+		
+		<command 
+			name="SendTo MatixBOM" 
+			id="com.mycom.sendtoapp.perspectives.CustomPerspective">
+		</command>
+		
+		<command 
+			name="2ndSourceTest" 
+			id="com.secondsource.SecondSourceComand">
+		</command>
+		
+		<command 
+			name="Clear Placement Prop" 
+			id="com.ebom.ClearBomPropComand">
+		</command>
+		
+   </extension>
+   
+   <extension point="org.eclipse.ui.handlers">
+   	   	<handler 
+			commandId="com.hanhe.FirstTset.command"
+			class="com.origin.custom.handler.SampleHandler">
+		</handler>	
+		
+		<handler
+         	commandId="com.origin.custom.handler.newFolderHandler"
+         	class="com.origin.custom.handler.NewFolderHandler">
+      	</handler>
+      	
+      	<handler 
+			commandId="com.origin.custom.handler.newFormHandler"
+			class="com.origin.custom.handler.NewFormHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.newItemHandler"
+			class="com.origin.custom.handler.NewItemHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.newDatasetHandler"
+			class="com.origin.custom.handler.NewDatasetHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.ExecQueryHandler"
+			class="com.origin.custom.handler.ExecQueryHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.BOMWindowHandler"
+			class="com.origin.custom.handler.BOMWindowHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.SearchBOMLineHandler"
+			class="com.origin.custom.handler.SearchBOMLineHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.origin.custom.handler.CompareBOMHandler"
+			class="com.origin.custom.handler.CompareBOMHandler">
+		</handler>		
+		
+		<handler 
+			commandId="com.mycom.sendtoapp.perspectives.CustomPerspective"
+			class="com.hanhe.handler.SendToMatrixBOMHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.secondsource.SecondSourceComand"
+			class="com.secondsource.SecondSourceHandler">
+		</handler>
+		
+		<handler 
+			commandId="com.ebom.ClearBomPropComand"
+			class="com.ebom.ClearBomHandler">
+		</handler>
+		
+   </extension>
+   
+   <extension point="org.eclipse.ui.menus">
+   	<menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+        <menu label="客户化菜单(M)" mnemonic="M" id="customMenus">
+        <!--=========  01 command  ================--> 
+		<command  
+              commandId="com.hanhe.FirstTset.command"
+              mnemonic="S"
+              icon="icons/sample.gif"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  02 command  ================--> 
+          <command
+              commandId="com.origin.custom.handler.newFolderHandler"
+              mnemonic="S"
+              icon="icons/newfolder_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+ 		  <!--=========  03 command  ================--> 
+          <command
+              commandId="com.origin.custom.handler.newFormHandler"
+              mnemonic="S"
+              icon="icons/newform_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  04 command  ================--> 
+          <command
+              commandId="com.origin.custom.handler.newItemHandler"
+              mnemonic="S"
+              icon="icons/newitem_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  05 command  ================--> 
+          <command
+              commandId="com.origin.custom.handler.newDatasetHandler"
+              mnemonic="S"
+              icon="icons/newdataset_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  06 command  ================--> 
+          <command
+              commandId="com.origin.custom.handler.ExecQueryHandler"
+              mnemonic="S"
+              icon="icons/add_selected_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  07 command  ================-->
+          <command
+              commandId="com.origin.custom.handler.BOMWindowHandler"
+              mnemonic="S"
+              icon="icons/pause_search_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>         
+          <!--=========  08 command  ================-->
+          <command
+              commandId="com.origin.custom.handler.SearchBOMLineHandler"
+              mnemonic="S"
+              icon="icons/sample.gif"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+          <!--=========  09 command  ================-->
+          <command
+              commandId="com.origin.custom.handler.CompareBOMHandler"
+              mnemonic="S"
+              icon="icons/search_16.png"
+              id="customMenus">
+              <visibleWhen>
+                 <reference
+                     definitionId="com.teamcenter.rac.ui.inMainPerspective">
+                 </reference>
+              </visibleWhen>
+          </command>
+<!--=============================  END  ==========================================-->
+       </menu>		
+	</menuContribution>
+	
+	<menuContribution locationURI="popup:com.teamcenter.rac.sendto?after=additions">
+		<command 
+			commandId="com.mycom.sendtoapp.perspectives.CustomPerspective"
+			id = "com.mycom.sendtoapp.perspectives.CustomPerspective"	
+			icon="icons/defaultactionicon_16.png"	
+			mnemonic="S">
+               <visibleWhen>
+                <and>
+                   <iterate
+                         ifEmpty="false">
+                      <adapt
+                            type="com.teamcenter.rac.kernel.TCComponent">
+                         <or>
+                            <test
+                                  property="com.teamcenter.rac.kernel.TCComponent.typeClass"
+                                  value="Item">
+                            </test>
+                         </or>
+                      </adapt>
+                   </iterate>
+                   <with
+                         variable="rac_command_suppression">
+                      <not>]
+                         <iterate
+                               operator="or">
+                            <equals
+                                  value="com.mycom.sendtoapp.perspectives.CustomPerspective">
+                            </equals>
+                         </iterate>
+                      </not>
+                   </with>
+                </and>
+             </visibleWhen>
+            </command>       
+          
+	</menuContribution>
+	
+	<menuContribution
+            locationURI="popup:org.eclipse.ui.popup.any?after=additions">            
+        <command
+                commandId="com.secondsource.SecondSourceComand"
+                id="com.secondsource.SecondSourceComand"
+                mnemonic="S">
+             <visibleWhen>
+                <and>
+                   <iterate
+                         ifEmpty="false">
+                      <adapt
+                            type="com.teamcenter.rac.kernel.TCComponent">
+                         <or>
+                            <test
+                                  property="com.teamcenter.rac.kernel.TCComponent.typeClass"
+                                  value="BOMLine">
+                            </test>
+                         </or>
+                      </adapt>
+                   </iterate>
+                   <with
+                         variable="rac_command_suppression">
+                      <not>
+                         <iterate
+                               operator="or">
+                            <equals
+                                  value="com.secondsource.SecondSourceComand">
+                            </equals>
+                         </iterate>
+                      </not>
+                   </with>
+                </and>
+             </visibleWhen>
+          </command>  
+          
+          <command
+                commandId="com.ebom.ClearBomPropComand"
+                id="com.ebom.ClearBomPropComand"
+                mnemonic="S">
+             <visibleWhen>
+                <and>
+                   <iterate
+                         ifEmpty="false">
+                      <adapt
+                            type="com.teamcenter.rac.kernel.TCComponent">
+                         <or>
+                            <test
+                                  property="com.teamcenter.rac.kernel.TCComponent.typeClass"
+                                  value="BOMLine">
+                            </test>
+                         </or>
+                      </adapt>
+                   </iterate>
+                   <with
+                         variable="rac_command_suppression">
+                      <not>
+                         <iterate
+                               operator="or">
+                            <equals
+                                  value="com.secondsource.SecondSourceComand">
+                            </equals>
+                         </iterate>
+                      </not>
+                   </with>
+                </and>
+             </visibleWhen>
+          </command>
+          
+            
+    </menuContribution>      
+   </extension>
+   <extension point="org.eclipse.ui.views">
+   		<view category="com.teamcenter.rac.aifrcp.applicationCategory"
+      		name="MatriBOM管理器"
+        	id="com.hanhe.CustomView.CustomViews"
+        	class="com.hanhe.CustomView.CustomViews">
+      	</view>
+   </extension>
+   
+   <extension point="org.eclipse.core.expressions.definitions">
+		<definitions id="com.hanhe.View">
+			<with variable="activePartId">
+				<equals value="com.hanhe.CustomView.CustomViews"/>	
+			</with>
+		</definitions>
+	</extension>
+
+   <extension point="org.eclipse.ui.perspectives">
+   	<perspective 
+        class="com.mycom.sendtoapp.perspectives.CustomPerspective"
+        icon="icons/defaultactionicon_16.png"
+        id="com.mycom.sendtoapp.perspectives.CustomPerspective"
+        name="SendTo MatixBOM">
+        	<description>SendTo MatixBOM</description>
+        </perspective>
+   </extension>
+   
+   <extension point="com.teamcenter.rac.aifrcp.application">
+     <aif_app_item
+        displayMode="Primary"
+        groupName="Mycompany"
+        icon="icons/defaultactionicon_16.png"
+        id="com.mycom.sendtoapp"
+        name="SendTo MatixBOM"
+        ordinality="200"
+        perspective_id="com.mycom.sendtoapp.perspectives.CustomPerspective"
+        session="com.teamcenter.rac.kernel.TCSession"
+        tooltip="Send To Application"/>
+   </extension>
+
+</plugin>

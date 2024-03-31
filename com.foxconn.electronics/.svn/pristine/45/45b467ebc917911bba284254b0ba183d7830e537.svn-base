@@ -1,0 +1,297 @@
+package com.foxconn.electronics.login;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.create.BOCreateDefinitionFactory;
+import com.teamcenter.rac.common.create.CreateInstanceInput;
+import com.teamcenter.rac.common.create.IBOCreateDefinition;
+import com.teamcenter.rac.common.create.ICreateInstanceInput;
+import com.teamcenter.rac.common.create.SOAGenericCreateHelper;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentIssueReportRevision;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+
+public class MyIssuesListRefresh extends AbstractHandler {
+	public AbstractAIFUIApplication app;
+	public static TCSession session = null;
+	
+	public String MyIssues = "我創建的 Issues";
+	public String ExecuteIssues = "我執行的 Issues";
+	public String TrackingIssues = "我跟蹤的 Issues";
+	
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		app = AIFUtility.getCurrentApplication();
+		session = (TCSession) app.getSession();
+		
+		try {
+			TCUtil.setBypass(session);
+			
+			InterfaceAIFComponent[] targetComponents = app.getTargetComponents();
+			if(targetComponents!=null && targetComponents.length != 1) {
+				MessageBox.post("請選擇單個對象執行刷新Issue","提示",MessageBox.INFORMATION);
+				return null;
+			}
+			
+			OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+			String nickname = null;
+			String emp_no = null;
+			String name_no = null;
+			if(userPojo!=null) {
+				nickname  = S2TTransferUtil.toTraditionnalString(userPojo.getNickname());
+				emp_no = userPojo.getEmp_no();
+				name_no = nickname+"("+emp_no+")"+" IssueHome";
+				System.out.println("name_no = "+name_no);
+			} else {
+				return null;
+			}
+			
+			String type = targetComponents[0].getType();
+			if("D9_IssueHome".equals(type)) {
+				TCComponent IssueHome = (TCComponent) targetComponents[0];
+				TCComponent myIssuesFolder = null;
+				TCComponent executeIssuesFolder = null;
+				TCComponent trackingIssuesFolder = null;
+				
+				AIFComponentContext[] children = IssueHome.getChildren();
+				for (AIFComponentContext aif :children) {
+					TCComponent folder = (TCComponent) aif.getComponent();
+					String object_name = folder.getProperty("object_name");
+					if(MyIssues.equals(object_name)) {
+						myIssuesFolder = folder;
+					} else if(ExecuteIssues.equals(object_name)) {
+						executeIssuesFolder = folder;
+					} else if(TrackingIssues.equals(object_name)) {
+						trackingIssuesFolder = folder;
+					}
+				}
+				
+				if(myIssuesFolder == null) 
+					myIssuesFolder = createIssueFolder(session , "D9_IssueSearch",MyIssues);
+				if(executeIssuesFolder == null)
+					executeIssuesFolder = createIssueFolder(session , "D9_IssueSearch",ExecuteIssues);
+				if(trackingIssuesFolder == null)
+					trackingIssuesFolder = createIssueFolder(session , "D9_IssueSearch",TrackingIssues);
+				
+				
+				ArrayList<TCComponentIssueReportRevision> myIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+				ArrayList<TCComponentIssueReportRevision> executeIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+				ArrayList<TCComponentIssueReportRevision> trackingIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+				
+//				我创建的 Issues
+				TCComponent[] executeQuery1 = TCUtil.executeQuery(session, "__find_my_issue_reports",
+						new String[] {"owning_user.user_id","d9_ActualUserID" }, new String[] { "$USERID",nickname+"("+emp_no+")" });
+				if (executeQuery1 != null && executeQuery1.length > 0) {
+					for (int i = 0; i < executeQuery1.length; i++) {
+						
+						if(executeQuery1[i] instanceof TCComponentIssueReportRevision) {
+							TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery1[i];
+							//String property = issue.getProperty("object_string");
+							//System.out.println("property1 = "+property);
+							myIssuesList.add(issue);
+						}
+					}
+				}
+				
+				//要执行的 Issues
+				TCComponent[] executeQuery2 = TCUtil.executeQuery(session, "__find_my_signoff_issues",
+						new String[] {"EPMTask:process_stage_list.fnd0StartedTasks.Signoff:Fnd0EPMSignoff.group_member.User:user.user_id","EPMTask:process_stage_list.EPMDoTask:fnd0StartedTasks.User:responsible_party.user_id" }, 
+						new String[] { "$USERID","$USERID" });
+				if (executeQuery2 != null && executeQuery2.length > 0) {
+					for (int i = 0; i < executeQuery2.length; i++) {
+						
+						if(executeQuery2[i] instanceof TCComponentIssueReportRevision) {
+							TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery2[i];
+							TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+							if(d9_IssueTL_ActualUser != null) {
+								String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+								System.out.println("item_id1 = "+item_id);
+								if(emp_no.equals(item_id)) {
+									executeIssuesList.add(issue);
+								}
+							}
+						}
+					}
+				}
+				
+				//要跟踪的 Issues
+				TCComponent[] executeQuery3 = TCUtil.executeQuery(session, "__find_my_track_issues",
+						new String[] {"D9_IssueTL:HasParticipant.GroupMember:assignee.User:user.user_id","d9_ActualUserID" }, 
+						new String[] { "$USERID","$USERID" });
+				if (executeQuery3 != null && executeQuery3.length > 0) {
+					for (int i = 0; i < executeQuery3.length; i++) {
+						
+						if(executeQuery3[i] instanceof TCComponentIssueReportRevision) {
+							TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery3[i];
+							TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+							if(d9_IssueTL_ActualUser != null) {
+								String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+								System.out.println("item_id2 = "+item_id);
+								if(emp_no.equals(item_id)) {
+									trackingIssuesList.add(issue);
+								}
+							}
+						}
+					}
+				}
+				
+				if(myIssuesList !=null && myIssuesList.size() > 0) {
+					myIssuesFolder.setRelated("contents", myIssuesList.toArray(new TCComponentItemRevision[] {}));
+				} else {
+					myIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+				}
+				
+				if(executeIssuesList !=null && executeIssuesList.size() > 0) {
+					executeIssuesFolder.setRelated("contents", executeIssuesList.toArray(new TCComponentItemRevision[] {}));
+				} else {
+					executeIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+				}
+				
+				if(trackingIssuesList !=null && trackingIssuesList.size() > 0) {
+					trackingIssuesFolder.setRelated("contents", trackingIssuesList.toArray(new TCComponentItemRevision[] {}));
+				} else {
+					trackingIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+				}
+				
+			} else if("D9_IssueSearch".equals(type)){
+				String object_name = targetComponents[0].getProperty("object_name");
+				
+				if(MyIssues.equals(object_name)) {
+					ArrayList<TCComponentIssueReportRevision> myIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+					TCComponent myIssuesFolder = (TCComponent) targetComponents[0];
+
+					//我创建的 Issues
+					TCComponent[] executeQuery1 = TCUtil.executeQuery(session, "__find_my_issue_reports",
+							new String[] {"owning_user.user_id","d9_ActualUserID" }, new String[] { "$USERID",nickname+"("+emp_no+")" });
+					if (executeQuery1 != null && executeQuery1.length > 0) {
+						for (int i = 0; i < executeQuery1.length; i++) {
+							
+							if(executeQuery1[i] instanceof TCComponentIssueReportRevision) {
+								TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery1[i];
+								myIssuesList.add(issue);
+							}
+						}
+					}
+					
+					if(myIssuesList !=null && myIssuesList.size() > 0) {
+						myIssuesFolder.setRelated("contents", myIssuesList.toArray(new TCComponentItemRevision[] {}));
+					} else {
+						myIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+					}
+					
+				} else if(ExecuteIssues.equals(object_name)) {
+					TCComponent executeIssuesFolder = (TCComponent) targetComponents[0];
+					ArrayList<TCComponentIssueReportRevision> executeIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+					
+					//要执行的 Issues
+					TCComponent[] executeQuery2 = TCUtil.executeQuery(session, "__find_my_signoff_issues",
+							new String[] {"EPMTask:process_stage_list.fnd0StartedTasks.Signoff:Fnd0EPMSignoff.group_member.User:user.user_id","EPMTask:process_stage_list.EPMDoTask:fnd0StartedTasks.User:responsible_party.user_id" }, 
+							new String[] { "$USERID","$USERID" });
+					if (executeQuery2 != null && executeQuery2.length > 0) {
+						for (int i = 0; i < executeQuery2.length; i++) {
+							
+							if(executeQuery2[i] instanceof TCComponentIssueReportRevision) {
+								TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery2[i];
+								TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+								if(d9_IssueTL_ActualUser != null) {
+									String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+									System.out.println("item_id1 = "+item_id);
+									if(emp_no.equals(item_id)) {
+										executeIssuesList.add(issue);
+									}
+								}
+							}
+						}
+					}
+					
+					if(executeIssuesList !=null && executeIssuesList.size() > 0) {
+						executeIssuesFolder.setRelated("contents", executeIssuesList.toArray(new TCComponentItemRevision[] {}));
+					} else {
+						executeIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+					}
+					
+				} else if(TrackingIssues.equals(object_name)) {
+					TCComponent trackingIssuesFolder = (TCComponent) targetComponents[0];
+					ArrayList<TCComponentIssueReportRevision> trackingIssuesList = new ArrayList<TCComponentIssueReportRevision>();
+					
+					//要跟踪的 Issues
+					TCComponent[] executeQuery3 = TCUtil.executeQuery(session, "__find_my_track_issues",
+							new String[] {"D9_IssueTL:HasParticipant.GroupMember:assignee.User:user.user_id","d9_ActualUserID" }, 
+							new String[] { "$USERID","$USERID" });
+					if (executeQuery3 != null && executeQuery3.length > 0) {
+						for (int i = 0; i < executeQuery3.length; i++) {
+							
+							if(executeQuery3[i] instanceof TCComponentIssueReportRevision) {
+								TCComponentIssueReportRevision issue = (TCComponentIssueReportRevision) executeQuery3[i];
+								TCComponent d9_IssueTL_ActualUser = issue.getReferenceProperty("d9_IssueTL_ActualUser");
+								if(d9_IssueTL_ActualUser != null) {
+									String item_id = d9_IssueTL_ActualUser.getProperty("item_id");
+									System.out.println("item_id2 = "+item_id);
+									if(emp_no.equals(item_id)) {
+										trackingIssuesList.add(issue);
+									}
+								}
+							}
+						}
+					}
+					
+					if(trackingIssuesList !=null && trackingIssuesList.size() > 0) {
+						trackingIssuesFolder.setRelated("contents", trackingIssuesList.toArray(new TCComponentItemRevision[] {}));
+					} else {
+						trackingIssuesFolder.setRelated("contents", new TCComponentItemRevision[] {});
+					}
+				}
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			TCUtil.closeBypass(session);
+		}
+		
+		return null;
+	}
+	
+	 /**
+     * 創建 IssueFolder
+     * 
+     * @param session
+     * @param type
+     * @param name
+     * @return
+     */
+    public static TCComponent createIssueFolder(TCSession session, String type, String name)
+    {
+        List<ICreateInstanceInput>iputList = new ArrayList<>();
+        IBOCreateDefinition createDefinition = BOCreateDefinitionFactory.getInstance().getCreateDefinition(session, type);
+        CreateInstanceInput createInstanceInput = new CreateInstanceInput(createDefinition);
+        createInstanceInput.add("object_name", name);
+        iputList.add(createInstanceInput);
+        List<TCComponent> comps = null;
+        TCComponent folder = null;
+        try
+        {
+            comps = SOAGenericCreateHelper.create(session, createDefinition, iputList);
+            folder = (TCComponent)comps.get(0);
+        }
+        catch (TCException e)
+        {
+            e.printStackTrace();
+        }
+        return folder;
+    }
+}

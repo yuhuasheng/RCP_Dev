@@ -1,0 +1,65 @@
+package com.foxconn.mechanism.dtpac.matmaintain.util;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.tcutils.util.TCPropertes;
+
+public class TableTools {
+	
+	public static void updateData(MatMaintainBean bean, int index, String str) {
+		try {
+			Field[] fields = bean.getClass().getDeclaredFields();
+			List<Field> fieldList = new ArrayList<Field>(Arrays.asList(fields));
+			fieldList.removeIf(field -> field.getAnnotation(TCPropertes.class) == null);
+			fieldList.removeIf(field -> field.getType() == boolean.class);
+			for (Field field : fieldList) {
+				field.setAccessible(true);
+				TCPropertes tcProp = field.getAnnotation(TCPropertes.class);
+				int cell = tcProp.cell();
+				if (index != cell) {
+					continue;
+				}
+				
+				Object val = str;
+				Object orignValue = field.get(bean); // 获取原始值
+				
+				if (("".equals(orignValue) || orignValue == null) && (!"".equals(val) && val != null)) {
+					bean.setHasModify(true); // 设置发生更改
+				} else if ((!"".equals(orignValue) && orignValue != null) && ("".equals(val) || val == null)) {
+					bean.setHasModify(true); // 设置发生更改
+				} else if ((!"".equals(orignValue) && orignValue != null) && (!"".equals(val) || val != null)) {
+					if (field.getType() == Integer.class) {
+						if (((Integer) orignValue).intValue() != ((Integer) val).intValue()) {
+							bean.setHasModify(true); // 设置发生更改
+						}
+					} else {
+						if (!orignValue.toString().equals(val.toString())) {
+							bean.setHasModify(true); // 设置发生更改
+						}
+					}
+				}
+				
+				if (field.getType() == Integer.class) {
+					if ("".equals(str) || str == null) {
+						val = "";
+					} else {
+						val = Integer.parseInt(str);
+					}
+
+				} else {
+					if (str == null) {
+						val = "";
+					}
+				}
+
+				field.set(bean, val);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}

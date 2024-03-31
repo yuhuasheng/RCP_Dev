@@ -1,0 +1,103 @@
+package com.foxconn.mechanism.dtpac.matmaintain.listener;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+
+import com.foxconn.mechanism.dtpac.matmaintain.dialog.PACMatMaintainDialog;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.mechanism.dtpac.matmaintain.util.TableTools;
+import com.foxconn.tcutils.util.CommonTools;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+public class ButtonSelectionListener extends SelectionAdapter {
+	private Shell shell = null;
+	private TCSession session = null;
+	private Registry reg = null;
+	private TableViewer tv = null;	
+	private Label typeLabel = null;
+	private Label nameLabel = null;
+	private Combo typeCombo = null;
+	private Combo nameCombo = null;
+	private PACMatMaintainDialog dialog = null;
+	
+	public ButtonSelectionListener(Shell shell, TCSession session, Registry reg, TableViewer tv, Label typeLabel, Combo typeCombo, Label nameLabel, Combo nameCombo, PACMatMaintainDialog dialog) {
+		super();
+		this.shell = shell;
+		this.session = session;
+		this.reg = reg;
+		this.tv = tv;
+		this.typeLabel = typeLabel;
+		this.typeCombo = typeCombo;
+		this.nameLabel = nameLabel;
+		this.nameCombo = nameCombo;
+		this.dialog = dialog;
+		addListener();
+	}
+	
+	
+	private void addListener() {
+		
+		typeCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				if (!dialog.getCurMatType().equals(text)) {
+					boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + typeLabel.getText() 
+					+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					if (flag) {
+						nameCombo.removeAll();
+						List<String> matNameLovList = dialog.getLovValue(partType, text, null, null);
+						dialog.setComboValues(nameCombo, matNameLovList, 0);
+						
+						dialog.setCurMatType(text);
+						dialog.setCurMatName(nameCombo.getText());
+						
+						List<String> typeList = dialog.getLovValue(partType, text, nameCombo.getText(), null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+						
+					} else {
+						List<String> lovList = new ArrayList<String>(Arrays.asList(typeCombo.getItems()));
+						typeCombo.select(dialog.getIndex(lovList, dialog.getCurMatType()));
+					}					
+				}
+				
+			}
+		});	
+		
+		nameCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				if (!dialog.getCurMatName().equals(text)) {
+					boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + nameLabel.getText() 
+					+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					if (flag) {
+						dialog.setCurMatName(text);
+						List<String> typeList = dialog.getLovValue(partType, typeCombo.getText(), text, null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+					} else {
+						nameCombo.setText(dialog.getCurMatName());
+					}				
+					
+				}
+				
+			}
+		});	
+	}
+}

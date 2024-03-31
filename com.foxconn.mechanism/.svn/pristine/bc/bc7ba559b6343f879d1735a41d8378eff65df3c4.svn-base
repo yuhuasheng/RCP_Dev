@@ -1,0 +1,2422 @@
+package com.foxconn.mechanism.custommaterial.custommaterialnumrequest.window;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.swing.event.DocumentEvent.EventType;
+
+import org.apache.commons.collections4.map.HashedMap;
+import org.apache.commons.lang.ObjectUtils.Null;
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CCombo;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
+import org.eclipse.swt.events.MouseWheelListener;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.events.TypedEvent;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Group;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.wb.swt.SWTResourceManager;
+import com.foxconn.mechanism.Constants;
+import com.foxconn.mechanism.custommaterial.custommaterialbatchimport.CustomMaterialBatchImportAction;
+import com.foxconn.mechanism.custommaterial.custommaterialbatchimport.CustomMaterialConfigEntity;
+import com.foxconn.mechanism.custommaterial.custommaterialbatchimport.CustomMaterialDataEntity;
+import com.foxconn.mechanism.custommaterial.custommaterialbatchimport.CustomMaterialProperty;
+import com.foxconn.mechanism.custommaterial.custommaterialnumrequest.SupplierEntity;
+import com.foxconn.mechanism.util.CommonTools;
+import com.foxconn.mechanism.util.TCUtil;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.teamcenter.rac.aif.AbstractAIFDialog;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.AbstractAIFSession;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.ITypeName;
+import com.teamcenter.rac.kernel.ListOfValuesInfo;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentItemRevisionType;
+import com.teamcenter.rac.kernel.TCComponentListOfValues;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentProjectType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPropertyDescriptor;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.viewer.listener.CComboListener;
+import com.teamcenter.soa.client.model.LovInfo;
+import com.teamcenter.soa.client.model.LovValue;
+import com.teamcenter.soaictstubs.booleanSeq_tHolder;
+
+import cn.hutool.core.util.StrUtil;
+
+public class CustomMaterialNumDialog extends Dialog {
+
+	private Shell shell = null;
+	Text txt_supplier;
+	Text txt_contact;
+	Text txt_fax;
+	Text txt_tel;
+	Text txt_address;
+	private Text txt_plate;
+	private Text txt_pin_ming_spec_english;
+	CustomMaterialNumService service;
+	private MyCCombo cmb_49pcb_BOARD_Lamella;
+	public static String LABEL_49 = "49-PCB BOARD";
+	public static String LABEL_629 = "629-ACCESSORIES（SOFTWARE）";
+	public static String LABEL_713 = "713-PACKING ASS'Y";
+	public static String LABEL_71408 = "71408-A'SSY PANEL";
+	public static String LABEL_71407 = "71407-A'SSY FINAL";
+	public static String LABEL_7351 = "7351-HEATSINK ASS'Y(MONITOR)";
+	public static String LABEL_7148 = "7148-OTHER A'SSY";
+	public static String LABEL_7149 = "7149-SKD ASS'Y";
+	public static String LABEL_79 = "79-PCB ASS'Y";
+	public static String LABEL_8 = "8-FINISH GOOD";
+	public static String LABEL_X = "X-Network Communication Finish";
+	public static String ACTION_CREATE = "create";
+	public static String ACTION_MODIFY = "modify";
+	public static String ACTION_2ND = "request2nd";
+	private String label;
+	private String action;
+	private MyCCombo cmb_49pcb_BOARD_type;
+	private MyCCombo cmb_49pcb_BOARD_board_category;
+	private MyCCombo cmb_49pcb_BOARD_ENVIRONMENTAL;
+	MyCCombo cmb_49pcb_BOARD_maker_code;
+
+	private Text txt_pin_ming_spec_zh;
+	private Group group_79PCB;
+	private Group group_49pcb;
+	private Group gourp_629_713;
+	private Group group_71407_71408_7351;
+	private Group gourp_7148other;
+	private Group group_7149skd;
+	private Group group_8finish;
+	private Text txt_8_model_registered_with_sequential;
+	Shell emptyShell = new Shell();
+	private MyCCombo cmb_629_713_TYPE;
+	private MyCCombo cmb_629_713_ENVIRONMENTAL;
+	private MyCCombo cmb_matrial_no_big_category;
+	private Text txt_pin_ming_consulting;
+	public Text txt_finished_product_model_name;
+	private MyCCombo cmb_self_make_mode;
+	private MyCCombo cmb_minimum_unit_of_measure;
+	private Group group_proerty;
+	private Text txt_supplier_martial_no;
+	private MyCCombo cmb_8_product_classification;
+	private MyCCombo cmb_8_product_type;
+	private MyCCombo cmb_8_panel_source;
+	private MyCCombo cmb_customer_code;
+	private MyCCombo cmb_8_audio_input;
+	private MyCCombo cmb_8_environmental;
+	private Text txt_8_scaler_ic;
+	public AbstractAIFUIApplication app;
+	TCComponent revision;
+	private Group group_supplier;
+	private Group group_plate;
+	private MyCCombo cmb_71407_71408_7351_environmental;
+	private MyCCombo cmb_7148_classification;
+	private MyCCombo cmb_7148_environmental;
+	private MyCCombo cmb_79_pcb_assy_classification;
+	private MyCCombo cmb_79_vironmental;
+	MyCCombo cmb_79_production_type;
+
+	private MyCCombo cmb_79_maker_code;
+	private MyCCombo cmb_79_panel_source;
+	private MyCCombo cmb_7149_inch;
+	private MyCCombo cmb_panel;
+	private MyCCombo cmb_7149_mechanical_status;
+	private MyCCombo cmb_7149_pcba_status;
+	private MyCCombo cmb_7149_factory_classification;
+	private MyCCombo cmb_7149_environmental;
+
+	Label lab_derivative_model_id_code;
+
+	public Text txt_derivative_model_id_code;
+	public static String lovSeparator = "<==>";
+	private Registry reg = null;
+	private Group group_x;
+	private MyCCombo cmb_x_sub_type;
+	private MyCCombo cmb_x_customer;
+	private Text cmb_x_sku;
+	private MyCCombo cmb_x_adapter;
+	private MyCCombo cmb_x_battery;
+	private MyCCombo cmb_x_country;
+	private MyCCombo cmb_x_envirement;
+	Label lab_derivative_model_id_code_star;
+	Label lab_derivative_model_has_star;
+	private boolean allowEdit = true;
+	private int fonSize = 9;
+	private MyCCombo cmb_add_material_mode;
+	Label labe_pin_ming_consulting_star;
+	Label lab_derivative_model_has;
+	Label lab_place_of_shipment;
+	MyCCombo cmb_derivative_model_has;
+	MyCCombo cmb_place_of_shipment;
+	MyCCombo cmb_place_of_shipment_child;
+	Label lab_pcba_matiralNo;
+	private MyCCombo cmb_actuality_user;
+	private Map<String,ProjectCCombo> projectCComboMap = new HashMap<>();
+
+	public CustomMaterialNumDialog(Registry reg, AbstractAIFUIApplication app, String action, String label,
+			Shell parent) {
+		super(parent);
+		this.shell = parent;
+		this.service = new CustomMaterialNumService(this);
+		this.label = label;
+		this.action = action;
+		this.app = app;
+		InterfaceAIFComponent[] aifCom = app.getTargetComponents();
+		InterfaceAIFComponent aif = aifCom[0];
+		revision = (TCComponent) aif;
+		this.reg = reg;
+		if (ACTION_2ND.equals(action)) {
+			allowEdit = true;
+		} else if (TCUtil.isReleased((TCComponent) aif)
+				|| !TCUtil.checkUserPrivilege(TCUtil.getTCSession(), (TCComponent) aif)) {
+			allowEdit = false;
+		}
+
+		createContents();
+
+	}
+
+	private Shell showGroup(String... controlName) {
+
+		for (String name : controlName) {
+			if (label.equals(name)) {
+				return shell;
+			}
+		}
+
+//		return shell;
+		return emptyShell;
+	}
+
+	protected void createContents() {
+
+		int zoom = Display.getDefault().getPrimaryMonitor().getZoom();
+		if (zoom == 100) {
+			fonSize = 9;
+		}else if(zoom == 125){
+			fonSize = 8;
+		}else if(zoom == 150) {
+			fonSize = 7;
+		}else if(zoom == 175) {
+			fonSize = 6;
+		}else if(zoom == 200) {
+			fonSize = 5;
+		}
+		
+		Shell parent = shell;
+		shell = new Shell(shell, SWT.DIALOG_TRIM | SWT.CLOSE | SWT.PRIMARY_MODAL | SWT.RESIZE);
+		int height = 500;
+		if (label.equals(LABEL_8)) {
+			height = 527;
+		} else if (label.equals(LABEL_X)) {
+			height = 500;
+		} else if (label.equals(LABEL_49)) {
+			height = 465;
+		} else if (label.equals(LABEL_629)) {
+			height = 445;
+		}
+		shell.setSize(815, height);
+//		shell.setSize(1700, 1100);
+		shell.setImage(Registry.getRegistry(AbstractAIFDialog.class).getImage("aifDesktop.ICON"));
+		Rectangle parentBounds = parent.getBounds();
+		Rectangle shellBounds = shell.getBounds();
+		shell.setLocation(parentBounds.x + (parentBounds.width - shellBounds.width) / 2,
+				parentBounds.y + (parentBounds.height - shellBounds.height) / 2);
+		String title = reg.getString("reqeust.window.title") + "v1.0";
+		if (CustomMaterialNumDialog.ACTION_MODIFY.equals(action)) {
+			title = reg.getString("change.window.title");
+		}
+		if (CustomMaterialNumDialog.ACTION_2ND.equals(action)) {
+			title = reg.getString("secondsource.window.title");
+		}
+		title += " ( " + label + " )";
+		shell.setText(title);
+		shell.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		shell.setLayout(new RowLayout(SWT.HORIZONTAL));
+
+		group_49pcb = new Group(showGroup(LABEL_49), SWT.NONE);
+		group_49pcb.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_49pcb.setData("name", LABEL_49);
+		group_49pcb.setLayoutData(new RowData(780, 90));
+		group_49pcb.setText("ID Generation");
+
+		Label lblNewLabel = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel.setAlignment(SWT.RIGHT);
+		lblNewLabel.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblNewLabel.setBounds(115, 24, 120, 17);
+		lblNewLabel.setText(reg.getString("window.lamella"));
+
+		cmb_49pcb_BOARD_Lamella = new MyCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_BOARD_Lamella.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_49pcb_BOARD_Lamella.setData("name", "板層");
+		cmb_49pcb_BOARD_Lamella.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_BOARD_Lamella.setEditable(false);
+		cmb_49pcb_BOARD_Lamella.setListVisible(true);
+		cmb_49pcb_BOARD_Lamella.setBounds(241, 24, 165, 20);
+
+		Label lblType = new Label(group_49pcb, SWT.NONE);
+		lblType.setAlignment(SWT.RIGHT);
+		lblType.setText("TYPE");
+		lblType.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType.setBounds(468, 24, 120, 17);
+
+		cmb_49pcb_BOARD_type = new MyCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_BOARD_type.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_49pcb_BOARD_type.setData("name", "TYPE");
+		cmb_49pcb_BOARD_type.setListVisible(true);
+		cmb_49pcb_BOARD_type.setItems(new String[] { "HEAD" });
+		cmb_49pcb_BOARD_type.setEditable(false);
+		cmb_49pcb_BOARD_type.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_BOARD_type.setBounds(594, 24, 166, 20);
+
+		cmb_49pcb_BOARD_board_category = new MyCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_BOARD_board_category.setData("name", "板子類別");
+		cmb_49pcb_BOARD_board_category.setListVisible(true);
+		cmb_49pcb_BOARD_board_category.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_49pcb_BOARD_board_category.setItems(new String[] { "HEAD" });
+		cmb_49pcb_BOARD_board_category.setEditable(false);
+		cmb_49pcb_BOARD_board_category.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_BOARD_board_category.setBounds(241, 50, 165, 20);
+
+		Label lblType_1 = new Label(group_49pcb, SWT.NONE);
+		lblType_1.setAlignment(SWT.RIGHT);
+		lblType_1.setText(reg.getString("window.board.category"));
+		lblType_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1.setBounds(115, 50, 120, 17);
+
+		Label lblType_1_1 = new Label(group_49pcb, SWT.NONE);
+		lblType_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1.setText("ENVIRONMENTAL");
+		lblType_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1.setBounds(438, 50, 150, 17);
+
+		cmb_49pcb_BOARD_ENVIRONMENTAL = new MyCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setData("name", "ENVIRONMENTAL");
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setListVisible(true);
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setItems(new String[] { "HEAD" });
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setEditable(false);
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_BOARD_ENVIRONMENTAL.setBounds(594, 50, 166, 20);
+
+		cmb_49pcb_BOARD_maker_code = new MyCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_BOARD_maker_code.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_49pcb_BOARD_maker_code.setData("name", "MAKER CODE");
+		cmb_49pcb_BOARD_maker_code.setListVisible(true);
+		cmb_49pcb_BOARD_maker_code.setItems(new String[] { "HEAD" });
+		cmb_49pcb_BOARD_maker_code.setEditable(false);
+		cmb_49pcb_BOARD_maker_code.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_BOARD_maker_code.setBounds(241, 76, 165, 20);
+		cmb_49pcb_BOARD_maker_code.addSelectionListener(new SelectionListener() {
+
+			@Override
+			public void widgetSelected(SelectionEvent arg0) {
+				service.onChangeItem((MyCCombo) arg0.getSource());
+			}
+
+			@Override
+			public void widgetDefaultSelected(SelectionEvent arg0) {
+				// TODO Auto-generated method stub
+
+			}
+		});
+
+		Label lblType_1_1_1 = new Label(group_49pcb, SWT.NONE);
+		lblType_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1.setText("MAKER CODE");
+		lblType_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1.setBounds(115, 79, 120, 17);
+
+		Label lblNewLabel_1 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_1.setBounds(410, 26, 10, 9);
+		lblNewLabel_1.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_1.setText("*");
+
+		Label lblNewLabel_2 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_2.setText("*");
+		lblNewLabel_2.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_2.setBounds(766, 24, 10, 9);
+
+		Label lblNewLabel_3 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_3.setText("*");
+		lblNewLabel_3.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_3.setBounds(766, 50, 10, 9);
+
+		Label lblNewLabel_12 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_12.setText("*");
+		lblNewLabel_12.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_12.setBounds(410, 50, 10, 9);
+
+		Label lblNewLabel_13 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_13.setText("*");
+		lblNewLabel_13.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_13.setBounds(410, 76, 10, 9);
+		
+		Label lblType_1_3_1_2_1 = new Label(group_49pcb, SWT.NONE);
+		lblType_1_3_1_2_1.setText("專案名");
+		lblType_1_3_1_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1.setBounds(457, 76, 131, 17);
+		
+		ProjectCCombo cmb_49pcb_project = new ProjectCCombo(group_49pcb, SWT.BORDER);
+		cmb_49pcb_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_49pcb_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_49pcb_project.setBounds(594, 76, 166, 20);
+		projectCComboMap.put(LABEL_49,cmb_49pcb_project);
+		
+		Label lblNewLabel_3_1 = new Label(group_49pcb, SWT.NONE);
+		lblNewLabel_3_1.setText("*");
+		lblNewLabel_3_1.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_3_1.setBounds(766, 76, 10, 9);
+
+		gourp_629_713 = new Group(showGroup(LABEL_629, LABEL_713), SWT.NONE);
+		gourp_629_713.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		gourp_629_713.setData("name", new String[] { LABEL_629, LABEL_713 });
+		gourp_629_713.setLayoutData(new RowData(780, 70));
+		gourp_629_713.setText("ID Generation");
+
+		Label lblType_2 = new Label(gourp_629_713, SWT.NONE);
+		lblType_2.setText("TYPE");
+		lblType_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_2.setAlignment(SWT.RIGHT);
+		lblType_2.setBounds(117, 31, 118, 17);
+
+		cmb_629_713_TYPE = new MyCCombo(gourp_629_713, SWT.BORDER);
+		cmb_629_713_TYPE.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_629_713_TYPE.setData("name", "TYPE");
+		cmb_629_713_TYPE.setListVisible(true);
+		cmb_629_713_TYPE.setItems(new String[] { "HEAD" });
+		cmb_629_713_TYPE.setEditable(false);
+		cmb_629_713_TYPE.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_629_713_TYPE.setBounds(241, 28, 168, 20);
+
+		Label lblType_1_1_2 = new Label(gourp_629_713, SWT.NONE);
+		lblType_1_1_2.setText("ENVIRONMENTAL");
+		lblType_1_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NONE));
+		lblType_1_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_2.setBounds(78, 54, 149, 17);
+
+		cmb_629_713_ENVIRONMENTAL = new MyCCombo(gourp_629_713, SWT.BORDER);
+		cmb_629_713_ENVIRONMENTAL.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_629_713_ENVIRONMENTAL.setData("name", "ENVIRONMENTAL");
+		cmb_629_713_ENVIRONMENTAL.setListVisible(true);
+		cmb_629_713_ENVIRONMENTAL.setItems(new String[] { "HEAD" });
+		cmb_629_713_ENVIRONMENTAL.setEditable(false);
+		cmb_629_713_ENVIRONMENTAL.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_629_713_ENVIRONMENTAL.setBounds(241, 54, 168, 20);
+
+		Label lblNewLabel_4 = new Label(gourp_629_713, SWT.NONE);
+		lblNewLabel_4.setText("*");
+		lblNewLabel_4.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_4.setBounds(415, 30, 10, 9);
+
+		Label lblNewLabel_6 = new Label(gourp_629_713, SWT.NONE);
+		lblNewLabel_6.setText("*");
+		lblNewLabel_6.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_6.setBounds(415, 54, 10, 9);
+		
+		ProjectCCombo cmb_629_713_project = new ProjectCCombo(gourp_629_713, SWT.BORDER);
+		cmb_629_713_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_629_713_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_629_713_project.setBounds(627, 28, 135, 20);
+		projectCComboMap.put(LABEL_629,cmb_629_713_project);
+		projectCComboMap.put(LABEL_713,cmb_629_713_project);
+		
+		Label lblType_1_3_1_2_1_1_1_1_1 = new Label(gourp_629_713, SWT.NONE);
+		lblType_1_3_1_2_1_1_1_1_1.setText("專案名");
+		lblType_1_3_1_2_1_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1_1_1_1_1.setBounds(479, 31, 131, 17);
+		
+		Label lblNewLabel_9_1 = new Label(gourp_629_713, SWT.NONE);
+		lblNewLabel_9_1.setText("*");
+		lblNewLabel_9_1.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_9_1.setBounds(768, 25, 10, 9);
+
+		group_71407_71408_7351 = new Group(showGroup(LABEL_71407, LABEL_71408, LABEL_7351), SWT.NONE);
+		group_71407_71408_7351.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_71407_71408_7351.setData("name", new String[] { LABEL_71407, LABEL_71408, LABEL_7351 });
+		group_71407_71408_7351.setLayoutData(new RowData(780, 55));
+		group_71407_71408_7351.setText("ID Generation");
+
+		Label lblType_1_1_2_1 = new Label(group_71407_71408_7351, SWT.NONE);
+		lblType_1_1_2_1.setText("ENVIRONMENTAL");
+		lblType_1_1_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_2_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_2_1.setBounds(78, 32, 152, 17);
+
+		cmb_71407_71408_7351_environmental = new MyCCombo(group_71407_71408_7351, SWT.BORDER);
+		cmb_71407_71408_7351_environmental.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_71407_71408_7351_environmental.setData("name", "ENVIRONMENTAL");
+		cmb_71407_71408_7351_environmental.setListVisible(true);
+		cmb_71407_71408_7351_environmental.setItems(new String[] { "HEAD" });
+		cmb_71407_71408_7351_environmental.setEditable(false);
+		cmb_71407_71408_7351_environmental.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_71407_71408_7351_environmental.setBounds(238, 29, 166, 20);
+
+		Label lblNewLabel_8 = new Label(group_71407_71408_7351, SWT.NONE);
+		lblNewLabel_8.setText("*");
+		lblNewLabel_8.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_8.setBounds(407, 29, 10, 9);
+		
+		Label lblType_1_3_1_2_1_1 = new Label(group_71407_71408_7351, SWT.NONE);
+		lblType_1_3_1_2_1_1.setText("專案名");
+		lblType_1_3_1_2_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1_1.setBounds(459, 29, 131, 17);
+		
+		ProjectCCombo cmb_71407_71408_7351_project = new ProjectCCombo(group_71407_71408_7351, SWT.BORDER);
+		cmb_71407_71408_7351_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_71407_71408_7351_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_71407_71408_7351_project.setBounds(596, 29, 166, 20);
+		projectCComboMap.put(LABEL_71407,cmb_71407_71408_7351_project);
+		projectCComboMap.put(LABEL_71408,cmb_71407_71408_7351_project);
+		projectCComboMap.put(LABEL_7351,cmb_71407_71408_7351_project);
+		
+		Label lblNewLabel_3_2 = new Label(group_71407_71408_7351, SWT.NONE);
+		lblNewLabel_3_2.setText("*");
+		lblNewLabel_3_2.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_3_2.setBounds(768, 29, 10, 9);
+
+		gourp_7148other = new Group(showGroup(LABEL_7148), SWT.NONE);
+		gourp_7148other.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		gourp_7148other.setData("name", LABEL_7148);
+		gourp_7148other.setLayoutData(new RowData(780, 70));
+		gourp_7148other.setText("ID Generation");
+
+		Label lblType_2_1 = new Label(gourp_7148other, SWT.NONE);
+		lblType_2_1.setText("CLASSIFICATION");
+		lblType_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_2_1.setAlignment(SWT.RIGHT);
+		lblType_2_1.setBounds(77, 28, 152, 17);
+
+		cmb_7148_classification = new MyCCombo(gourp_7148other, SWT.BORDER);
+		cmb_7148_classification.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7148_classification.setData("name", "CLASSIFICATION");
+		cmb_7148_classification.setListVisible(true);
+		cmb_7148_classification.setItems(new String[] { "HEAD" });
+		cmb_7148_classification.setEditable(false);
+		cmb_7148_classification.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7148_classification.setBounds(243, 28, 164, 20);
+
+		Label lblType_1_1_2_2 = new Label(gourp_7148other, SWT.NONE);
+		lblType_1_1_2_2.setText("ENVIRONMENTAL");
+		lblType_1_1_2_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_2_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_2_2.setBounds(77, 54, 152, 17);
+
+		cmb_7148_environmental = new MyCCombo(gourp_7148other, SWT.BORDER);
+		cmb_7148_environmental.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7148_environmental.setData("name", "ENVIRONMENTAL");
+		cmb_7148_environmental.setListVisible(true);
+		cmb_7148_environmental.setItems(new String[] { "HEAD" });
+		cmb_7148_environmental.setEditable(false);
+		cmb_7148_environmental.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7148_environmental.setBounds(243, 54, 164, 20);
+
+		Label lblNewLabel_9 = new Label(gourp_7148other, SWT.NONE);
+		lblNewLabel_9.setText("*");
+		lblNewLabel_9.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_9.setBounds(413, 28, 10, 9);
+
+		Label lblNewLabel_11 = new Label(gourp_7148other, SWT.NONE);
+		lblNewLabel_11.setText("*");
+		lblNewLabel_11.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_11.setBounds(413, 54, 10, 9);
+		
+		Label lblType_1_3_1_2_1_1_1_1_1_1 = new Label(gourp_7148other, SWT.NONE);
+		lblType_1_3_1_2_1_1_1_1_1_1.setText("專案名");
+		lblType_1_3_1_2_1_1_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1_1_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1_1_1_1_1_1.setBounds(476, 31, 131, 17);
+		
+		ProjectCCombo cmb_7148_project = new ProjectCCombo(gourp_7148other, SWT.BORDER);
+		cmb_7148_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_7148_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7148_project.setBounds(624, 28, 135, 20);
+		projectCComboMap.put(LABEL_7148,cmb_7148_project);
+		
+		Label lblNewLabel_9_2 = new Label(gourp_7148other, SWT.NONE);
+		lblNewLabel_9_2.setText("*");
+		lblNewLabel_9_2.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_9_2.setBounds(765, 28, 10, 9);
+
+		group_7149skd = new Group(showGroup(LABEL_7149), SWT.NONE);
+		group_7149skd.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_7149skd.setData("name", LABEL_7149);
+		group_7149skd.setLayoutData(new RowData(780, 120));
+		group_7149skd.setText("ID Generation");
+
+		Label lblInch = new Label(group_7149skd, SWT.NONE);
+		lblInch.setText("INCH");
+		lblInch.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblInch.setAlignment(SWT.RIGHT);
+		lblInch.setBounds(132, 35, 120, 17);
+
+		cmb_panel = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_panel.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_panel.setListVisible(true);
+		cmb_panel.setData("name", "PANEL");
+		cmb_panel.setEditable(false);
+		cmb_panel.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_panel.setBounds(269, 62, 135, 20);
+
+		Label lblPanel = new Label(group_7149skd, SWT.NONE);
+		lblPanel.setText("PANEL");
+		lblPanel.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPanel.setAlignment(SWT.RIGHT);
+		lblPanel.setBounds(132, 65, 120, 17);
+
+		cmb_7149_mechanical_status = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_mechanical_status.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7149_mechanical_status.setData("name", "MECHANICAL Status");
+		cmb_7149_mechanical_status.setListVisible(true);
+		cmb_7149_mechanical_status.setEditable(false);
+		cmb_7149_mechanical_status.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_mechanical_status.setBounds(269, 88, 135, 20);
+
+		cmb_7149_pcba_status = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_pcba_status.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7149_pcba_status.setData("name", "PCBA STATUS");
+		cmb_7149_pcba_status.setListVisible(true);
+		cmb_7149_pcba_status.setEditable(false);
+		cmb_7149_pcba_status.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_pcba_status.setBounds(625, 32, 135, 20);
+
+		Label lblType_1_3 = new Label(group_7149skd, SWT.NONE);
+		lblType_1_3.setText("MECHANICAL STATUS");
+		lblType_1_3.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_3.setAlignment(SWT.RIGHT);
+		lblType_1_3.setBounds(99, 91, 151, 17);
+
+		Label lblType_1_1_3 = new Label(group_7149skd, SWT.NONE);
+		lblType_1_1_3.setText("PCBA STATUS");
+		lblType_1_1_3.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3.setAlignment(SWT.RIGHT);
+		lblType_1_1_3.setBounds(488, 35, 120, 17);
+
+		cmb_7149_factory_classification = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_factory_classification.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7149_factory_classification.setData("name", "FACTORY CLASSIFICATION");
+		cmb_7149_factory_classification.setListVisible(true);
+		cmb_7149_factory_classification.setItems(new String[] { "HEAD" });
+		cmb_7149_factory_classification.setEditable(false);
+		cmb_7149_factory_classification.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_factory_classification.setBounds(625, 58, 135, 20);
+
+		cmb_7149_environmental = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_environmental.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7149_environmental.setData("name", "ENVIRONMENTAL");
+		cmb_7149_environmental.setListVisible(true);
+		cmb_7149_environmental.setItems(new String[] { "HEAD" });
+		cmb_7149_environmental.setEditable(false);
+		cmb_7149_environmental.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_environmental.setBounds(625, 84, 135, 20);
+
+		Label lblType_1_1_1_2 = new Label(group_7149skd, SWT.NONE);
+		lblType_1_1_1_2.setText("FACTORY CLASSIFICATION");
+		lblType_1_1_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2.setBounds(424, 61, 184, 17);
+
+		Label lblType_1_1_1_2_1 = new Label(group_7149skd, SWT.NONE);
+		lblType_1_1_1_2_1.setText("ENVIRONMENTAL");
+		lblType_1_1_1_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_1.setBounds(457, 84, 151, 17);
+
+		cmb_7149_inch = new MyCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_inch.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_7149_inch.setData("name", "INCH");
+		cmb_7149_inch.setListVisible(true);
+		cmb_7149_inch.setItems(new String[] { "HEAD" });
+		cmb_7149_inch.setEditable(false);
+		cmb_7149_inch.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_inch.setBounds(269, 36, 135, 20);
+
+		Label lblNewLabel_14 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_14.setText("*");
+		lblNewLabel_14.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_14.setBounds(410, 40, 10, 9);
+
+		Label lblNewLabel_15 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_15.setText("*");
+		lblNewLabel_15.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_15.setBounds(410, 62, 10, 9);
+
+		Label lblNewLabel_16 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_16.setText("*");
+		lblNewLabel_16.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_16.setBounds(410, 88, 10, 9);
+
+		Label lblNewLabel_17 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_17.setText("*");
+		lblNewLabel_17.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_17.setBounds(766, 36, 10, 9);
+
+		Label lblNewLabel_18 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_18.setText("*");
+		lblNewLabel_18.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_18.setBounds(766, 58, 10, 9);
+
+		Label lblNewLabel_19 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_19.setText("*");
+		lblNewLabel_19.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_19.setBounds(766, 84, 10, 9);
+		
+		ProjectCCombo cmb_7149_project = new ProjectCCombo(group_7149skd, SWT.BORDER);
+		cmb_7149_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_7149_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_7149_project.setBounds(625, 110, 135, 20);
+		projectCComboMap.put(LABEL_7149,cmb_7149_project);
+		
+		Label lblType_1_3_1_2_1_1_1 = new Label(group_7149skd, SWT.NONE);
+		lblType_1_3_1_2_1_1_1.setText("專案名");
+		lblType_1_3_1_2_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1_1_1.setBounds(477, 113, 131, 17);
+		
+		Label lblNewLabel_3_3 = new Label(group_7149skd, SWT.NONE);
+		lblNewLabel_3_3.setText("*");
+		lblNewLabel_3_3.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_3_3.setBounds(766, 110, 10, 9);
+
+		group_79PCB = new Group(showGroup(LABEL_79), SWT.NONE);
+		group_79PCB.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_79PCB.setData("name", LABEL_79);
+		group_79PCB.setLayoutData(new RowData(780, 90));
+		group_79PCB.setText("ID Generation");
+
+		Label lblPcbAssyClassification = new Label(group_79PCB, SWT.NONE);
+		lblPcbAssyClassification.setText("PCB ASS'Y CLASSIFICATION");
+		lblPcbAssyClassification.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPcbAssyClassification.setAlignment(SWT.RIGHT);
+		lblPcbAssyClassification.setBounds(69, 23, 184, 17);
+
+		cmb_79_production_type = new MyCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_production_type.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_79_production_type.setData("name", "PRODUCTION TYPE");
+		cmb_79_production_type.setListVisible(true);
+		cmb_79_production_type.setEditable(false);
+		cmb_79_production_type.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_production_type.setBounds(270, 49, 135, 20);
+		cmb_79_production_type.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				// 处理事件
+				service.onChangeItem((MyCCombo) e.getSource());
+			}
+		});
+
+		Label lblProductionType = new Label(group_79PCB, SWT.NONE);
+		lblProductionType.setText("PRODUCTION TYPE");
+		lblProductionType.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblProductionType.setAlignment(SWT.RIGHT);
+		lblProductionType.setBounds(79, 49, 174, 17);
+
+		cmb_79_panel_source = new MyCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_panel_source.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_79_panel_source.setData("name", "PANEL SOURCE");
+		cmb_79_panel_source.setListVisible(true);
+		cmb_79_panel_source.setEditable(false);
+		cmb_79_panel_source.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_panel_source.setBounds(270, 78, 135, 20);
+
+		cmb_79_vironmental = new MyCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_vironmental.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_79_vironmental.setData("name", "VIRONMENTAL");
+		cmb_79_vironmental.setListVisible(true);
+		cmb_79_vironmental.setEditable(false);
+		cmb_79_vironmental.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_vironmental.setBounds(625, 23, 135, 20);
+
+		Label lblType_1_3_1 = new Label(group_79PCB, SWT.NONE);
+		lblType_1_3_1.setText("PANEL SOURCE");
+		lblType_1_3_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_3_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1.setBounds(102, 78, 151, 17);
+
+		Label lblType_1_1_3_1 = new Label(group_79PCB, SWT.NONE);
+		lblType_1_1_3_1.setText("VIRONMENTAL");
+		lblType_1_1_3_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_3_1.setBounds(488, 26, 120, 17);
+
+		cmb_79_maker_code = new MyCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_maker_code.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_79_maker_code.setData("name", "MAKER CODE");
+		cmb_79_maker_code.setListVisible(true);
+		cmb_79_maker_code.setEditable(false);
+		cmb_79_maker_code.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_maker_code.setBounds(625, 49, 135, 20);
+
+		Label lblType_1_1_1_2_2 = new Label(group_79PCB, SWT.NONE);
+		lblType_1_1_1_2_2.setText("MAKER CODE");
+		lblType_1_1_1_2_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2.setBounds(463, 52, 145, 17);
+
+		cmb_79_pcb_assy_classification = new MyCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_pcb_assy_classification.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_79_pcb_assy_classification.setData("name", "PCB ASS'Y CLASSIFICATION");
+		cmb_79_pcb_assy_classification.setListVisible(true);
+		cmb_79_pcb_assy_classification.setEditable(false);
+		cmb_79_pcb_assy_classification.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_pcb_assy_classification.setBounds(270, 23, 135, 20);
+
+		Label lblNewLabel_20 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_20.setText("*");
+		lblNewLabel_20.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_20.setBounds(411, 23, 10, 9);
+
+		Label lblNewLabel_21 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_21.setText("*");
+		lblNewLabel_21.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_21.setBounds(411, 49, 10, 9);
+
+		Label lblNewLabel_22 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_22.setText("*");
+		lblNewLabel_22.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_22.setBounds(411, 78, 10, 9);
+
+		Label lblNewLabel_24 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_24.setText("*");
+		lblNewLabel_24.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_24.setBounds(766, 20, 10, 9);
+
+		Label lblNewLabel_25 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_25.setText("*");
+		lblNewLabel_25.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_25.setBounds(766, 49, 10, 9);
+		
+		ProjectCCombo cmb_79_project = new ProjectCCombo(group_79PCB, SWT.BORDER);
+		cmb_79_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_79_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_79_project.setBounds(625, 78, 135, 20);
+		projectCComboMap.put(LABEL_79,cmb_79_project);
+		
+		
+		Label lblType_1_3_1_2 = new Label(group_79PCB, SWT.NONE);
+		lblType_1_3_1_2.setText("專案名");
+		lblType_1_3_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2.setBounds(457, 78, 151, 17);
+		
+		Label lblNewLabel_22_1 = new Label(group_79PCB, SWT.NONE);
+		lblNewLabel_22_1.setText("*");
+		lblNewLabel_22_1.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_22_1.setBounds(766, 78, 10, 9);
+
+		group_8finish = new Group(showGroup(LABEL_8), SWT.NONE);
+		group_8finish.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_8finish.setData("name", LABEL_8);
+		group_8finish.setLayoutData(new RowData(780, 150));
+		group_8finish.setText("ID Generation");
+
+		Label lblPcbAssyClassification_2 = new Label(group_8finish, SWT.NONE);
+		lblPcbAssyClassification_2.setText("PRODUCT TYPE");
+		lblPcbAssyClassification_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPcbAssyClassification_2.setAlignment(SWT.RIGHT);
+		lblPcbAssyClassification_2.setBounds(72, 20, 184, 17);
+
+		cmb_8_product_classification = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_product_classification.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_product_classification.setData("name", "PRODUCT CLASSIFICATION");
+		cmb_8_product_classification.setListVisible(true);
+		cmb_8_product_classification.setEditable(false);
+		cmb_8_product_classification.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_product_classification.setBounds(273, 46, 135, 20);
+
+		Label lblProductionType_1 = new Label(group_8finish, SWT.NONE);
+		lblProductionType_1.setText("PRODUCT CLASSIFICATION");
+		lblProductionType_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblProductionType_1.setAlignment(SWT.RIGHT);
+		lblProductionType_1.setBounds(72, 46, 184, 17);
+
+		cmb_8_panel_source = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_panel_source.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_panel_source.setData("name", "PANEL SOURCE");
+		cmb_8_panel_source.setListVisible(true);
+		cmb_8_panel_source.setEditable(false);
+		cmb_8_panel_source.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_panel_source.setBounds(273, 102, 135, 20);
+
+		Label lblType_1_3_1_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_3_1_1.setText("MODEL REGISTERED,WITH SEQUENTIAL");
+		lblType_1_3_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_3_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_1.setBounds(-36, 75, 293, 17);
+
+		Label lblType_1_1_3_1_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_3_1_1.setText("PANEL SOURCE");
+		lblType_1_1_3_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_3_1_1.setBounds(121, 105, 135, 17);
+
+		cmb_customer_code = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_customer_code.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_customer_code.setData("name", "CUSTOMER CODE");
+		cmb_customer_code.setListVisible(true);
+		cmb_customer_code.setItems(new String[] { "HEAD" });
+		cmb_customer_code.setEditable(false);
+		cmb_customer_code.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_customer_code.setBounds(625, 20, 135, 20);
+
+		Label lblType_1_1_1_2_2_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_1_2_2_1.setText("CUSTOMER CODE");
+		lblType_1_1_1_2_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1.setBounds(473, 23, 135, 17);
+
+		cmb_8_product_type = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_product_type.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_product_type.setData("name", "PRODUCT TYPE");
+		cmb_8_product_type.setListVisible(true);
+		cmb_8_product_type.setEditable(false);
+		cmb_8_product_type.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_product_type.setBounds(273, 20, 135, 20);
+
+		txt_8_model_registered_with_sequential = new Text(group_8finish, SWT.BORDER);
+		txt_8_model_registered_with_sequential
+				.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_8_model_registered_with_sequential.setData("name", "MODEL REGISTERED,WITH SEQUENTIAL");
+		txt_8_model_registered_with_sequential.setBounds(273, 74, 135, 20);
+
+		Label lblType_1_1_1_2_2_1_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_1_2_2_1_1.setText("AUDIO INPUT");
+		lblType_1_1_1_2_2_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1.setBounds(473, 49, 135, 17);
+
+		cmb_8_audio_input = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_audio_input.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_audio_input.setData("name", "AUDIO INPUT");
+		cmb_8_audio_input.setListVisible(true);
+		cmb_8_audio_input.setEditable(false);
+		cmb_8_audio_input.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_audio_input.setBounds(625, 46, 135, 20);
+
+		Label lblType_1_1_1_2_2_1_1_2 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_2.setText("POWER CORD TYPE");
+		lblType_1_1_1_2_2_1_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_2.setBounds(450, 78, 158, 17);
+
+		MyCCombo cmb_8_power_cord_type = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_power_cord_type.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_power_cord_type.setData("name", "POWER CORD TYPE");
+		cmb_8_power_cord_type.setListVisible(true);
+		cmb_8_power_cord_type.setEditable(false);
+		cmb_8_power_cord_type.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_power_cord_type.setBounds(625, 75, 135, 20);
+
+		Label lblType_1_1_1_2_2_1_1_2_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_2_1.setText("ENVIRONMENTAL");
+		lblType_1_1_1_2_2_1_1_2_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_2_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_2_1.setBounds(473, 105, 135, 17);
+
+		cmb_8_environmental = new MyCCombo(group_8finish, SWT.BORDER);
+		cmb_8_environmental.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_8_environmental.setData("name", "ENVIRONMENTAL");
+		cmb_8_environmental.setListVisible(true);
+		cmb_8_environmental.setEditable(false);
+		cmb_8_environmental.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_environmental.setBounds(625, 102, 135, 20);
+
+		Label lblType_1_1_1_2_2_1_2 = new Label(group_8finish, SWT.NONE);
+		lblType_1_1_1_2_2_1_2.setText("SCALER IC");
+		lblType_1_1_1_2_2_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_2.setBounds(121, 131, 135, 17);
+
+		txt_8_scaler_ic = new Text(group_8finish, SWT.BORDER);
+		txt_8_scaler_ic.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_8_scaler_ic.setData("name", "SCALER IC");
+		txt_8_scaler_ic.setBounds(273, 128, 135, 20);
+
+		Label lblNewLabel_26 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_26.setText("*");
+		lblNewLabel_26.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_26.setBounds(414, 20, 10, 9);
+
+		Label lblNewLabel_27 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_27.setText("*");
+		lblNewLabel_27.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_27.setBounds(414, 46, 10, 9);
+
+		Label lblNewLabel_28 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_28.setText("*");
+		lblNewLabel_28.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_28.setBounds(414, 75, 10, 9);
+
+		Label lblNewLabel_29 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_29.setText("*");
+		lblNewLabel_29.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_29.setBounds(414, 102, 10, 9);
+
+		Label lblNewLabel_30 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_30.setText("*");
+		lblNewLabel_30.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_30.setBounds(414, 128, 10, 9);
+
+		Label lblNewLabel_31 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_31.setText("*");
+		lblNewLabel_31.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_31.setBounds(766, 20, 10, 9);
+
+		Label lblNewLabel_32 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_32.setText("*");
+		lblNewLabel_32.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_32.setBounds(766, 46, 10, 9);
+
+		Label lblNewLabel_33 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_33.setText("*");
+		lblNewLabel_33.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_33.setBounds(766, 75, 10, 9);
+
+		Label lblNewLabel_34 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_34.setText("*");
+		lblNewLabel_34.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_34.setBounds(766, 102, 10, 9);
+		
+		ProjectCCombo cmb_8_project = new ProjectCCombo(group_8finish, SWT.BORDER);
+		cmb_8_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_8_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_8_project.setBounds(625, 128, 135, 20);
+		projectCComboMap.put(LABEL_8,cmb_8_project);
+		
+		Label lblType_1_3_1_2_1_1_1_1 = new Label(group_8finish, SWT.NONE);
+		lblType_1_3_1_2_1_1_1_1.setText("專案名");
+		lblType_1_3_1_2_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_1_1_1_1.setBounds(477, 131, 131, 17);
+		
+		Label lblNewLabel_3_4 = new Label(group_8finish, SWT.NONE);
+		lblNewLabel_3_4.setText("*");
+		lblNewLabel_3_4.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_3_4.setBounds(766, 128, 10, 9);
+
+		group_x = new Group(showGroup(LABEL_X), SWT.NONE);
+		group_x.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_x.setLayoutData(new RowData(780, 123));
+		group_x.setText("ID Generation");
+		group_x.setData("name", LABEL_X);
+
+		Label lblType_3 = new Label(group_x, SWT.NONE);
+		lblType_3.setText("\u5B50\u985E\u5225");
+		lblType_3.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_3.setAlignment(SWT.RIGHT);
+		lblType_3.setBounds(107, 21, 118, 17);
+
+		cmb_x_sub_type = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_sub_type.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_sub_type.setData("name", "子類別");
+		cmb_x_sub_type.setListVisible(true);
+		cmb_x_sub_type.setItems(new String[] { "HEAD" });
+		cmb_x_sub_type.setEditable(false);
+		cmb_x_sub_type.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_sub_type.setBounds(239, 21, 168, 20);
+
+		Label lblType_1_4 = new Label(group_x, SWT.NONE);
+		lblType_1_4.setText("\u578B\u865F/\u6A5F\u7A2E");
+		lblType_1_4.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_4.setAlignment(SWT.RIGHT);
+		lblType_1_4.setBounds(107, 47, 118, 17);
+
+		Label lblType_1_1_4 = new Label(group_x, SWT.NONE);
+		lblType_1_1_4.setText("\u5BA2\u6236");
+		lblType_1_1_4.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_4.setAlignment(SWT.RIGHT);
+		lblType_1_1_4.setBounds(107, 73, 118, 17);
+
+		cmb_x_customer = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_customer.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_customer.setData("name", "客戶");
+		cmb_x_customer.setListVisible(true);
+		cmb_x_customer.setItems(new String[] { "HEAD" });
+		cmb_x_customer.setEditable(false);
+		cmb_x_customer.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_customer.setBounds(239, 73, 168, 20);
+
+		cmb_x_sku = new Text(group_x, SWT.BORDER);
+		cmb_x_sku.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_sku.setBounds(239, 47, 168, 20);
+		cmb_x_sku.setData("name", "型號/機種");
+
+		cmb_x_adapter = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_adapter.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_adapter.setData("name", "Adapter");
+		cmb_x_adapter.setListVisible(true);
+		cmb_x_adapter.setItems(new String[] { "HEAD" });
+		cmb_x_adapter.setEditable(false);
+		cmb_x_adapter.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_adapter.setBounds(239, 99, 168, 20);
+
+		Label lblType_1_1_5 = new Label(group_x, SWT.NONE);
+		lblType_1_1_5.setText("Adapter");
+		lblType_1_1_5.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_5.setAlignment(SWT.RIGHT);
+		lblType_1_1_5.setBounds(107, 99, 118, 17);
+
+		cmb_x_battery = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_battery.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_battery.setData("name", "Battery");
+		cmb_x_battery.setListVisible(true);
+		cmb_x_battery.setItems(new String[] { "HEAD" });
+		cmb_x_battery.setEditable(false);
+		cmb_x_battery.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_battery.setBounds(589, 21, 168, 20);
+
+		Label lblType_1_1_6 = new Label(group_x, SWT.NONE);
+		lblType_1_1_6.setText("Battery");
+		lblType_1_1_6.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_6.setAlignment(SWT.RIGHT);
+		lblType_1_1_6.setBounds(457, 21, 118, 17);
+
+		cmb_x_country = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_country.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_country.setData("name", "出貨國家");
+		cmb_x_country.setListVisible(true);
+		cmb_x_country.setEditable(false);
+		cmb_x_country.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_country.setBounds(589, 47, 168, 20);
+
+		Label lblType_1_1_7 = new Label(group_x, SWT.NONE);
+		lblType_1_1_7.setText("\u51FA\u8CA8\u570B\u5BB6");
+		lblType_1_1_7.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_7.setAlignment(SWT.RIGHT);
+		lblType_1_1_7.setBounds(457, 47, 118, 17);
+
+		cmb_x_envirement = new MyCCombo(group_x, SWT.BORDER);
+		cmb_x_envirement.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_x_envirement.setData("name", "制造環境");
+		cmb_x_envirement.setListVisible(true);
+		cmb_x_envirement.setItems(new String[] { "HEAD" });
+		cmb_x_envirement.setEditable(false);
+		cmb_x_envirement.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_envirement.setBounds(589, 73, 168, 20);
+
+		Label lblType_1_1_9 = new Label(group_x, SWT.NONE);
+		lblType_1_1_9.setText("\u5236\u9020\u74B0\u5883");
+		lblType_1_1_9.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_9.setAlignment(SWT.RIGHT);
+		lblType_1_1_9.setBounds(457, 73, 118, 17);
+
+		Label lblNewLabel_35 = new Label(group_x, SWT.NONE);
+		lblNewLabel_35.setText("*");
+		lblNewLabel_35.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_35.setBounds(413, 21, 10, 9);
+
+		Label lblNewLabel_36 = new Label(group_x, SWT.NONE);
+		lblNewLabel_36.setText("*");
+		lblNewLabel_36.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_36.setBounds(413, 47, 10, 9);
+
+		Label lblNewLabel_37 = new Label(group_x, SWT.NONE);
+		lblNewLabel_37.setText("*");
+		lblNewLabel_37.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_37.setBounds(413, 73, 10, 9);
+
+		Label lblNewLabel_38 = new Label(group_x, SWT.NONE);
+		lblNewLabel_38.setText("*");
+		lblNewLabel_38.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_38.setBounds(413, 99, 10, 9);
+
+		Label lblNewLabel_39 = new Label(group_x, SWT.NONE);
+		lblNewLabel_39.setText("*");
+		lblNewLabel_39.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_39.setBounds(766, 21, 10, 9);
+
+		Label lblNewLabel_40 = new Label(group_x, SWT.NONE);
+		lblNewLabel_40.setText("*");
+		lblNewLabel_40.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_40.setBounds(766, 47, 10, 9);
+
+		Label lblNewLabel_41 = new Label(group_x, SWT.NONE);
+		lblNewLabel_41.setText("*");
+		lblNewLabel_41.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_41.setBounds(766, 73, 10, 9);
+		
+		ProjectCCombo cmb_x_project = new ProjectCCombo(group_x, SWT.BORDER);
+		cmb_x_project.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		cmb_x_project.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_x_project.setBounds(589, 99, 168, 20);
+		projectCComboMap.put(LABEL_X,cmb_x_project);
+		
+		Label lblType_1_3_1_2_2 = new Label(group_x, SWT.NONE);
+		lblType_1_3_1_2_2.setText("專案名");
+		lblType_1_3_1_2_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", 9, SWT.NORMAL));
+		lblType_1_3_1_2_2.setAlignment(SWT.RIGHT);
+		lblType_1_3_1_2_2.setBounds(454, 99, 121, 17);
+		
+		Label lblNewLabel_9_3 = new Label(group_x, SWT.NONE);
+		lblNewLabel_9_3.setText("*");
+		lblNewLabel_9_3.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_9_3.setBounds(766, 99, 10, 9);
+
+		group_proerty = new Group(shell, SWT.NONE);
+		group_proerty.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_proerty.setLayoutData(new RowData(780, 130));
+		group_proerty.setText(reg.getString("window.group.property"));
+
+		Label lblPcbAssyClassification_1_2 = new Label(group_proerty, SWT.NONE);
+		lblPcbAssyClassification_1_2.setText(reg.getString("window.big.category"));
+		lblPcbAssyClassification_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPcbAssyClassification_1_2.setAlignment(SWT.RIGHT);
+		lblPcbAssyClassification_1_2.setBounds(143, 21, 85, 17);
+
+		lab_pcba_matiralNo = new Label(group_proerty, SWT.NONE);
+		lab_pcba_matiralNo.setText("PCBA 料號");
+		lab_pcba_matiralNo.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lab_pcba_matiralNo.setAlignment(SWT.RIGHT);
+		lab_pcba_matiralNo.setBounds(472, 99, 109, 17);
+
+		Label lblType_1_1_3_1_1_1 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_3_1_1_1.setText(reg.getString("window.pin.ming.spec.english"));
+		lblType_1_1_3_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_3_1_1_1.setBounds(120, 73, 109, 17);
+
+		txt_pin_ming_spec_english = new Text(group_proerty, SWT.BORDER);
+		txt_pin_ming_spec_english.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_pin_ming_spec_english.setData("name", "英文描述");
+		txt_pin_ming_spec_english.setBounds(245, 73, 161, 20);
+
+		Label lblType_1_1_1_2_2_1_1_1 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_1.setText(reg.getString("window.make.mode"));
+		lblType_1_1_1_2_2_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_1.setBounds(466, 73, 116, 20);
+
+		Label lblType_1_1_1_2_2_1_1_1_1 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_1_1.setText("\u6210\u54C1 MODEL NAME");
+		lblType_1_1_1_2_2_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_1_1.setBounds(95, 99, 133, 20);
+
+		Label lblType_1_1_1_2_2_1_1_1_1_1 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_1_1_1.setText(reg.getString("window.minimum.unit.of.measure"));
+		lblType_1_1_1_2_2_1_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_1_1_1.setBounds(427, 21, 155, 20);
+
+		txt_pin_ming_spec_zh = new Text(group_proerty, SWT.BORDER);
+		txt_pin_ming_spec_zh.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_pin_ming_spec_zh.setData("name", "中文描述");
+		txt_pin_ming_spec_zh.setBounds(245, 47, 161, 20);
+
+		Label lblType_1_1_3_1_1_1_1 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_3_1_1_1_1.setText(reg.getString("window.pin.ming.spec.zh"));
+		lblType_1_1_3_1_1_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3_1_1_1_1.setAlignment(SWT.RIGHT);
+		lblType_1_1_3_1_1_1_1.setBounds(120, 44, 109, 17);
+
+		cmb_matrial_no_big_category = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_matrial_no_big_category.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_matrial_no_big_category.setData("name", "物料群組");
+		cmb_matrial_no_big_category.setListVisible(true);
+		cmb_matrial_no_big_category.setItems(new String[] { "HEAD" });
+		cmb_matrial_no_big_category.setEditable(false);
+		cmb_matrial_no_big_category.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_matrial_no_big_category.setBounds(244, 21, 161, 20);
+
+		txt_finished_product_model_name = new Text(group_proerty, SWT.BORDER);
+		txt_finished_product_model_name.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_finished_product_model_name.setData("name", "成品Model Name");
+		txt_finished_product_model_name.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		txt_finished_product_model_name.setBounds(245, 99, 161, 20);
+
+		cmb_self_make_mode = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_self_make_mode.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_self_make_mode.setData("name", "自製方式");
+		cmb_self_make_mode.setListVisible(true);
+		cmb_self_make_mode.setItems(new String[] { "HEAD" });
+		cmb_self_make_mode.setEditable(false);
+		cmb_self_make_mode.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_self_make_mode.setBounds(596, 73, 161, 20);
+
+		txt_pin_ming_consulting = new Text(group_proerty, SWT.BORDER);
+		txt_pin_ming_consulting.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_pin_ming_consulting.setData("name", "PCBA料号");
+		txt_pin_ming_consulting.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		txt_pin_ming_consulting.setBounds(596, 99, 161, 20);
+
+		cmb_minimum_unit_of_measure = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_minimum_unit_of_measure.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_minimum_unit_of_measure.setData("name", "用量單位");
+		cmb_minimum_unit_of_measure.setListVisible(true);
+		cmb_minimum_unit_of_measure.setItems(new String[] { "HEAD" });
+		cmb_minimum_unit_of_measure.setEditable(false);
+		cmb_minimum_unit_of_measure.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_minimum_unit_of_measure.setBounds(596, 21, 161, 20);
+
+		Label lblNewLabel_42 = new Label(group_proerty, SWT.NONE);
+		lblNewLabel_42.setText("*");
+		lblNewLabel_42.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_42.setBounds(411, 21, 10, 9);
+
+		Label lblNewLabel_43 = new Label(group_proerty, SWT.NONE);
+		lblNewLabel_43.setText("*");
+		lblNewLabel_43.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_43.setBounds(411, 47, 10, 9);
+
+		Label lblNewLabel_44 = new Label(group_proerty, SWT.NONE);
+		lblNewLabel_44.setText("*");
+		lblNewLabel_44.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_44.setBounds(763, 21, 10, 9);
+
+		Label lblNewLabel_45 = new Label(group_proerty, SWT.NONE);
+		lblNewLabel_45.setText("*");
+		lblNewLabel_45.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_45.setBounds(763, 47, 10, 9);
+
+		Label lblNewLabel_46 = new Label(group_proerty, SWT.NONE);
+		lblNewLabel_46.setText("*");
+		lblNewLabel_46.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_46.setBounds(411, 73, 10, 9);
+
+		lab_derivative_model_id_code_star = new Label(group_proerty, SWT.NONE);
+		lab_derivative_model_id_code_star.setText("*");
+		lab_derivative_model_id_code_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lab_derivative_model_id_code_star.setBounds(763, 123, 10, 9);
+		lab_derivative_model_id_code_star.setVisible(false);
+
+		lab_derivative_model_has_star = new Label(group_proerty, SWT.NONE);
+		lab_derivative_model_has_star.setText("*");
+		lab_derivative_model_has_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lab_derivative_model_has_star.setBounds(412, 123, 10, 9);
+		lab_derivative_model_has_star.setVisible(false);
+
+		cmb_add_material_mode = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_add_material_mode.setListVisible(true);
+		cmb_add_material_mode.setData("name", "進料方式");
+		cmb_add_material_mode.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_add_material_mode.setEditable(false);
+		cmb_add_material_mode.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_add_material_mode.setBounds(596, 47, 161, 20);
+
+		Label lblType_1_1_3_1_1_1_2 = new Label(group_proerty, SWT.NONE);
+		lblType_1_1_3_1_1_1_2.setText(reg.getString("window.add.mode"));
+		lblType_1_1_3_1_1_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_3_1_1_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_3_1_1_1_2.setBounds(472, 50, 109, 17);
+
+		lab_derivative_model_id_code = new Label(group_proerty, SWT.NONE);
+		lab_derivative_model_id_code.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lab_derivative_model_id_code.setBounds(496, 124, 85, 17);
+		lab_derivative_model_id_code.setText("衍生機種區別碼");
+		lab_derivative_model_id_code.setVisible(false);
+
+		txt_derivative_model_id_code = new Text(group_proerty, SWT.BORDER);
+		txt_derivative_model_id_code.setBounds(596, 124, 161, 19);
+		txt_derivative_model_id_code.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_derivative_model_id_code.setData("name", "衍生機種區別碼");
+		txt_derivative_model_id_code.setVisible(false);
+
+		lab_derivative_model_has = new Label(group_proerty, SWT.NONE);
+		lab_derivative_model_has.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lab_derivative_model_has.setBounds(143, 126, 85, 17);
+		lab_derivative_model_has.setText("是否為衍生機種");
+		lab_derivative_model_has.setVisible(false);
+
+		cmb_derivative_model_has = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_derivative_model_has.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_derivative_model_has.setBounds(245, 125, 161, 20);
+		cmb_derivative_model_has.setItems(new String[] { "是", "否" });
+		cmb_derivative_model_has.select(1);
+		cmb_derivative_model_has.setVisible(false);
+		cmb_derivative_model_has.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				// 处理事件
+				service.onChangeItem((MyCCombo) e.getSource());
+			}
+		});
+		
+		lab_place_of_shipment = new Label(group_proerty, SWT.NONE);		
+		lab_place_of_shipment.setAlignment(SWT.RIGHT);
+		lab_place_of_shipment.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lab_place_of_shipment.setBounds(143, 126, 85, 17);
+		lab_place_of_shipment.setText("出貨地");
+		lab_place_of_shipment.setVisible(LABEL_713.equals(label));
+		
+		cmb_place_of_shipment = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_place_of_shipment.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_place_of_shipment.setBounds(245, 125, 79, 20);
+		cmb_place_of_shipment.select(1);
+		cmb_place_of_shipment.setVisible(LABEL_713.equals(label));
+		cmb_place_of_shipment.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				// 处理事件
+				service.onChangeItem((MyCCombo) e.getSource());
+			}
+		});
+		
+		cmb_place_of_shipment_child = new MyCCombo(group_proerty, SWT.BORDER);
+		cmb_place_of_shipment_child.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_place_of_shipment_child.setBounds(245+79, 125, 80, 20);
+		cmb_place_of_shipment_child.select(1);
+		cmb_place_of_shipment_child.setVisible(LABEL_713.equals(label));
+
+		if (!label.equals(LABEL_49)) {
+			Label label_self_make_mode_star = new Label(group_proerty, SWT.NONE);
+			label_self_make_mode_star.setText("*");
+			label_self_make_mode_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+			label_self_make_mode_star.setBounds(763, 73, 10, 9);
+		}
+
+		labe_pin_ming_consulting_star = new Label(group_proerty, SWT.NONE);
+		labe_pin_ming_consulting_star.setText("*");
+		labe_pin_ming_consulting_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		labe_pin_ming_consulting_star.setBounds(763, 99, 10, 9);
+		labe_pin_ming_consulting_star.setVisible(label.equals(LABEL_49) || label.equals(LABEL_629)
+				|| label.equals(LABEL_7351) || label.equals(LABEL_79));
+		
+		Label lab_finished_product_model_name_star = new Label(group_proerty, SWT.NONE);
+		lab_finished_product_model_name_star.setText("*");
+		lab_finished_product_model_name_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lab_finished_product_model_name_star.setBounds(412, 99, 10, 9);	
+		lab_finished_product_model_name_star.setVisible(LABEL_8.equals(label));
+
+		if (label.equals(LABEL_79) || label.equals(LABEL_7351) || label.equals(LABEL_629) || label.equals(LABEL_713)
+				|| label.equals(LABEL_7148) || label.equals(LABEL_71408) || label.equals(LABEL_71407)) {
+			Label label_finished_product_model_name_star = new Label(group_proerty, SWT.NONE);
+			label_finished_product_model_name_star.setText("*");
+			label_finished_product_model_name_star.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+			label_finished_product_model_name_star.setBounds(412, 99, 10, 9);
+		}
+
+		group_supplier = new Group(shell, SWT.NONE);
+		group_supplier.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		group_supplier.setLayoutData(new RowData(780, 96));
+		group_supplier.setText(reg.getString("window.group.supplier"));
+
+		Label lblPcbAssyClassification_1 = new Label(group_supplier, SWT.NONE);
+		lblPcbAssyClassification_1.setText(reg.getString("window.supplier"));
+		lblPcbAssyClassification_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPcbAssyClassification_1.setAlignment(SWT.RIGHT);
+		lblPcbAssyClassification_1.setBounds(133, 21, 65, 17);
+
+		Label labe = new Label(group_supplier, SWT.NONE);
+		labe.setText(reg.getString("window.contact"));
+		labe.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		labe.setAlignment(SWT.RIGHT);
+		labe.setBounds(110, 47, 88, 17);
+
+		Label txtwerwer = new Label(group_supplier, SWT.NONE);
+		txtwerwer.setText(reg.getString("window.fax"));
+		txtwerwer.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txtwerwer.setAlignment(SWT.RIGHT);
+		txtwerwer.setBounds(108, 76, 88, 17);
+
+		Label txt23df = new Label(group_supplier, SWT.NONE);
+		txt23df.setText(reg.getString("window.tel"));
+		txt23df.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt23df.setAlignment(SWT.RIGHT);
+		txt23df.setBounds(506, 49, 78, 17);
+
+		Label txtdfsdf23 = new Label(group_supplier, SWT.NONE);
+		txtdfsdf23.setText(reg.getString("window.addr"));
+		txtdfsdf23.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txtdfsdf23.setAlignment(SWT.RIGHT);
+		txtdfsdf23.setBounds(516, 75, 68, 17);
+
+		txt_supplier = new Text(group_supplier, SWT.BORDER);
+		txt_supplier.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_supplier.setData("name", "製造商名稱");
+		txt_supplier.setBounds(215, 21, 193, 20);
+
+		txt_contact = new Text(group_supplier, SWT.BORDER);
+		txt_contact.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_contact.setData("name", "製造商聯係人");
+		txt_contact.setBounds(215, 47, 193, 20);
+
+		txt_fax = new Text(group_supplier, SWT.BORDER);
+		txt_fax.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_fax.setData("name", "製造商傳真");
+		txt_fax.setBounds(215, 75, 193, 20);
+
+		txt_tel = new Text(group_supplier, SWT.BORDER);
+		txt_tel.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_tel.setData("name", "製造商電話");
+		txt_tel.setBounds(590, 49, 167, 20);
+
+		txt_address = new Text(group_supplier, SWT.BORDER);
+		txt_address.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_address.setData("name", "製造商地址");
+		txt_address.setBounds(590, 75, 167, 20);
+
+		Button btnNewButton = new Button(group_supplier, SWT.NONE);
+		btnNewButton.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		btnNewButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+
+				CustomMaterialNumSupplierDialog dialog = new CustomMaterialNumSupplierDialog(shell, service, reg);
+				SupplierEntity selected = dialog.getSelected();
+				if (selected == null) {
+					return;
+				}
+				txt_supplier.setText(selected.name);
+				txt_contact.setText(selected.contact);
+				txt_fax.setText(selected.fax);
+				txt_tel.setText(selected.tel);
+				txt_address.setText(selected.address);
+
+			}
+		});
+		btnNewButton.setBounds(414, 20, 65, 22);
+		btnNewButton.setText(reg.getString("window.browse"));
+
+		Label txt23df_1 = new Label(group_supplier, SWT.NONE);
+		txt23df_1.setText(reg.getString("window.supplier.martial.no"));
+		txt23df_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt23df_1.setAlignment(SWT.RIGHT);
+		txt23df_1.setBounds(496, 23, 88, 17);
+
+		txt_supplier_martial_no = new Text(group_supplier, SWT.BORDER);
+		txt_supplier_martial_no.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		txt_supplier_martial_no.setData("name", "製造商料號");
+		txt_supplier_martial_no.setBounds(590, 23, 167, 20);
+
+		group_plate = new Group(new Shell(), SWT.NONE);
+		group_plate.setLayoutData(new RowData(738, 40));
+		group_plate.setText("\u5EE0\u5340\u4FE1\u606F");
+
+		Label lblPcbAssyClassification_1_1 = new Label(group_plate, SWT.NONE);
+		lblPcbAssyClassification_1_1.setText("\u4F7F\u7528\u5EE0\u5340");
+		lblPcbAssyClassification_1_1.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblPcbAssyClassification_1_1.setAlignment(SWT.RIGHT);
+		lblPcbAssyClassification_1_1.setBounds(34, 23, 65, 17);
+
+		txt_plate = new Text(group_plate, SWT.BORDER);
+		txt_plate.setData("name", "廠區");
+		txt_plate.setBounds(116, 23, 536, 20);
+
+		Button btnNewButton_1 = new Button(group_plate, SWT.NONE);
+		btnNewButton_1.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				CustomMaterialNumPlateDialog dialog = new CustomMaterialNumPlateDialog(shell, service,
+						txt_plate.getText(), reg);
+				String selected = dialog.getSelected();
+				txt_plate.setText(selected);
+			}
+		});
+		btnNewButton_1.setText("\u700F\u89BD");
+		btnNewButton_1.setBounds(666, 22, 65, 22);
+
+		Composite composite = new Composite(shell, SWT.NONE);
+		composite.setLayoutData(new RowData(786, 41));
+
+		Button bt_close = new Button(composite, SWT.NONE);
+		bt_close.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		bt_close.setBounds(721, 10, 55, 27);
+		bt_close.setText(reg.getString("window.close"));
+		bt_close.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				shell.dispose();
+			}
+		});
+
+		Button bt_complete = new Button(composite, SWT.NONE);
+		bt_complete.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		bt_complete.setEnabled(allowEdit);
+		bt_complete.setBounds(660, 10, 55, 27);
+		bt_complete.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				try {
+					onComplete();
+				} catch (Exception e1) {
+					e1.printStackTrace();
+					MessageBox.post(e1.getLocalizedMessage(),"错误",MessageBox.ERROR);
+				}
+			}
+		});
+		bt_complete.setText(reg.getString("window.complete"));
+		
+		cmb_actuality_user = new MyCCombo(composite, SWT.BORDER);
+		cmb_actuality_user.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		cmb_actuality_user.setBackground(SWTResourceManager.getColor(SWT.COLOR_WHITE));
+		cmb_actuality_user.setBounds(94, 10, 161, 20);
+		cmb_actuality_user.addKeyListener(new KeyListener() {
+			
+			@Override
+			public void keyReleased(KeyEvent arg0) {
+				int keyCode = arg0.keyCode;
+				if(keyCode!=13 && keyCode != 16777296) {
+					return;
+				}
+				MyCCombo source = (MyCCombo) arg0.getSource();
+				String text = source.getText();
+				List<String> userList = (List<String>) source.getData();
+				source.removeAll();
+				for(String user : userList) {
+					if(user.toLowerCase().contains(text.toLowerCase())) {
+						source.add(user);
+					}
+				}
+				source.setText(text);
+				source.setSelection(new Point(999,999));
+				if(source.getItemCount()==1) {
+					source.setText(source.getItem(0));
+				}else {
+					source.setListVisible(true);
+				}				
+			}
+			
+			@Override
+			public void keyPressed(KeyEvent arg0) {
+				// TODO Auto-generated method stub
+				
+			}
+		});
+		
+		Label lblType_1_1_1_2_2_1_1_1_1_2 = new Label(composite, SWT.NONE);
+		lblType_1_1_1_2_2_1_1_1_1_2.setText("實際用戶");
+		lblType_1_1_1_2_2_1_1_1_1_2.setFont(SWTResourceManager.getFont("Microsoft YaHei UI", fonSize, SWT.NORMAL));
+		lblType_1_1_1_2_2_1_1_1_1_2.setAlignment(SWT.RIGHT);
+		lblType_1_1_1_2_2_1_1_1_1_2.setBounds(10, 10, 67, 20);
+		
+		Label lblNewLabel_46_1 = new Label(composite, SWT.NONE);
+		lblNewLabel_46_1.setText("*");
+		lblNewLabel_46_1.setForeground(SWTResourceManager.getColor(SWT.COLOR_RED));
+		lblNewLabel_46_1.setBounds(261, 10, 10, 9);
+		onGUIInited();
+		shell.open();
+		shell.layout();
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+
+	}
+
+	private void onGUIInited() {
+
+		Map<String, Map<String, Map<String, String>>> customMaterialConfig = CustomMaterialBatchImportAction
+				.getCustomMaterialConfig();
+		Map<String, Map<String, String>> map = customMaterialConfig.get(label);
+
+		if (label.equals(LABEL_49)) {
+			Control[] children = group_49pcb.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_629)) {
+			Control[] children = gourp_629_713.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_713)) {
+			Control[] children = gourp_629_713.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_71408) || label.equals(LABEL_71407) || label.equals(LABEL_7351)) {
+
+			Control[] children = group_71407_71408_7351.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_7148)) {
+			Control[] children = gourp_7148other.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_7149)) {
+			Control[] children = group_7149skd.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_79)) {
+			Control[] children = group_79PCB.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+		}
+
+		if (label.equals(LABEL_8)) {
+
+			Control[] children = group_8finish.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+
+		}
+
+		if (label.equals(LABEL_X)) {
+
+			Control[] children = group_x.getChildren();
+			for (Control c : children) {
+				setControl(map, c);
+			}
+
+		}
+
+		Control[] children = group_proerty.getChildren();
+		for (Control c : children) {
+			setControl(map, c);
+		}
+
+		// 回显
+		try {
+			disabelControl(group_supplier);
+			TCSession session = (TCSession) this.app.getSession();
+			ArrayList<String> userList = com.foxconn.tcutils.util.TCUtil.getLovValues(session, (TCComponentItemRevisionType) session.getTypeComponent("ItemRevision"), "d9_ActualUserID");
+			for(String user:userList) {
+				cmb_actuality_user.add(user);					
+			}
+			cmb_actuality_user.setData(userList);
+			TCComponentUser user = session.getUser();
+			TCComponentProjectType projectType = (TCComponentProjectType) session.getTypeComponent(ITypeName.TC_Project);
+	        TCComponentProject[] allProjects = projectType.extent(user, true);
+	        for(TCComponentProject project : allProjects) {
+	        	String projectName = project.getProperty("object_name");
+	        	projectCComboMap.get(label).add(projectName);
+	        }
+	        projectCComboMap.get(label).setData(allProjects);
+	        
+	        
+			if (label.equals(LABEL_713)) {
+				String currentValue = revision.getProperty("d9_ShippingArea");
+				List<LovValue> currentChildList = new ArrayList<LovValue>();
+				TCComponentItemRevisionType itemRevType = (TCComponentItemRevisionType) session.getTypeComponent("D9_VirtualPartRevision");
+				TCPropertyDescriptor property = itemRevType.getPropertyDescriptor("d9_ShippingArea");
+		        TCComponentListOfValues listOfValues = property.getLOV();
+		    	ListOfValuesInfo lovi = listOfValues.getListOfValues();		        				
+				for (LovValue lovValue : lovi.getValues()){
+					String parentValue = lovValue.getStringValue();
+					cmb_place_of_shipment.add(parentValue);						
+					cmb_place_of_shipment.setData(parentValue,lovValue.getChildLov());
+					List<LovValue> values = lovValue.getChildLov().getValues();
+					for (LovValue childLov : values){
+						String childValue = childLov.getStringValue();						
+						if(childValue.equals(currentValue)) {
+							cmb_place_of_shipment.setText(parentValue);	
+							currentChildList = values;
+						};
+			        }					
+		        }
+				for (LovValue childLov : currentChildList){
+					String childValue = childLov.getStringValue();	
+					cmb_place_of_shipment_child.add(childValue);
+		        }				
+				cmb_place_of_shipment_child.setText(currentValue);
+			}
+			if (ACTION_MODIFY.equals(action) || ACTION_2ND.equals(action)) {
+				List<CustomMaterialProperty> fieldMap = CustomMaterialBatchImportAction
+						.getFieldMap(new CustomMaterialDataEntity(), label);
+				for (CustomMaterialProperty proerty : fieldMap) {
+					String key = proerty.value();
+					String value = revision.getProperty(key);
+					String excelproperty = proerty.excelproperty();
+					if (label.equals(LABEL_49)) {
+						setControlValue(group_49pcb, excelproperty, value);
+					}
+					if (label.equals(LABEL_629) || label.equals(LABEL_713)) {
+						setControlValue(gourp_629_713, excelproperty, value);
+					}
+					if (label.equals(LABEL_71407) || label.equals(LABEL_71408) || label.equals(LABEL_7351)) {
+						setControlValue(group_71407_71408_7351, excelproperty, value);
+					}
+					if (label.equals(LABEL_7148)) {
+						setControlValue(gourp_7148other, excelproperty, value);
+					}
+					if (label.equals(LABEL_7149)) {
+						setControlValue(group_7149skd, excelproperty, value);
+					}
+					if (label.equals(LABEL_79)) {
+						setControlValue(group_79PCB, excelproperty, value);
+					}
+					if (label.equals(LABEL_8)) {
+						setControlValue(group_8finish, excelproperty, value);
+					}
+					if (label.equals(LABEL_X)) {
+						setControlValue(group_x, excelproperty, value);
+					}
+					setControlValue(group_proerty, excelproperty, value);
+					setControlValue(group_supplier, excelproperty, value);
+					setControlValue(group_plate, excelproperty, value);
+				}
+				String property = revision.getProperty("d9_FoxconnModelName");
+				if(label.equals(LABEL_8)) {
+					String property2 = revision.getProperty("d9_DerivativeTypeDC");
+					if(StrUtil.isEmpty(property2)) {
+						txt_finished_product_model_name.setText(property);
+					}else {
+						txt_finished_product_model_name.setText(property+property2);
+					}
+					
+				}else {
+					txt_finished_product_model_name.setText(property);
+				}
+				
+				String text = txt_derivative_model_id_code.getText();
+				cmb_derivative_model_has.select(StrUtil.isEmpty(text) ? 1 : 0);
+				Listener[] listeners = cmb_derivative_model_has.getListeners(SWT.Selection);
+				Event event = new Event();
+				event.type = SWT.Selection;
+				event.widget = cmb_derivative_model_has;
+				listeners[0].handleEvent(event);
+				cmb_actuality_user.setText(revision.getProperty("d9_ActualUserID"));
+				//**********************获取选中对象已指派的专案ID**********************
+				List<String> projectIdList = new ArrayList<String>();
+				String projectIdStr = revision.getProperty("project_ids");
+				if (!"".equals(projectIdStr)) {
+					String[] projectIds = projectIdStr.split(",");
+					for (int j = 0; j < projectIds.length; j++) {
+						projectIdList.add(projectIds[j]);
+					}
+				}
+				if (projectIdList.size() > 0) {
+					//**********************多个专案可能存在指派相同的专案，去重**********************
+					projectIdList = projectIdList.stream().distinct().collect(Collectors.toList());
+					projectIdStr = projectIdList.stream().collect(Collectors.joining(";"));
+					TCComponent[] queryResult = TCUtil.executeQuery(session, "__D9_Find_Project", new String[] {"project_id"}, new String[] {projectIdStr});
+		    		if (queryResult.length > 0) {
+		    			TCComponent tcComponent = queryResult[0];
+						String projectName = tcComponent.getProperty("object_name");
+						projectCComboMap.get(label).setText(projectName);;
+					}
+				}
+				projectCComboMap.get(label).setEnabled(false);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void setControlValue(Group group, String excelproperty, String value) {
+		Control[] children = group.getChildren();
+		for (Control c : children) {
+
+			if (c instanceof MyCCombo) {
+				MyCCombo combo = (MyCCombo) c;
+				String name = (String) c.getData("name");
+				if (excelproperty.equals(name)) {
+					if ("物料群組".equals(name) || "進料方式".equals(name) || "用量單位".equals(name)) {
+						Map<String, String> lov = (Map<String, String>) c.getData("lov");
+						Set<String> keySet = lov.keySet();
+						for (String key : keySet) {
+							if (value.equals(key.split(":")[0])) {
+								combo.setText(key);
+							}
+						}
+					} else {
+						combo.setText(value);
+					}
+					Listener[] listeners = combo.getListeners(SWT.Selection);
+					for (Listener l : listeners) {
+						Event event = new Event();
+						event.type = SWT.Selection;
+						event.widget = combo;
+						l.handleEvent(event);
+					}
+				}
+			}
+			if (c instanceof Text) {
+				String name = (String) c.getData("name");
+				if (excelproperty.equals(name)) {
+					((Text) c).setText(value);
+				}
+			}
+			if (ACTION_2ND.equals(action) && group_supplier != group) {
+				if (!(c instanceof Label)) {
+					c.setEnabled(false);
+				}
+			}
+			if (!allowEdit) {
+				if (!(c instanceof Label)) {
+					c.setEnabled(false);
+				}
+			}
+			if (ACTION_2ND.equals(action) && cmb_49pcb_BOARD_maker_code == c) {
+				c.setEnabled(true);
+			}
+			if (ACTION_2ND.equals(action) && txt_supplier_martial_no == c) {
+				txt_supplier_martial_no.setText("");
+			}
+		}
+
+	}
+
+	private void disabelControl(Group g) {
+
+		Control[] children = g.getChildren();
+		for (Control c : children) {
+			if (c instanceof Label) {
+				continue;
+			}
+			c.setEnabled(false);
+		}
+	}
+
+	private void setControl(Map<String, Map<String, String>> map, Control control) {
+		if (control instanceof MyCCombo) {
+			if (control == cmb_derivative_model_has) {
+				System.out.println();
+			}
+			Map<String, String> lov = map.get(control.getData("name"));
+			if (lov == null) {
+				return;
+			}
+			control.setData("lov", lov);
+			List<String> list = new ArrayList<>();
+			for (String key : lov.keySet()) {
+				list.add(key);
+			}
+			Collections.sort(list);
+			String[] items = new String[list.size()];
+			((MyCCombo) control).setItems(list.toArray(items));
+//    		((MyCCombo) control).select(0);
+		}
+
+	}
+
+	@SuppressWarnings("unchecked")
+	private String getValueByName(String name) {
+		Group g = null;
+		Control[] children = shell.getChildren();
+		for (Control c : children) {
+			if (!(c instanceof Group)) {
+				continue;
+			}
+			Object data = c.getData("name");
+			if (data instanceof String) {
+				if (label.equals(data)) {
+					g = (Group) c;
+				}
+			}
+			if (data instanceof String[]) {
+				String[] names = (String[]) data;
+				for (String n : names) {
+					if (label.equals(n)) {
+						g = (Group) c;
+					}
+				}
+			}
+
+		}
+		Control[] childList = g.getChildren();
+		for (Control c : childList) {
+			String n = (String) c.getData("name");
+			if (!name.equals(n)) {
+				continue;
+			}
+			if (c instanceof Text) {
+				return ((Text) c).getText();
+			}
+			if (c instanceof MyCCombo) {
+				String key = ((MyCCombo) c).getText();
+				if (CommonTools.isEmpty(key)) {
+					return null;
+				}
+				Map<String, String> lov = (Map<String, String>) c.getData("lov");
+				String value = lov.get(key);
+				return key + lovSeparator + value;
+			}
+		}
+
+		return null;
+	}
+
+	private void onComplete() throws Exception {
+
+		// ID Generation 属性校验
+		// key 是控件名称，value 是输入的值
+		Map<String, String> data = new HashedMap<>();
+		String info = reg.getString("msg.title");
+		List<CustomMaterialProperty> fieldMap = CustomMaterialBatchImportAction.getFieldMap(new CustomMaterialConfigEntity(), label);
+		for (CustomMaterialProperty proerty : fieldMap) {
+			String name = proerty.configproperty();
+			String configtype = proerty.configtype();
+			String value = getValueByName(name);
+			if (label.equals(LABEL_X)) {
+				if ("物料群組".equals(name)) {
+					continue;
+				}
+			}
+			if (label.equals(LABEL_7351) || label.equals(LABEL_629) || label.equals(LABEL_7148)
+					|| label.equals(LABEL_71408) || label.equals(LABEL_71407) || label.equals(LABEL_713)) {
+				if ("MODEL NAME".equals(name)) {
+					continue;
+				}
+			}
+
+			if ("A".equals(configtype)) {
+				if (value == null) {
+					MessageBox.post(String.format(reg.getString("msg.check.select"), name), info, MessageBox.WARNING);
+					return;
+				}
+			} else if ("I".equals(configtype)) {
+				if (value == null || value.isEmpty()) {
+					MessageBox.post(String.format(reg.getString("msg.check.txt"), name), info, MessageBox.WARNING);
+					return;
+				}
+				String configproperty = proerty.configproperty();
+				int size = proerty.configsize();
+				int position = proerty.configposition();
+				if (value.length() < position + size - 1) {
+					MessageBox.post(
+							String.format(reg.getString("msg.check.txt.length"), configproperty, position + size - 1),
+							info, MessageBox.WARNING);
+					return;
+				}
+			} else if ("M".equals(configtype)) {
+				int configsize = proerty.configsize();
+				String configproperty = proerty.configproperty();
+				if (value.length() != configsize) {
+					MessageBox.post(
+							String.format(reg.getString("msg.check.txt.length.must"), configproperty, configsize), info,
+							MessageBox.WARNING);
+					return;
+				}
+			}
+			data.put(name, value);
+		}
+
+		if (label.equals(LABEL_49)) {
+			data.put("d9_ManufacturerID", (String) cmb_49pcb_BOARD_maker_code.getData("d9_ManufacturerID"));
+		}
+		
+		TCComponentProject project = null;
+		project = getProject(projectCComboMap.get(label));
+		if(project==null) {
+			MessageBox.post("請選擇專案", info,MessageBox.WARNING);
+			return;
+		}
+		if(cmb_derivative_model_has.getVisible()&&cmb_derivative_model_has.getSelectionIndex()!=0) {
+			String finishModelName = txt_finished_product_model_name.getText();
+			if(checkFolder(project,finishModelName)) {
+				return;
+			}
+		}
+		if(cmb_derivative_model_has.getVisible()&&cmb_derivative_model_has.getSelectionIndex()==0) {
+			String derivative_model_id_code = txt_derivative_model_id_code.getText();
+			String finishModelName = txt_finished_product_model_name.getText();
+			String projectId = project.getProjectID();
+			TCComponent[] queryResult = TCUtil.executeQuery((TCSession)app.getSession(), "__D9_Find_Project_Folder", new String[] {"d9_SPAS_ID"}, new String[] {projectId});
+			if(queryResult.length>0) {
+				TCComponentFolder projectFolder = (TCComponentFolder) queryResult[0];
+				TCComponentFolder selfPartFolder = getSelfPartFolder(projectFolder);
+				boolean found = CustomMaterialBatchImportAction.isExsitFinishModelNameFolder(selfPartFolder, finishModelName+"_"+derivative_model_id_code);
+				if(found) {
+					MessageBox.post("衍生機種區別碼文件夹已存在，请重新输入！", "提示", MessageBox.WARNING);
+					return;
+				}
+			}
+		}
+		
+		
+		
+		// 特殊逻辑
+		/**
+		 * 8类型 X类型 物料類型=ZFRT 49类型 物料類型=ZROH 629类型 物料類型=ZWAR 逻辑1 629类型 TYPE = HDCP
+		 * 物料類型=ZROH 其他类型 物料類型=ZHLB 特殊逻辑1 自制方式 =虛阶 物料類型=ZMOD 特殊逻辑2 79类型 MAKER CODE = WN
+		 * 物料類型=ZROH
+		 */
+		if (LABEL_8.equals(label) || LABEL_X.equals(label)) {
+			data.put("物料類型", "ZFRT");
+		} else if (LABEL_49.equals(label)) {
+			data.put("物料類型", "ZROH");
+		} else if (LABEL_629.equals(label)) {
+			if ("HDCP".equals(cmb_629_713_TYPE.getText())) {
+				data.put("物料類型", "ZROH");
+			} else {
+				data.put("物料類型", "ZWAR");
+			}
+		} else {
+			// 其他类型
+			data.put("物料類型", "ZHLB");
+			if ("虛階".equals(cmb_self_make_mode.getText())) {
+				data.put("物料類型", "ZMOD");
+			}
+			if (LABEL_79.equals(label)) {
+				String text = cmb_79_maker_code.getText();
+				Map<String, String> lov = (Map<String, String>) cmb_79_maker_code.getData("lov");
+				String code = lov.get(text);
+				if (code.equals("WN")) {
+					data.put("物料類型", "ZROH");
+				}
+			}
+		}
+
+		// 公共属性校验
+		Control[] children = group_proerty.getChildren();
+
+		for (Control c : children) {
+
+			if (c instanceof MyCCombo) {
+				
+
+				
+				MyCCombo t = ((MyCCombo) c);
+				if (t == cmb_derivative_model_has) {
+					continue;
+				}
+
+				String text = t.getText();
+				String name = (String) t.getData("name");
+				if (label.equals(LABEL_49) && t == cmb_self_make_mode && text.isEmpty()) {
+					continue;
+				}
+				if (t == cmb_place_of_shipment) {
+					continue;
+				}
+				if (t == cmb_place_of_shipment_child) {
+					data.put("出貨地", cmb_place_of_shipment_child.getText());
+					continue;
+				}	
+				if (text.isEmpty()) {
+					MessageBox.post(String.format(reg.getString("msg.check.select"), name), info, MessageBox.WARNING);
+					return;
+				}
+				Object o = c.getData("lov");
+				if (o != null) {
+					Map<String, String> lov = (Map<String, String>) o;
+					data.put(name, text + lovSeparator + lov.get(text));
+				}
+			}
+
+			if (c instanceof Text) {
+				Text t = (Text) c;
+				String text = ((Text) c).getText();
+				String name = (String) t.getData("name");
+				// 中文描述，英文描述
+				if (t == txt_pin_ming_spec_zh || t == txt_pin_ming_spec_english) {
+					if (text.length() > 40) {
+						MessageBox.post(String.format(" ( " + "%s" + " )必須40個字以内 ", name), info, MessageBox.WARNING);
+						return;
+					}
+				}
+
+				// 品名补充咨询
+				if (t == txt_pin_ming_consulting) {
+
+					if (labe_pin_ming_consulting_star.getVisible()) {
+						if (text.isEmpty()) {
+							MessageBox.post(String.format(reg.getString("msg.check.txt"), name), info,
+									MessageBox.WARNING);
+							return;
+						}
+					}
+
+					if (label.equals(LABEL_49) || label.equals(LABEL_629) || label.equals(LABEL_7351)
+							|| label.equals(LABEL_79)) {
+
+						if (label.equals(LABEL_79)) {
+							String value = cmb_79_production_type.getText();
+							if ("INCLUDE (SMD/AI/OTHER/PRE-FORMING)".equals(value) || "IC+FW".equals(value)) {
+								data.put(name, text);
+								continue;
+							}
+						}
+
+						try {
+							if (!text.isEmpty()) {
+								TCComponent[] tcCompArr = TCUtil.executeQuery(TCUtil.getTCSession(), "__D9_Find_79PCB",
+										new String[] { "D9_PCA_Part:items_tag.item_id" }, new String[] { text });
+								if (tcCompArr == null || tcCompArr.length == 0) {
+									MessageBox.post(String.format("根据( %s ) 查不到PCBA ID", name), info,
+											MessageBox.WARNING);
+									return;
+								}
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					} else {
+						data.put(name, text);
+						continue;
+					}
+				}
+
+				// 成品Model Name
+				if (t == txt_finished_product_model_name) {
+					data.put("成品Model Name 全值", text);
+					if (label.equals(LABEL_7351) || label.equals(LABEL_629) || label.equals(LABEL_7148)
+							|| label.equals(LABEL_71408) || label.equals(LABEL_71407) || label.equals(LABEL_713)||label.equals(LABEL_8)) {
+						if (text.length() < 6) {
+							MessageBox.post(String.format(reg.getString("msg.check.txt.length"), name, 6), info,
+									MessageBox.WARNING);
+							return;
+						} else {
+							data.put("MODEL NAME", text.substring(1, 6));
+						}
+						if(label.equals(LABEL_8)) {
+							String[] split = text.split("_");
+							data.put("保存_前的值", split[0]);
+							if(split.length==2) {																
+								data.put("保存_后的值", split[1]);
+							}else {
+								data.put("保存_后的值", "");
+							}
+							data.put("0-6", text.substring(0, 6));
+						}
+						data.put(name, text);
+						continue;
+					} else if (label.equals(LABEL_79)) {
+						CustomMaterialProperty proerty = findCMProerty(fieldMap, "成品Model Name");
+						int configsize = proerty.configsize();
+						String configproperty = proerty.configproperty();
+						if (text.length() < configsize) {
+							MessageBox.post(
+									String.format(reg.getString("msg.check.txt.length"), configproperty, configsize),
+									info, MessageBox.WARNING);
+							return;
+						}
+						String tempNum = proerty.value();
+						try {
+							text = text.substring(0, 6);
+							TCComponent[] tcCompArr = TCUtil.executeQuery(TCUtil.getTCSession(), "__D9_Find_79PCB",
+									new String[] { "D9_PCA_Part:items_tag.item_id", "d9_ModelName" },
+									new String[] { "79*", text + "*" });
+							if (tcCompArr != null && tcCompArr.length > 0) {
+								TCComponent tcComp = tcCompArr[0];
+								if (tcComp instanceof TCComponentItemRevision) {
+									TCComponentItemRevision itemRev = (TCComponentItemRevision) tcCompArr[0];
+									if (itemRev != null) {
+										String itemId = itemRev.getProperty("item_id");
+										if (itemId.length() >= 5) {
+											tempNum = itemRev.getProperty("item_id").substring(2, 5);
+										}
+									}
+								}
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+						data.put(name, text);
+						data.put("tempNum", tempNum);
+						continue;
+					} else {
+						data.put(name, text);
+						continue;
+					}
+
+				}
+
+				if (t == txt_derivative_model_id_code) {
+					// 衍生機種區別碼
+					if (!t.getVisible()) {
+						data.put(name, "");
+						continue;
+					}
+					
+					// 原PCBA料號必填，而且必須是存在
+//					String pcbaItemId = txt_pin_ming_consulting.getText();
+//					TCComponentItem findItem = TCUtil.findItem(pcbaItemId);
+//					if (findItem == null) {
+//						MessageBox.post("根据（原 PCBA 料號）查不到PCBA ID", info,MessageBox.WARNING);
+//						return;
+//					}
+//					data.put("OldPCBAItemId", pcbaItemId);
+				}
+
+				if (text.isEmpty()) {
+					MessageBox.post(String.format(reg.getString("msg.check.txt"), name), info, MessageBox.WARNING);
+					return;
+				}
+
+				data.put(name, text);
+			}
+
+		}
+
+		// 制造商信息校验
+		data.put("製造商名稱", txt_supplier.getText());
+		data.put("製造商聯係人", txt_contact.getText());
+		data.put("製造商傳真", txt_fax.getText());
+		data.put("製造商電話", txt_tel.getText());
+		data.put("製造商地址", txt_address.getText());
+		data.put("製造商料號", txt_supplier_martial_no.getText());
+
+		data.put("廠區", txt_plate.getText());
+		
+		// 實際用戶校驗		
+		String text = cmb_actuality_user.getText();
+		if(StrUtil.isEmpty(text)) {
+			MessageBox.post("必須選擇實際用戶", info, MessageBox.WARNING);
+			return;
+		}
+		data.put("實際用戶", text);
+		
+		TCComponent com = revision;
+//		if(ACTION_2ND.equals(action)) {
+//			try {
+//				com = TCUtil.getTCSession().getUser().getNewStuffFolder();
+//			} catch (TCException e) {
+//				e.printStackTrace();
+//			}
+//		}
+		TCComponent created = service.onComplete(label, action, com, data);
+		if(created!=null) {
+			MessageBox.post("操作完成","提示",MessageBox.INFORMATION);			
+		}
+		if(created!=revision) {
+			// 指派專案
+			project.assignToProject(new TCComponent[]{((TCComponentItem)created).getLatestItemRevision()});
+		}
+	}
+
+	private CustomMaterialProperty findCMProerty(List<CustomMaterialProperty> fieldMap, String configproperty) {
+
+		for (CustomMaterialProperty proerty : fieldMap) {
+			String name = proerty.configproperty();
+			if (configproperty.equals(name)) {
+				return proerty;
+			}
+		}
+
+		return null;
+
+	}
+	
+	private TCComponentProject getProject(CCombo projectCombo) {
+		if(projectCombo==null) {
+			return null;
+		}
+		String objectName = projectCombo.getText();
+		if(StrUtil.isEmptyIfStr(objectName)) {
+			return null;
+		}
+		TCComponentProject project = null;
+		TCComponentProject[] allProjects = (TCComponentProject[]) projectCombo.getData();
+		for(TCComponentProject p : allProjects) {
+			String projectName = com.foxconn.tcutils.util.TCUtil.getProperty(p,"object_name");     	
+        	if(objectName.equals(projectName)) {
+        		project = p;
+        		break;
+        	}
+        }
+		return project;
+	}
+	
+	private boolean checkFolder(TCComponentProject project,String finishModelName) {
+		
+		if(project==null) {
+			return false;
+		}
+		
+		if(StrUtil.isEmptyIfStr(finishModelName)) {
+			return false;
+		}
+		
+		if(StrUtil.isEmptyIfStr(finishModelName.trim())) {
+			return false;
+		}
+		
+		// 遍历文件夹				 
+		try {
+			String projectId = project.getProjectID();
+			TCComponent[] queryResult = TCUtil.executeQuery((TCSession)app.getSession(), "__D9_Find_Project_Folder", new String[] {"d9_SPAS_ID"}, new String[] {projectId});
+			if(queryResult.length>0) {
+				TCComponentFolder projectFolder = (TCComponentFolder) queryResult[0];
+				TCComponentFolder selfPartFolder = getSelfPartFolder(projectFolder);	
+				if(selfPartFolder!=null) {
+					boolean found = false;
+					AIFComponentContext[] projectChildren = selfPartFolder.getChildren();
+					for (int i = 0; i < projectChildren.length;i++) {
+						TCComponent projectChildrenFolder =  (TCComponent) projectChildren[i].getComponent();
+						String folderName = projectChildrenFolder.getProperty("object_name");					
+						if (folderName.equals(finishModelName)) {
+							found = true;
+							break;
+						}
+					}
+					if(found) {
+						cmb_derivative_model_has.select(0);
+						lab_derivative_model_has.setVisible(true);
+						cmb_derivative_model_has.setVisible(true);
+						Listener[] listeners = cmb_derivative_model_has.getListeners(SWT.Selection);
+						Event event = new Event();
+						event.type = SWT.Selection;
+						event.widget = cmb_derivative_model_has;
+						listeners[0].handleEvent(event);
+						MessageBox.post("請輸入衍生機種識別碼！", "提示", MessageBox.WARNING);
+						return true;
+					}
+				}
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+		
+	}
+	
+	//获取自编料号文件夹
+	public TCComponentFolder getSelfPartFolder(TCComponent projectFolder) throws Exception {
+		AIFComponentContext[] childrenFolder = projectFolder.getRelated(Constants.CONTENTS);
+		if(childrenFolder.length > 0) {
+			for (int i = 0; i < childrenFolder.length; i++) {
+				TCComponent component = (TCComponent) childrenFolder[i].getComponent();
+				String name = component.getProperty(Constants.OBJECT_NAME);
+				if(name.equals("自編物料協同工作區")) {
+					return (TCComponentFolder)component;
+				}
+				TCComponentFolder folder = getSelfPartFolder(component);
+				if(folder!=null) {
+					return folder;
+				}
+			}
+		}
+		return null;
+	}
+	
+	public static void main(String[] args) throws Exception {
+
+	}
+}

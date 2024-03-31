@@ -1,0 +1,119 @@
+package com.foxconn.electronics.L10Ebom.dialog;
+
+
+import org.eclipse.jface.viewers.ArrayContentProvider;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.ScrolledComposite;
+import org.eclipse.swt.custom.TableEditor;
+import org.eclipse.swt.custom.ViewForm;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.*;
+
+ 
+
+public class FrozenColumnExample {
+    private static final int FROZEN_COLUMN_COUNT = 1;
+
+ 
+
+    public static void main(String[] args) {
+        Display display = new Display();
+        Shell shell = new Shell(display);
+        shell.setLayout(new FillLayout());
+
+ 
+
+        // 创建ScrolledComposite容器
+        ScrolledComposite scrolledComposite = new ScrolledComposite(shell, SWT.H_SCROLL | SWT.V_SCROLL);
+        Composite composite = new Composite(scrolledComposite, SWT.NONE);
+        composite.setLayout(new GridLayout());
+
+ 
+
+        // 创建固定列的TableViewer
+        TableViewer frozenViewer = new TableViewer(composite, SWT.BORDER | SWT.FULL_SELECTION);
+        frozenViewer.setContentProvider(ArrayContentProvider.getInstance());
+        Table frozenTable = frozenViewer.getTable();
+        frozenTable.setHeaderVisible(true);
+        createColumns(frozenTable);
+        // 设置固定列的输入数据
+        frozenViewer.setInput(createInputData());
+
+ 
+
+        // 创建可滚动列的TableViewer
+        TableViewer scrollableViewer = new TableViewer(composite, SWT.BORDER | SWT.FULL_SELECTION | SWT.V_SCROLL | SWT.H_SCROLL);
+        scrollableViewer.setContentProvider(ArrayContentProvider.getInstance());
+        Table scrollableTable = scrollableViewer.getTable();
+        scrollableTable.setHeaderVisible(true);
+        createColumns(scrollableTable);
+        // 设置可滚动列的输入数据
+        scrollableViewer.setInput(createInputData());
+
+ 
+
+        // 设置表格列宽度
+        TableColumn[] frozenColumns = frozenTable.getColumns();
+        for (int i = 0; i < FROZEN_COLUMN_COUNT; i++) {
+            frozenColumns[i].setWidth(100); // 第一列宽度
+        }
+        TableColumn[] scrollableColumns = scrollableTable.getColumns();
+        for (int i = FROZEN_COLUMN_COUNT; i < FROZEN_COLUMN_COUNT + scrollableColumns.length; i++) {
+            scrollableColumns[i - FROZEN_COLUMN_COUNT].setWidth(200); // 第二列及后面列的宽度
+        }
+
+ 
+
+        // 设置ScrolledComposite和Composite的布局数据
+        scrolledComposite.setContent(composite);
+        scrolledComposite.setExpandHorizontal(true);
+        scrolledComposite.setExpandVertical(true);
+
+ 
+
+        GridData compositeLayoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
+        composite.setLayoutData(compositeLayoutData);
+
+ 
+
+        shell.open();
+        while (!shell.isDisposed()) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+        display.dispose();
+    }
+
+ 
+
+    // 创建表格列
+    private static void createColumns(Table table) {
+        // 创建第一列
+        TableColumn column = new TableColumn(table, SWT.NONE);
+        column.setText("Column 1");
+        // 创建第二列
+        column = new TableColumn(table, SWT.NONE);
+        column.setText("Column 2");
+    }
+
+ 
+
+    // 创建表格输入数据
+    private static String[][] createInputData() {
+        return new String[][]{
+                {"Row 1, Column 1", "Row 1, Column 2"},
+                {"Row 2, Column 1", "Row 2, Column 2"},
+                {"Row 3, Column 1", "Row 3, Column 2"},
+                // 添加更多的行...
+        };
+    }
+}
+
+
+

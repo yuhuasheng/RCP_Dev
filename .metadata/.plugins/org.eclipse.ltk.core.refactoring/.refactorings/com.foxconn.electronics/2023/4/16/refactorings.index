@@ -1,0 +1,10 @@
+1681693303002	Rename package 'com.foxconn.electronics.tccomonuser'
+1681693357754	Delete element
+1681698358244	Copy file
+1681698370532	Rename resource 'ftereport_locale.properties'
+1681698596610	Copy file
+1681698616791	Copy file
+1681716677461	Rename type 'TCUserInfo'
+1681717806601	Rename type 'SpasMappingTCBean'
+1681810708922	Extract method 'checkOperation'
+1682067088719	Delete element

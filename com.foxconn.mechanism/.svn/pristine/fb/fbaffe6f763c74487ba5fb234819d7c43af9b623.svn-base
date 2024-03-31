@@ -1,0 +1,28 @@
+package com.foxconn.mechanism.dtpac.matmaintain.MatrixFactory;
+
+import java.math.BigDecimal;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+
+import cn.hutool.core.util.NumberUtil;
+
+/**
+ *  EPE隔板計算公式
+ * @author MW00442
+ *
+ */
+public class PartitionMatrix extends ExcelBean implements MatrixInterfance{
+
+	@Override
+	public void calculateCost() {
+		BigDecimal num1 = NumberUtil.mul(this.getLength(),this.getWidth());
+		BigDecimal num2 = NumberUtil.mul(num1.toString(),this.getThickness());
+		double price = NumberUtil.div(NumberUtil.mul(num2.toString(),this.getDensity()).doubleValue() , 1000000000D);
+		BigDecimal total = NumberUtil.mul(String.valueOf(price),this.getQty());
+		BigDecimal costDecimal = NumberUtil.mul(total.toString(),this.getCostFactor());
+		this.setCost(NumberUtil.roundStr(costDecimal.doubleValue(), 2));
+	}
+	
+	
+
+}

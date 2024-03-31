@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename compilation unit &apos;com.foxconn.decompile.service.DellEBOMExportService.java&apos; to &apos;DellEbomExportService.java&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.decompile&apos;&#x0D;&#x0A;- Original element: &apos;com.foxconn.decompile.service.DellEBOMExportService.java&apos;&#x0D;&#x0A;- Renamed element: &apos;com.foxconn.decompile.service.DellEbomExportService.java&apos;" description="Rename compilation unit &apos;DellEBOMExportService.java&apos;" flags="2" id="org.eclipse.jdt.ui.rename.compilationunit" input="/src&lt;com.foxconn.decompile.service{DellEBOMExportService.java" name="DellEbomExportService.java" references="false" stamp="1679274872478" version="1.0"/>
+</session>

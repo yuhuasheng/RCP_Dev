@@ -1,0 +1,73 @@
+package com.foxconn.electronics.prtL10ebom.ebomimport.domain;
+
+public class MaterialBean {
+	
+	private String parentNumber;
+	
+	private String partNumber;
+	
+	private String EnDesc;
+	
+	private String chDesc;
+	
+	private String draw2DRev;
+	
+	private String draw3DRev;
+
+	
+	public String getParentNumber() {
+		return parentNumber;
+	}
+
+	public void setParentNumber(String parentNumber) {
+		this.parentNumber = parentNumber;
+	}
+
+	public String getPartNumber() {
+		return partNumber;
+	}
+
+	public void setPartNumber(String partNumber) {
+		this.partNumber = partNumber;
+	}
+
+	public String getEnDesc() {
+		return EnDesc;
+	}
+
+	public void setEnDesc(String enDesc) {
+		EnDesc = enDesc;
+	}
+
+	public String getChDesc() {
+		return chDesc;
+	}
+
+	public void setChDesc(String chDesc) {
+		this.chDesc = chDesc;
+	}
+
+	public String getDraw2DRev() {
+		return draw2DRev;
+	}
+
+	public void setDraw2DRev(String draw2dRev) {
+		draw2DRev = draw2dRev;
+	}
+
+	public String getDraw3DRev() {
+		return draw3DRev;
+	}
+
+	public void setDraw3DRev(String draw3dRev) {
+		draw3DRev = draw3dRev;
+	}
+
+	@Override
+	public String toString() {
+		return "MaterialBean [parentNumber=" + parentNumber + ", partNumber=" + partNumber + ", EnDesc=" + EnDesc
+				+ ", chDesc=" + chDesc + ", draw2DRev=" + draw2DRev + ", draw3DRev=" + draw3DRev + "]";
+	}
+	
+	
+}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+  	<!-- #Toolbar command tooltip -->
+    <extension point="org.eclipse.ui.menus">
+   		<menuContribution locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
+         <toolbar id="com.teamcenter.rac.issuemanager.newIssueWizardToolbar">
+              <command commandId="com.teamcenter.rac.issuemanager.newIssueWizard"
+                icon="icons/new_issue_16.png" 
+                label="%createIssue.LABEL" 
+                tooltip="%createIssue.TOOLTIP">
+                <visibleWhen>
+		            <and>
+		            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+		                <with variable="rac_command_suppression">
+		                    <not>
+		                        <iterate operator="or">
+		                            <equals value="com.teamcenter.rac.issuemanager.newIssueWizard"/>
+		                        </iterate>
+		                    </not>
+		                </with>
+		               
+		            </and>
+		        </visibleWhen>
+            </command>
+         </toolbar>
+      </menuContribution>
+   </extension>
+   
+
+</plugin>

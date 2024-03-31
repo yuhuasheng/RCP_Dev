@@ -1,0 +1,29 @@
+package com.foxconn.dp.plm.syncdoc.mapper;
+
+import com.foxconn.dp.plm.syncdoc.domain.*;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
+
+public interface PDMDocMapper {
+
+    PDMDocSyncInfo queryTcProject(String vId);
+    List<PDMDocSyncInfo> queryTcProjectContent(@Param("puid")String puid);
+    List<PDMDocSyncInfo> queryItemRevision(@Param("itemId")String itemId);
+    List<PDMDocSyncInfo> queryDataset(@Param("revId")String revId);
+    PDMDocSyncInfo queryFSProject(String vId);
+    List<FSInfo> queryFSProjectContent(Long topFolderId);
+    Long queryProjectTopFolderId(String spasId);
+    Long queryFSDocument(String docNum);
+    int insertFolder(FolderEntity folder);
+    int insertProject(ProjectEntity p);
+    int insertFolderStructure(FolderStructureEntity fs);
+    int insertDocument(DocumentEntity doc);
+    int insertDocumentRev(DocumentRevEntity doc);
+    int deleteFolder(Long id);
+    int deleteDocument(Long id);
+    int deleteDocumentRev(Long id);
+    int updateFolder(@Param("id")Long id,@Param("name")String name);
+    int updateDocument(@Param("id")Long id,@Param("name")String name);
+
+}

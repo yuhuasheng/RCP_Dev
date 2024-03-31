@@ -1,0 +1,233 @@
+package com.foxconn.mechanism.dtpac.matmaintain.editor;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
+
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.ArrayContentProvider;
+import org.eclipse.jface.viewers.CellEditor;
+import org.eclipse.jface.viewers.ColumnViewer;
+import org.eclipse.jface.viewers.ComboBoxViewerCellEditor;
+import org.eclipse.jface.viewers.EditingSupport;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.TextCellEditor;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.TableItem;
+
+import com.foxconn.mechanism.dtpac.matmaintain.dialog.PACMatMaintainDialog;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainConstant;
+import com.foxconn.mechanism.dtpac.matmaintain.util.TableTools;
+import com.foxconn.mechanism.jurisdiction.MyComboBoxViewerCellEditor;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCPropertes;
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.util.Registry;
+
+public class MyEditingSupport extends EditingSupport {
+	
+	private Shell shell;
+	private TableViewer tv;
+	private int index;
+	private String columnName;
+	private TableItem curTableItem = null; // 当前table行
+	private ComboBoxViewerCellEditor typeCombox = null;
+	private ComboBoxViewerCellEditor matCombox = null;
+	private Registry reg = null;
+	private PACMatMaintainDialog dialog = null;
+	private String curType = null;
+	private ExcelBean curExcelBean = null;
+	
+	public MyEditingSupport(Shell shell, ColumnViewer viewer, int index, String columnName, Registry reg, PACMatMaintainDialog dialog) {
+		super(viewer);
+		this.shell = shell;
+		this.tv = (TableViewer) viewer;
+		this.index = index;
+		this.columnName = columnName;
+		this.reg = reg;
+		this.dialog = dialog;
+		
+		if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.TYPE))) {
+			typeCombox = new MyComboBoxViewerCellEditor((Composite) getViewer().getControl(), SWT.READ_ONLY);
+			typeCombox.setLabelProvider(new LabelProvider());
+			typeCombox.setContentProvider(new ArrayContentProvider());
+		} else if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.MATERIAL))) {
+			matCombox = new MyComboBoxViewerCellEditor((Composite) getViewer().getControl(), SWT.READ_ONLY);
+			matCombox.setLabelProvider(new LabelProvider());
+			matCombox.setContentProvider(new ArrayContentProvider());
+		}
+	}
+	
+	
+	@Override
+	protected boolean canEdit(Object obj) {
+		if (index == 1 || index == 2) {
+			return false;
+		}
+		try {
+			MatMaintainBean bean = (MatMaintainBean) obj;
+			String partType = dialog.getPartType();
+			String matType = dialog.getCurMatType();
+			String matName = dialog.getCurMatName();
+			String type = bean.getType();
+			String material = bean.getMaterial();
+			List<ExcelBean> matBeanList = dialog.getMatBeanList();
+			Optional<ExcelBean> findAny = matBeanList.stream().filter(e -> e.getPartType().equals(partType) && e.getMatType().equals(matType) && e.getMatName().equals(matName) 
+					&& e.getType().equals(type) && e.getMaterial().contains(material)).findAny();
+			if (!findAny.isPresent()) {
+				System.out.println("==>> partType: " + partType + ", matType: " + matType + ", matName: " + matName + ", type: " + type + ", material: " + material + ", 匹配记录失败");
+				return false;				
+			}
+			
+			curExcelBean = findAny.get();
+			Field[] fields = curExcelBean.getClass().getDeclaredFields();
+			List<Field> fieldList = new ArrayList<Field>(Arrays.asList(fields));
+			fieldList.removeIf(field -> field.getAnnotation(TCPropertes.class) == null);
+			for (int i = 0; i < fieldList.size(); i++) {
+				Field field = fieldList.get(i);
+				field.setAccessible(true);
+				TCPropertes tcProp = field.getAnnotation(TCPropertes.class);
+				int cell = tcProp.cell();
+				if (index == cell) {
+					if (field.getType() == int.class) {
+						return tcProp.canEditor();
+					} else if (field.getType() == String.class) {
+						Object value = field.get(curExcelBean); // 获取值
+						String var = CommonTools.replaceBlank(value.toString());
+						if (var.equals("true") || var.equals("false")) {
+							return Boolean.valueOf(var);
+						} else {
+							return tcProp.canEditor();
+						}
+					}		
+					
+				}				
+			}			
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		}
+		
+		return false;
+	}
+	
+	@Override
+	protected CellEditor getCellEditor(Object obj) {
+		MatMaintainBean bean = (MatMaintainBean) obj;		
+		if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.TYPE))) {
+			setCurType(bean.getType());
+			typeCombox.setInput(dialog.getTypeList());
+			return typeCombox;
+		} else if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.MATERIAL))) {
+			String partType = dialog.getPartType();
+			String matType = dialog.getCurMatType();
+			String matName = dialog.getCurMatName();
+			String type = bean.getType();
+			List<String> matList = dialog.getLovValue(partType, matType, matName, type);
+			if (CommonTools.isEmpty(matList)) {
+				TCUtil.errorMsgBox(reg.getString("MatErr.MSG"), reg.getString("ERROR.MSG"));	
+			} else {
+				dialog.setMatList(matList);
+				matCombox.setInput(dialog.getMatList());
+				return matCombox;
+			}
+			
+		}
+		return new TextCellEditor((Composite) getViewer().getControl(), SWT.NONE);
+	}
+	@Override
+	protected Object getValue(Object obj) {
+//		MatMaintainBean curData = (MatMaintainBean) obj;
+		curTableItem = tv.getTable().getSelection()[0];
+//		if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.TYPE))) {
+//			String type = tv.getTable().getSelection()[0].getText(index);
+//			System.out.println("==>> type: " + type);
+//			System.out.println("==>> curType: " + getCurType());
+//			if (!getCurType().equals(type)) {
+//				boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + columnName 
+//				+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + type + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+//				if (flag) {
+//					String partType = dialog.getCurPartType();
+//					String matType = dialog.getCurMatType();
+//					String matName = dialog.getCurMatName();
+//								
+//					System.out.println("==>> type: " + type);
+//					setCurType(type);
+//					List<String> matList = dialog.getLovValue(partType, matType, matName, type);
+//					if (CommonTools.isEmpty(matList)) {
+//						TCUtil.errorMsgBox(S2TTransferUtil.toTraditionnalString("当前选中的行: " + index) + ", "+ reg.getString("TypeErr.MSG"), reg.getString("ERROR.MSG"));	
+//					}
+//					
+//					dialog.setMatList(matList);
+//				} else {
+//					curTableItem.setText(index, getCurType());
+//					TableTools.updateData(curData, index, getCurType());
+//				}
+//				
+//			}
+//			
+//		}
+		
+		return tv.getTable().getSelection()[0].getText(index);
+	}
+	
+	
+	@Override
+	protected void setValue(Object obj, Object obj1) {
+		String value = obj1.toString().trim();
+		curTableItem.setText(index, value);		
+		
+		if (columnName.equals(S2TTransferUtil.toTraditionnalString(MatMaintainConstant.TYPE))) {
+			String type = value;
+			System.out.println("==>> type: " + type);
+			System.out.println("==>> lastType: " + getCurType());
+			if (!getCurType().equals(type)) {
+				boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + columnName 
+						+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + type + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+				if (flag) {
+					String partType = dialog.getPartType();
+					String matType = dialog.getCurMatType();
+					String matName = dialog.getCurMatName();
+								
+					System.out.println("==>> type: " + type);
+					setCurType(type);
+					
+					List<String> matList = dialog.getLovValue(partType, matType, matName, type);
+					if (CommonTools.isEmpty(matList)) {
+						TCUtil.errorMsgBox(S2TTransferUtil.toTraditionnalString("当前选中的行: " + index) + ", "+ reg.getString("TypeErr.MSG"), reg.getString("ERROR.MSG"));	
+					}
+					
+					dialog.setMatList(matList);
+				} else {
+					curTableItem.setText(index, getCurType());
+					value = getCurType();
+				}
+			}
+		}		
+		
+		MatMaintainBean curData = (MatMaintainBean) curTableItem.getData();
+		TableTools.updateData(curData, index, value);
+	}
+
+
+	public String getCurType() {
+		return curType;
+	}
+
+
+	public void setCurType(String curType) {
+		this.curType = curType;
+	}
+
+
+		
+	
+}

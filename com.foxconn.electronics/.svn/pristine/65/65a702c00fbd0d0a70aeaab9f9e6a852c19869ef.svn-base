@@ -1,0 +1,155 @@
+package com.foxconn.electronics.issuemanagement.service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.apache.poi.ss.usermodel.Cell;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
+import org.eclipse.wb.swt.SWTResourceManager;
+
+import com.foxconn.electronics.issuemanagement.dialog.ImportIssueDialog;
+import com.foxconn.tcutils.util.ExcelUtils;
+import com.foxconn.tcutils.util.IndeterminateLoadingDialog;
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AIFDesktop;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.util.MessageBox;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
+
+public class ImportIssueService {
+	
+	private ImportIssueDialog window;
+	
+	public ImportIssueService(ImportIssueDialog window) {
+		this.window = window;
+	}
+	
+	public void onImport(String filPath) {
+		if(StrUtil.isEmpty(filPath)) {
+			MessageBox.post(window.shell,"請先導入文件", "Info", MessageBox.INFORMATION);
+			return;
+		}
+		StyleRange infoStyle = new StyleRange();
+		infoStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_GREEN);
+		
+		StyleRange warnStyle = new StyleRange();				
+		warnStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_YELLOW);
+		
+		StyleRange errorStyle = new StyleRange();				
+		errorStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_RED);
+		IndeterminateLoadingDialog.Action action = new IndeterminateLoadingDialog.Action() {
+			
+			private String getActualProp(List<String> actualProps,String p) {
+				for(String s : actualProps) {
+					String[] split = s.split("=");
+					if(p.equals(split[0])) {
+						return split[1];
+					}
+				}
+				return null;
+			}
+			
+			private Map<Integer,String> readRow(ExcelReader reader,int rowIndex,int lastIndex) {
+				Map<Integer,String> map = new HashMap<>();
+				for(int i=0;i<=lastIndex;i++) {							
+					Cell cell = reader.getCell(rowIndex, i);
+					if(cell==null) {
+						continue;
+					}
+					String value = ExcelUtils.getCellValueToString(cell);
+					if(StrUtil.isEmpty(value)) {
+						continue;
+					}
+					value = value.trim();
+					if(StrUtil.isEmpty(value)) {
+						continue;
+					}
+					map.put(i, value);
+				}
+				return map;
+			}
+			
+			@SuppressWarnings("deprecation")
+			@Override
+			public void run() {
+			
+				// 读取首选项
+				List<String> actualProps = TCUtil.getArrayPreference(window.session,TCPreferenceService.TC_preference_site,"D9_IMPORT_ISSUE_EXCEL_TC_PROP_MAPPING");					
+				ExcelReader reader = ExcelUtil.getReader(filPath);
+				int lastIndex = 0;
+				Map<Integer,String> actualPropIndexMap = new HashMap<>();
+				List<Map<String,Object>> tcItemList = new ArrayList<>();
+				try {
+					reader.setSheet(1);
+					String sheetName = reader.getSheet().getSheetName().toUpperCase();
+					String itemType;
+					if(sheetName.startsWith("HP")){
+						itemType = "D9_IR_HP";
+					}else if(sheetName.startsWith("DELL")) {
+						itemType = "D9_IR_DELL";
+					}else if(sheetName.startsWith("Lenovo".toUpperCase())) {
+						itemType = "D9_IR_LENOVO";
+					}else {
+					   TCUtil.writeErrorLog(S2TTransferUtil.toTraditionnalString("表名稱不符合規則 "), window.styledText, errorStyle);
+					   return;
+					}
+					for(int i=0;i<300;i++) {
+						Cell cell = reader.getCell(0, i);
+						if(cell==null) {
+							break;
+						}
+						String value = ExcelUtils.getCellValueToString(cell);
+						if(StrUtil.isEmpty(value)) {
+							break;
+						}
+						String actualProp = getActualProp(actualProps, value.trim());
+						if(actualProp == null) {							
+							TCUtil.writeInfoLog(S2TTransferUtil.toTraditionnalString(String.format("第%d列%s無法識別，請聯繫管理員",i,value)), window.styledText, infoStyle);
+							return;
+						}
+						lastIndex = i;
+						actualPropIndexMap.put(i, actualProp);
+					}
+					for(int i=1;i<Integer.MAX_VALUE;i++) {	
+						Map<Integer, String> rowMap = readRow(reader, i, lastIndex);
+						if(rowMap.isEmpty()) {
+							// 文件尾，返回
+							break;
+						}
+						Set<Integer> keySet = rowMap.keySet();
+						Iterator<Integer> iterator = keySet.iterator();
+						Map<String,Object> tcMap = new HashMap<String, Object>();
+						while (iterator.hasNext()) {
+							Integer columnIndex = iterator.next();
+							String d9Prop = actualProps.get(columnIndex);
+							String value = rowMap.get(columnIndex);
+							tcMap.put(d9Prop, value);
+						}
+						tcItemList.add(tcMap);
+						// 繼續讀下一行
+					}
+					for(Map<String,Object> map : tcItemList) {
+						TCUtil.createCom(window.session, itemType, "", map);
+					}
+				}catch(Exception e) {
+					e.printStackTrace();
+					MessageBox.post(window.shell, e.toString(), "ERR", MessageBox.ERROR);
+				}finally {
+					reader.close();
+				}
+				
+			}
+		};
+		
+		new IndeterminateLoadingDialog(window.shell, "導入...", action);
+	}
+
+}

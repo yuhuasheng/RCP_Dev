@@ -1,0 +1,49 @@
+package com.foxconn.mechanism.mntdcn;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.swt.widgets.Shell;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+
+public class CreatMNTDCNHandler  extends AbstractHandler{
+
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		try {
+			AbstractAIFUIApplication app = AIFUtility.getCurrentApplication();
+			Shell shell = app.getDesktop().getShell();
+			TCSession session = (TCSession) app.getSession();
+			InterfaceAIFComponent[] aifCom = app.getTargetComponents();
+			List<TCComponentItemRevision> list = new ArrayList<>();
+			// 檢查選擇的必須是未發佈的
+			for(int i=0;i<aifCom.length;i++) {
+				InterfaceAIFComponent aif = aifCom[i];
+				if(TCUtil.isReleased((TCComponentItemRevision)aif)) {
+					MessageBox.post(String.format("選擇的第%d個版本对象已發佈，不能執行操作",i+1), "檢查", MessageBox.INFORMATION);
+					return null;
+				}
+				list.add((TCComponentItemRevision)aif);
+			}
+			
+			new CreateMNTDCNDialog(shell, list, session);
+		}catch (Exception e) {
+			e.printStackTrace();
+			MessageBox.post(e.toString(), "ERR", MessageBox.ERROR);
+		}
+		return null;
+	}
+
+}

@@ -1,0 +1,925 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+    <extension
+            point="com.teamcenter.rac.util.tc_properties">
+    </extension>
+
+    <extension point="org.eclipse.ui.commands">
+        <command name="%PermissionTransferMenu" id="com.foxconn.mechanism.commands.PerTraNoticeCommand"/>
+        <command name="%CreoRename.LABEL" id="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler"/> 
+        <command name="%SynMDAS.LABEL" id="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler"/>
+        <command name="%BatchChangePhase.LABEL" id="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler"/>  
+        <command name="%CreateFoldertitle.LABEL" id="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle"/>        
+		<command name="%postPlant.LABEL" id="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler"/>
+        <command name="%CustomMaterialNumChange.LABEL" id="com.foxconn.mechanism.commands.modifyMaterialNumCommand">
+        	<commandParameter id="action" name="action" optional="true"/>			
+        </command> 
+        <command name="%SecondSourceRequest.LABEL" id="com.foxconn.mechanism.commands.request2ndMaterialNumCommand">
+        	<commandParameter id="action" name="action" optional="true"/>			
+        </command>
+        
+        <command name="49-PCB BOARD" id="com.foxconn.mechanism.commands.49-PCBBOARDMaterialNumCommand">
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command>  
+        
+        <command name="629-ACCESSORIES（SOFTWARE）" id="com.foxconn.mechanism.commands.629-ACCESSORIES（SOFTWARE）MaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command>  
+        <command name="713-PACKING ASS'Y" id="com.foxconn.mechanism.commands.713-PACKING ASS'YMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="71407-A'SSY FINAL" id="com.foxconn.mechanism.commands.71407-A'SSY FINALMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="71408-A'SSY PANEL" id="com.foxconn.mechanism.commands.71408-A'SSY PANELMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="7148-OTHER A'SSY" id="com.foxconn.mechanism.commands.7148-OTHER A'SSYMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="7149-SKD ASS'Y" id="com.foxconn.mechanism.commands.7149-SKD ASS'YMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="7351-HEATSINK ASS'Y(MONITOR)" id="com.foxconn.mechanism.commands.7351-HEATSINK ASS'Y(MONITOR)MaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="79-PCB ASS'Y" id="com.foxconn.mechanism.commands.79-PCB ASS'YMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="8-FINISH GOOD" id="com.foxconn.mechanism.commands.8-FINISH GOODMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        <command name="X-Network Communication Finish" id="com.foxconn.mechanism.commands.X-Network Communication FinishMaterialNumCommand">    
+        	<commandParameter id="label" name="label" optional="true"/>			
+        </command> 
+        
+        <!-- HHPN物料申请 -->
+        <command name="%DTSAHHPNMaterialApply.LABEL" id="com.foxconn.mechanism.commands.DTSAHHPNMaterialApplyCommand">
+        	<commandParameter id="BU_Name" name="BU_Name" optional="true"/>			
+        </command> 
+        
+         <command name="%MNTHHPNMaterialApply.LABEL" id="com.foxconn.mechanism.commands.MNTHHPNMaterialApplyCommand">
+       		<commandParameter id="BU_Name" name="BU_Name" optional="true"/>			
+       	</command> 
+       	
+        <command name="%PRTHHPNMaterialApply.LABEL" id="com.foxconn.mechanism.commands.PRTHHPNMaterialApplyCommand">
+       		<commandParameter id="BU_Name" name="BU_Name" optional="true"/>			
+       	</command>
+       	
+       	<!-- partlist导出-->
+       	<!--
+        <command name="DT export part list" id="DTExportHandle"> 
+            <commandParameter id="bu" name="bu" optional="true"/>
+            <commandParameter id="DefaultValue" name="DefauleValue" optional="true"/>
+        </command>
+        -->
+        
+         <command name="MNT Export Part List" id="MNTExportHandle"> 
+            <commandParameter id="bu" name="bu" optional="true"/> 
+            <commandParameter id="DefaultValue" name="DefauleValue" optional="true"/>
+        </command>
+        
+        <command name="PRT Export Part List" id="PRTExportHandle"> 
+            <commandParameter id="bu" name="bu" optional="true"/>
+            <commandParameter id="DefaultValue" name="DefauleValue" optional="true"/>
+        </command>
+        
+        <command name="%ExportFinishMatInfo.LABEL" id="com.foxconn.mechanism.commands.ExportFinishMatInfoCommand">
+       		<commandParameter id="function_name" name="function_name" optional="true"/>			
+       	</command>
+          
+         <command name="%ExportPCBAAndFWMatInfo.LABEL" id="com.foxconn.mechanism.commands.ExportPCBAAndFWMatInfoCommand">
+       		<commandParameter id="function_name" name="function_name" optional="true"/>			
+       	</command>
+       	
+       	 <command name="%ExportPCBAEBOMCreateInfo.LABEL" id="com.foxconn.mechanism.commands.ExportPCBAEBOMCreateInfoCommand">
+       		<commandParameter id="function_name" name="function_name" optional="true"/>			
+       	</command>
+       	        
+        <command name="%hhpn.info.title" id="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler"/>
+       
+        <!-- 自编料号批量导入 -->
+        <command name="%CustomMaterialBatchImport.LABEL" id="com.foxconn.mechanism.commands.CustomMaterialBatchImportCommand"/>
+        <command name="%2ndSourceImport.LABEL" id="com.foxconn.mechanism.SecondSourceImport.ImportHandler"/> 
+        
+        <command name="%ImportPDF.LABEL" id="com.foxconn.mechanism.dgkpi.ImportPdfCommand"/> 
+    </extension>
+
+	<extension point="org.eclipse.ui.handlers">
+	    <handler commandId="com.foxconn.mechanism.commands.PerTraNoticeCommand" class="com.foxconn.mechanism.jurisdiction.PerTraNoticeHandler" />
+	    <handler commandId="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler" class="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler" />
+	    <handler commandId="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler" class="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.modifyMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.request2ndMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler" class="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler" />
+	    <handler commandId="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle" class="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle" />
+	    <handler commandId="com.foxconn.mechanism.commands.49-PCBBOARDMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.629-ACCESSORIES（SOFTWARE）MaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.713-PACKING ASS'YMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.71407-A'SSY FINALMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.71408-A'SSY PANELMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.7148-OTHER A'SSYMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.7149-SKD ASS'YMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.7351-HEATSINK ASS'Y(MONITOR)MaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.79-PCB ASS'YMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.8-FINISH GOODMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.X-Network Communication FinishMaterialNumCommand" class="com.foxconn.mechanism.custommaterial.custommaterialnumrequest.CustomMaterialNumHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.DTSAHHPNMaterialApplyCommand" class="com.foxconn.mechanism.hhpnmaterialapply.HHPNMaterialApplyHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.MNTHHPNMaterialApplyCommand" class="com.foxconn.mechanism.hhpnmaterialapply.HHPNMaterialApplyHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.PRTHHPNMaterialApplyCommand" class="com.foxconn.mechanism.hhpnmaterialapply.HHPNMaterialApplyHandler" />
+	    <handler commandId="DTExportHandle" class="com.foxconn.mechanism.hhpnmaterialapply.export.ExportHandle" />
+	    <handler commandId="PRTExportHandle" class="com.foxconn.mechanism.hhpnmaterialapply.export.ExportHandle" />
+	    <handler commandId="MNTExportHandle" class="com.foxconn.mechanism.hhpnmaterialapply.export.ExportHandle" />
+	    <handler commandId="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler" class="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler" />
+	    <handler commandId="com.foxconn.mechanism.commands.CustomMaterialBatchImportCommand" class="com.foxconn.mechanism.custommaterial.custommaterialbatchimport.CustomMaterialBatchImportHandler"/>
+	    <handler commandId="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler" class="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler"/>
+	    <handler commandId="com.foxconn.mechanism.SecondSourceImport.ImportHandler" class="com.foxconn.mechanism.SecondSourceImport.ImportHandler"/>		    	
+		<handler commandId="com.foxconn.mechanism.commands.ExportFinishMatInfoCommand" class="com.foxconn.mechanism.dpbupcbabom.BOMMakeApplyHandler" />
+		<handler commandId="com.foxconn.mechanism.commands.ExportPCBAAndFWMatInfoCommand" class="com.foxconn.mechanism.dpbupcbabom.BOMMakeApplyHandler" />
+		<handler commandId="com.foxconn.mechanism.commands.ExportPCBAEBOMCreateInfoCommand" class="com.foxconn.mechanism.dpbupcbabom.BOMMakeApplyHandler" />
+	    <handler commandId="com.foxconn.mechanism.dgkpi.ImportPdfCommand" class="com.foxconn.mechanism.dgkpi.ImportPdfHandler" />
+	
+	
+	
+	</extension>
+
+    <extension point="org.eclipse.ui.menus">
+        <menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+            <menu label="D_Group" id="com.foxconn.menus.D_Group">           
+                <menu label="数据导入（Import）" id="com.foxconn.menus.dataimport">
+                  <command
+                        commandId="com.foxconn.mechanism.SecondSourceImport.ImportHandler"
+                        id="com.foxconn.mechanism.SecondSourceImport.ImportHandler">
+                        <visibleWhen>
+                        	<and>
+                            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            	<iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test 
+												forcePluginActivation="true"
+												property="ghy.Pool_CEandMonitor_CEandPrinter_CE">
+											</test>
+										</and>
+									</adapt>
+								</iterate>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.SecondSourceImport.ImportHandler"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command>
+              </menu>
+            	<menu label="Parts" id="com.foxconn.menus.Parts">
+            		<command
+                        commandId="com.foxconn.mechanism.commands.PerTraNoticeCommand"
+                        id="com.foxconn.mechanism.menus.PerTraNoticeCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.commands.PerTraNoticeCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                </command>
+	                
+	                <command
+                     	commandId="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler"
+                     	id="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler">
+                    	<visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.batchChangePhase.BatchChangePhaseHandler"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+                   		</visibleWhen>
+                   </command>
+                   
+                   <command
+                        commandId="com.foxconn.mechanism.commands.DTSAHHPNMaterialApplyCommand"
+                        id="com.foxconn.mechanism.menus.DTSAHHPNMaterialApplyCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            
+	                            <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test forcePluginActivation="true" property="ghy.Desktop_RD_MFD"/>
+										</and>
+									</adapt>
+								</iterate>
+								
+	                            <!-- 命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.commands.DTSAHHPNMaterialApplyCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                    <parameter name="BU_Name" value="%DTSABU.Name" />
+                	</command>
+                	
+                	<command
+                        commandId="com.foxconn.mechanism.commands.MNTHHPNMaterialApplyCommand"
+                        id="com.foxconn.mechanism.menus.MNTHHPNMaterialApplyCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            
+	                            <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test forcePluginActivation="true" property="ghy.Monitor_RD_ME"/>
+										</and>
+									</adapt>
+								</iterate>
+								
+	                            <!-- 命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.commands.MNTHHPNMaterialApplyCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                    <parameter name="BU_Name" value="%MNTBU.Name" />
+                	</command>
+                	
+                	
+                	<command
+                        commandId="com.foxconn.mechanism.commands.PRTHHPNMaterialApplyCommand"
+                        id="com.foxconn.mechanism.menus.PRTHHPNMaterialApplyCommand">
+                   		<visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            
+	                             <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test forcePluginActivation="true" property="ghy.Printer_RD_ME"/>
+										</and>
+									</adapt>
+								</iterate>
+	                            
+	                            <!-- 命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.commands.PRTHHPNMaterialApplyCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+                    	</visibleWhen>
+                    	<parameter name="BU_Name" value="%PRTBU.Name" />
+                	</command> 
+                	
+                	<!--
+                	<command commandId="DTExportHandle">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>	                            
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="DTExportHandle"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                    <parameter name="bu" value="DT"/>  
+                	</command>
+                	-->
+                	
+                	<command commandId="MNTExportHandle">
+                    	<visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            
+	                            <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test forcePluginActivation="true" property="ghy.Monitor_RD_ME"/>
+										</and>
+									</adapt>
+								</iterate>
+								
+	                            <!-- 命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="MNTExportHandle"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+                    	</visibleWhen>
+                    	<parameter name="bu" value="MNT"/>  
+                	</command>
+                	
+                	
+                	<command commandId="PRTExportHandle">
+                    	<visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            
+	                            <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test forcePluginActivation="true" property="ghy.Printer_RD_ME"/>
+										</and>
+									</adapt>
+								</iterate>
+	                            
+	                            <!-- 命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="PRTExportHandle"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                    <parameter name="bu" value="PRT"/>  
+                	</command> 
+                	
+                	<command
+                        commandId="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler"
+                        id="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler">
+                        <visibleWhen>
+	                        <and>
+	                            <or>
+	                               <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+	                               <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            </or>
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+                    	</visibleWhen>     
+                	</command>
+            	</menu>
+            	
+            <menu label="%CustomMaterialNumManage.LABEL" id="com.foxconn.menus.CustomPNMannage">
+               <visibleWhen>
+                  <and>
+                     <iterate
+                           ifEmpty="false">
+                        <adapt
+                              type="com.teamcenter.rac.kernel.TCComponent">
+                           <and>
+                              <test
+                                    forcePluginActivation="true"
+                                    property="ghy.Monitor">
+                              </test>
+                           </and>
+                        </adapt>
+                     </iterate>
+                  </and>
+               </visibleWhen>
+	           <menu id="com.foxconn.menus.CustomPNApplyMNT" label="%CustomMaterialNumRequest.LABEL">
+	                
+	                  <command
+	                	commandId="com.foxconn.mechanism.commands.CustomMaterialBatchImportCommand"
+	                    id="com.foxconn.mechanism.commands.CustomMaterialBatchImportCommand">
+	                    <visibleWhen>
+	                    	<and>
+	                        	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+	                            <with variable="rac_command_suppression">
+	                            	<not>
+	                                	<iterate operator="or">
+	                                    	<equals value="com.foxconn.mechanism.commands.CustomMaterialBatchImportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>                        
+	                </command>
+	                
+	                
+					<command commandId="com.foxconn.mechanism.commands.49-PCBBOARDMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.49-PCBBOARDMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+					        	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.49-PCBBOARDMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="49-PCB BOARD" />
+					</command>
+					
+					<command commandId="com.foxconn.mechanism.commands.629-ACCESSORIES（SOFTWARE）MaterialNumCommand" mnemonic="A" id="com.foxconn.mechanism.commands.629-ACCESSORIES（SOFTWARE）MaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.629-ACCESSORIES（SOFTWARE）MaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="629-ACCESSORIES（SOFTWARE）" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.713-PACKING ASS'YMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.713-PACKING ASS'YMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.713-PACKING ASS'YMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="713-PACKING ASS'Y" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.71407-A'SSY FINALMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.71407-A'SSY FINALMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.71407-A'SSY FINALMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="71407-A'SSY FINAL" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.71408-A'SSY PANELMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.71408-A'SSY PANELMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.71408-A'SSY PANELMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="71408-A'SSY PANEL" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.7148-OTHER A'SSYMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.7148-OTHER A'SSYMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.7148-OTHER A'SSYMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="7148-OTHER A'SSY" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.7149-SKD ASS'YMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.7149-SKD ASS'YMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.7149-SKD ASS'YMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="7149-SKD ASS'Y" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.7351-HEATSINK ASS'Y(MONITOR)MaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.7351-HEATSINK ASS'Y(MONITOR)MaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.7351-HEATSINK ASS'Y(MONITOR)MaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="7351-HEATSINK ASS'Y(MONITOR)" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.79-PCB ASS'YMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.79-PCB ASS'YMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.79-PCB ASS'YMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="79-PCB ASS'Y" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.8-FINISH GOODMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.8-FINISH GOODMaterialNumCommand">
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.8-FINISH GOODMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="8-FINISH GOOD" />
+					</command>
+					<command commandId="com.foxconn.mechanism.commands.X-Network Communication FinishMaterialNumCommand" mnemonic="S" id="com.foxconn.mechanism.commands.X-Network Communication FinishMaterialNumCommand" >
+					    <visibleWhen>
+					        <and>
+								<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+					            <with variable="rac_command_suppression">
+					                <not>
+					                    <iterate operator="or">
+					                        <equals value="com.foxconn.mechanism.commands.X-Network Communication FinishMaterialNumCommand" />
+					                    </iterate>
+					                </not>
+					            </with>
+					        </and>
+					    </visibleWhen>
+					    <parameter name="label" value="X-Network Communication Finish" />
+					</command>
+	            </menu>
+	            
+	            
+	            
+	             <command
+                        commandId="com.foxconn.mechanism.commands.modifyMaterialNumCommand"
+                        id="com.foxconn.mechanism.commands.modifyMaterialNumCommand">
+                    <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.commands.modifyMaterialNumCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                     <parameter name="action" value="modify" />
+                </command>
+	            
+	               <command
+                        commandId="com.foxconn.mechanism.commands.request2ndMaterialNumCommand"
+                        id="com.foxconn.mechanism.commands.request2ndMaterialNumCommand">
+                    <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.commands.request2ndMaterialNumCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                     <parameter name="action" value="request2nd" />
+                   </command>
+
+                   <command
+                        commandId="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler"
+                        id="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler">
+                            <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.custommaterial.customMaterialPostPlant.CustomMaterialPostPlantHandler"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command> 
+                
+	           </menu> 
+				                               
+               <!--   
+                <command
+                        commandId="com.foxconn.mechanism.commands.PerTraNoticeCommand"
+                        id="com.foxconn.mechanism.menus.PerTraNoticeCommand">
+                    <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.commands.PerTraNoticeCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command> 
+                --> 
+                  
+                  <command
+                     commandId="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler"
+                     id="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler"
+                      mnemonic="S">
+                      <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.classification.icm.inMainView"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.integrate.mdas.SyncMDASHandler"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                   </command>
+                      
+                   <command
+                        commandId="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle"
+                        id="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle">
+                            <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                           
+	                            <iterate ifEmpty="false">
+									<adapt type="com.teamcenter.rac.kernel.TCComponent">
+										<and>
+											<test 
+												forcePluginActivation="true"
+												property="ghy.Desktop_RD_MFD">
+											</test>
+										</and>
+									</adapt>
+								</iterate>
+								
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.mechanism.createFolderStruct.CreateFolderHandle"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command> 
+              
+              <command
+                         commandId="com.foxconn.mechanism.dgkpi.ImportPdfCommand"
+                        id="com.foxconn.mechanism.dgkpi.ImportPdfCommand.id">
+                        <visibleWhen>
+	                        <and>
+	                            <or>
+	                               <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+	                               <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                            </or>
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNIntegrateHandler"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+                    	</visibleWhen>     
+                	</command>
+                	
+             <menu label="%DPBUPCBAMakeApply.LABEL" id="com.foxconn.menus.dpbupcbamakeapply">
+                  <command
+	            	commandId="com.foxconn.mechanism.commands.ExportFinishMatInfoCommand"
+	            	id="com.foxconn.mechanism.commands.ExportFinishMatInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>	                
+			            </and>
+		        	</visibleWhen>  
+		        	<parameter name="function_name" value="%ExportFinishMatInfo.LABEL"/>                      
+         		</command> 
+         		
+         		 <command
+	            	commandId="com.foxconn.mechanism.commands.ExportPCBAAndFWMatInfoCommand"
+	            	id="com.foxconn.mechanism.commands.ExportPCBAAndFWMatInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>	                
+			            </and>
+		        	</visibleWhen> 
+		        	<parameter name="function_name" value="%ExportPCBAAndFWMatInfo.LABEL"/>                        
+         		</command> 
+         		
+         		 <command
+	            	commandId="com.foxconn.mechanism.commands.ExportPCBAEBOMCreateInfoCommand"
+	            	id="com.foxconn.mechanism.commands.ExportPCBAEBOMCreateInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>	                
+			            </and>
+		        	</visibleWhen>   
+		        	<parameter name="function_name" value="%ExportPCBAEBOMCreateInfo.LABEL"/>                      
+         		</command>          		
+              </menu>  
+                 
+            </menu>
+           
+        </menuContribution>
+        
+
+        <menuContribution
+            locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+             <command
+                commandId="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler"
+                id="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler"
+                mnemonic="S">
+             <visibleWhen>
+                <and>
+                   <iterate
+                         ifEmpty="false">
+                      <adapt
+                            type="com.teamcenter.rac.kernel.TCComponent">
+                         <or>
+                            <test
+                                  property="com.teamcenter.rac.kernel.TCComponent.typeClass"
+                                  value="BOMLine">
+                            </test>
+                         </or>
+                      </adapt>
+                   </iterate>
+                   <with
+                         variable="rac_command_suppression">
+                      <not>]
+                         <iterate
+                               operator="or">
+                            <equals
+                                  value="com.foxconn.mechanism.exportcreomodel.ExportCeroModelHandler">
+                            </equals>
+                         </iterate>
+                      </not>
+                   </with>
+                </and>
+             </visibleWhen>
+          </command>          
+         		
+      </menuContribution>
+      
+    </extension>
+
+   <extension
+         point="com.teamcenter.rac.common.renderingHint">
+         <renderingHint id="DesignCategoryLov" priority="0">
+            <propertyBean class="com.foxconn.mechanism.renderingHint.DesignCategoryLovPropertyBean"/>
+        </renderingHint>
+        <renderingHint id="DesignAssignProperty" priority="0">
+            <propertyBean class="com.foxconn.mechanism.renderingHint.DesignAssignPropertyBean"/>
+        </renderingHint>
+        <renderingHint id="DesignTemplatePropertyLov" priority="0">
+            <propertyBean class="com.foxconn.mechanism.renderingHint.DesignTemplatePropertyBean" />
+        </renderingHint>
+		<renderingHint id="DCNDTMaterialKindProperty" priority="0">
+			<propertyBean class="com.foxconn.mechanism.dcndtsngenerator.DCNDTMaterialKindPropertyBean"/>
+		</renderingHint>
+		<renderingHint id="DCNDTAssignProperty" priority="0">
+			<propertyBean class="com.foxconn.mechanism.dcndtsngenerator.DCNDTAssignPropertyBean"/>
+		</renderingHint>
+		<renderingHint id="DCNDTSkuProperty" priority="0">
+			<propertyBean class="com.foxconn.mechanism.dcndtsngenerator.DCNDTSkuPropertyBean"/>
+		</renderingHint>
+		<renderingHint id="DCNMTAssignProperty" priority="0">
+			<propertyBean class="com.foxconn.mechanism.dcndtsngenerator.DCNMTAssignPropertyBean"/>
+		</renderingHint>        
+   	</extension>
+
+	<extension point="org.eclipse.core.expressions.propertyTesters">
+		<propertyTester 
+			id="Monitor_RD_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_ME"
+			class="com.foxconn.mechanism.Tester.Monitor_RD_ME">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_RD_MFD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_MFD"
+			class="com.foxconn.mechanism.Tester.Desktop_RD_MFD">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Printer_RD_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Printer_RD_ME"
+			class="com.foxconn.mechanism.Tester.Printer_RD_ME">
+		</propertyTester>
+	
+		<propertyTester 
+			id="Pool_CEandMonitor_CEandPrinter_CE"
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Pool_CEandMonitor_CEandPrinter_CE"
+			class="com.foxconn.mechanism.Tester.Pool_CEandMonitor_CEandPrinter_CE">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor"
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor"
+			class="com.foxconn.mechanism.Tester.Monitor">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_RD_MFD"
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_MFD"
+			class="com.foxconn.mechanism.Tester.Desktop_RD_MFD">
+		</propertyTester>
+		
+		
+	
+	</extension>
+</plugin>

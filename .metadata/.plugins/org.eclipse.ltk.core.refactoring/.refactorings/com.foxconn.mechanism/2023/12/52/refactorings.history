@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy element &apos;plmnow_zh_transfer.jar&apos; to &apos;com.teamcenter.rac.issuemanager&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.mechanism&apos;&#x0D;&#x0A;- Destination element: &apos;com.teamcenter.rac.issuemanager&apos;&#x0D;&#x0A;- Original element: &apos;plmnow_zh_transfer.jar&apos;" description="Copy file" element1="lib/plmnow_zh_transfer.jar" files="1" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1703556394069" target="/com.teamcenter.rac.issuemanager" units="0" version="1.0"/>
+</session>

@@ -1,0 +1,49 @@
+source.. = src/
+output.. = bin/
+bin.includes = plugin.xml,\
+               META-INF/,\
+               .,\
+               icons/,\
+               plugin_zh_CN.properties,\
+               plugin_zh_TW.properties,\
+               plugin.properties,\
+               lib/httpService.jar,\
+               lib/com.google.gson.jar,\
+               lib/commons-compress-1.18.jar,\
+               lib/xmlbeans-3.1.0.jar,\
+               lib/commons-collections4-4.1.jar,\
+               lib/commons-logging.jar,\
+               lib/httpclient-4.5.2.jar,\
+               lib/httpcore-4.4.4.jar,\
+               lib/slf4j-api-1.7.32.jar,\
+               lib/xercesImpl.jar,\
+               lib/xml-apis.jar,\
+               lib/httpmime-4.5.2.jar,\
+               lib/fastjson-1.2.78.jar,\
+               lib/jxbrowser-7.21.jar,\
+               lib/jxbrowser-swing-7.21.jar,\
+               lib/jxbrowser-win64-7.21.jar,\
+               lib/poi-4.1.2.jar,\
+               lib/poi-ooxml-4.1.2.jar,\
+               lib/poi-ooxml-schemas-4.1.2.jar,\
+               lib/hutool-all-5.8.10.jar,\
+               lib/TcSoaAdministrationStrong_14000.2.0.jar,\
+               lib/TcSoaCadLoose_14000.2.0.jar,\
+               lib/TcSoaClient_14000.2.0.jar,\
+               lib/TcSoaCommon_14000.2.0.jar,\
+               lib/TcSoaCoreLoose_14000.2.0.jar,\
+               lib/TcSoaCoreStrong_14000.2.0.jar,\
+               lib/TcSoaQueryLoose_14000.2.0.jar,\
+               lib/TcSoaQueryStrong_14000.2.0.jar,\
+               lib/TcSoaStrongModel_14000.2.0.jar,\
+               lib/TcSoaWorkflowStrong_14000.2.0.jar,\
+               lib/ojdbc6-11.2.0.3.jar,\
+               lib/commons-io-2.11.0.jar,\
+               lib/commons-math3-3.6.1.jar,\
+               lib/TcSoaWorkflowRac_14000.2.0.jar,\
+               template.xlsx,\
+               lib/plmnow_zh_transfer.jar,\
+               lib/jsch-0.1.55.jar
+javacDefaultEncoding.. = UTF-8
+src.includes = template.xlsx
+

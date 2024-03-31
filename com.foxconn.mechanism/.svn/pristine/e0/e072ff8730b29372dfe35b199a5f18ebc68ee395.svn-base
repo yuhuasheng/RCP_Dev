@@ -1,0 +1,946 @@
+package com.foxconn.mechanism.integrate.hhpnIntegrate;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.SashForm;
+import org.eclipse.swt.custom.StackLayout;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.AIFDesktop;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentSite;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.Registry;
+
+
+
+public class InputInfoDialog extends Dialog{
+	//private String[] sysIds= new String[] {"PNMS","SAP","DT L5Agile","DT L6Agile","PRT Agile"};
+	private String[] sysIds= null;
+	private AbstractAIFUIApplication app = null;
+	private TCSession session = null;
+	private Registry reg = null;
+	private Shell shell = null;
+	private Shell parentShell = null;
+    private Composite mainContainer = null;
+    private Composite bottomContainer = null;
+    private Composite middleComposite = null;
+    private Button okbutton =null;
+    private StackLayout middleCompositeStackLayout=null;
+    private Composite textModelComposite=null;
+    private  Text textContent ;
+    private  Text fileTextContent=null;
+
+    private Label tipLabel=null;
+    private  Combo createTypeCombo;
+    private  Combo  dataFromCombo;
+    private  Combo  plantCombo;
+    private String mCreateType="";
+    private String mPlant="";
+    private String mDataFrom="";
+    private int mRohs=-1;
+    private int mPmns=-1;
+    private int mSAP=-1; //-1 忽略  1强制 测试环境  2  强制正式环境
+    private int mUpFlag=-1;
+    private int mReleaseFlag=-1;
+    private Button rohsRadio;
+    private Button rfRadio;
+    
+    private Button pnmsUatRadio;
+    private Button pnmsPrdRadio;
+    private FormData pnmsUrlCompositeFormData;
+    private FormData rohsCompositeFormData;
+    private FormData plantCompositeFormData;
+    private Composite rohsComposite;
+    private Composite pnmsUrlComposite;
+    
+    private Button sapUatRadio;
+    private Button sapPrdRadio;
+    private FormData sapUrlCompositeFormData;
+    private Composite sapUrlComposite;
+    
+    private Composite plantComposite;
+    private String prefString="";
+    private String curentSite="";
+    private Button checkButton;
+    private Button releaseButton;
+    private TCComponent tCComponentFolder ;
+	public InputInfoDialog (TCComponent tCComponentFolder,AbstractAIFUIApplication app, Shell parent, Registry reg) {
+		super(parent);
+		this.app = app;
+		this.session = (TCSession) this.app.getSession();
+		this.parentShell = parent;
+		this.reg = reg;		
+		this.tCComponentFolder=tCComponentFolder;
+		initUI();
+	}
+	
+	private void initUI() {
+		shell = new Shell(parentShell,SWT.DIALOG_TRIM | SWT.MAX | SWT.RESIZE | SWT.CLOSE | SWT.PRIMARY_MODAL);
+		shell.setSize(1000, 560);
+		shell.setText(reg.getString("input.title"));
+		shell.setLayout(new FillLayout());
+		TCUtil.centerShell(shell);
+		
+		Image image = getDefaultImage();
+		if (image != null) {
+			shell.setImage(image);
+		}
+		TCComponentSite site=session.getCurrentSite();
+		try{
+			curentSite=site.getProperty("object_string");
+			
+		}catch(Exception e) {}
+		SashForm sashForm = new SashForm(shell, SWT.VERTICAL|SWT.NONE);
+		mainContainer = new Composite(sashForm, SWT.NONE);
+		mainContainer.setLayout(new FormLayout());
+       
+		Composite formComposite = new Composite(mainContainer, SWT.NONE);
+		FormData formCompositeFormData=new FormData();
+		formCompositeFormData.left=new FormAttachment(0);
+		formCompositeFormData.top=new FormAttachment(0);
+		formCompositeFormData.right=new FormAttachment(100);
+		formComposite.setLayoutData(formCompositeFormData);
+		FormLayout formCompositeFormLayout=new FormLayout();
+		formCompositeFormLayout.marginWidth=10;
+		formCompositeFormLayout.marginTop=10;
+		formComposite.setLayout(formCompositeFormLayout);
+		
+		Composite createTypeComposite=new Composite(formComposite, SWT.NONE);	
+		FormData createTypeCompositeFormData=new FormData();
+		createTypeCompositeFormData.height=40;
+		createTypeCompositeFormData.left=new FormAttachment(0);
+		createTypeCompositeFormData.right=new FormAttachment(100);
+		createTypeCompositeFormData.top=new FormAttachment(0);
+		createTypeComposite.setLayoutData(createTypeCompositeFormData);
+		createTypeComposite.setLayout(new FormLayout());
+		Label createTypeLabel = new Label(createTypeComposite, SWT.NONE);
+		FormData createTypeLabelFormData=new FormData();
+		createTypeLabelFormData.width=120;
+		createTypeLabelFormData.height=40;      
+	    createTypeLabel.setLayoutData(createTypeLabelFormData);
+	    createTypeLabel.setText(reg.getString("createType.txt"));
+	    createTypeLabel.setAlignment(SWT.RIGHT);
+	    createTypeCombo= new Combo(createTypeComposite, SWT.READ_ONLY);
+	    FormData createTypeComboFormData=new FormData();
+	    createTypeComboFormData.height=40;
+	    createTypeComboFormData.width=100;
+	    createTypeComboFormData.left=new FormAttachment(createTypeLabel,10);
+	    createTypeCombo.setLayoutData(createTypeComboFormData);
+	    List<String> createTypePre=TCUtil.getArrayPreference(session, TCPreferenceService.TC_preference_site, "D9_PartInfo_CreateType");
+	    String[]  createTypls=  new String[createTypePre.size()];
+	    for(int i=0;i<createTypePre.size();i++) {
+	    	createTypls[i]=createTypePre.get(i).split("=")[0].trim();
+	    }
+	    createTypeCombo.setItems(getCreateTypes());
+	    
+	    Composite dataFromComposite=new Composite(formComposite, SWT.NONE);	
+		FormData dataFromCompositeFormData=new FormData();
+		dataFromCompositeFormData.height=40;
+		dataFromCompositeFormData.left=new FormAttachment(0);
+		dataFromCompositeFormData.right=new FormAttachment(100);
+		dataFromCompositeFormData.top=new FormAttachment(createTypeComposite,0);
+		dataFromComposite.setLayoutData(dataFromCompositeFormData);
+		dataFromComposite.setLayout(new FormLayout());
+		Label dataFromLabel = new Label(dataFromComposite, SWT.NONE);
+		FormData dataFromLabelFormData=new FormData();
+		dataFromLabelFormData.width=120;
+		dataFromLabelFormData.height=40;      
+		dataFromLabel.setLayoutData(dataFromLabelFormData);
+		dataFromLabel.setText(reg.getString("dataFrom.txt"));
+		dataFromLabel.setAlignment(SWT.RIGHT);
+	    dataFromCombo= new Combo(dataFromComposite, SWT.READ_ONLY);
+	    FormData dataFromComboFormData=new FormData();
+	    dataFromComboFormData.height=40;
+	    dataFromComboFormData.width=100;
+	    dataFromComboFormData.left=new FormAttachment(dataFromLabel,10);
+	    dataFromCombo.setLayoutData(dataFromComboFormData);
+	    //dataFromCombo.setItems(sysIds);
+	  
+	    rohsComposite=new Composite(formComposite, SWT.NONE);	
+		rohsCompositeFormData=new FormData();
+		rohsCompositeFormData.height=0;
+		rohsCompositeFormData.left=new FormAttachment(0);
+		rohsCompositeFormData.right=new FormAttachment(100);
+		rohsCompositeFormData.top=new FormAttachment(dataFromComposite,0);
+		rohsComposite.setLayoutData(rohsCompositeFormData);
+		rohsComposite.setLayout(new FormLayout());
+		Label rohsLabel = new Label(rohsComposite, SWT.NONE);
+		FormData rohosLabelFormData=new FormData();
+		rohosLabelFormData.width=120;  
+		rohsLabel.setLayoutData(rohosLabelFormData);
+		rohsLabel.setText(reg.getString("rohs.txt"));
+		rohsLabel.setAlignment(SWT.RIGHT);
+		rohsRadio = new Button(rohsComposite, SWT.RADIO | SWT.LEFT);
+		rohsRadio.setText(reg.getString("rohs.rohs.txt"));
+		FormData rohsRadioFormData=new FormData();
+		rohsRadioFormData.top=new FormAttachment(0);
+		rohsRadioFormData.left=new FormAttachment(rohsLabel,10);
+		rohsRadioFormData.width=100;
+		rohsRadio.setLayoutData(rohsRadioFormData);
+		rfRadio = new Button(rohsComposite, SWT.RADIO | SWT.LEFT);
+		rfRadio.setText(reg.getString("rohs.rf.txt"));
+		FormData rfRadioFormData=new FormData();
+		rfRadioFormData.top=new FormAttachment(0);
+		rfRadioFormData.left=new FormAttachment(rohsRadio,0);
+		rfRadio.setLayoutData(rfRadioFormData);
+		
+		pnmsUrlComposite=new Composite(formComposite, SWT.NONE);	
+	    pnmsUrlCompositeFormData=new FormData();
+	    pnmsUrlCompositeFormData.height=0;
+	    pnmsUrlCompositeFormData.left=new FormAttachment(0);
+	    pnmsUrlCompositeFormData.right=new FormAttachment(100);
+	    pnmsUrlCompositeFormData.top=new FormAttachment(rohsComposite,0);
+	    pnmsUrlComposite.setLayoutData(pnmsUrlCompositeFormData);
+	    pnmsUrlComposite.setLayout(new FormLayout());
+		Label pnmsUrlLabel = new Label(pnmsUrlComposite, SWT.NONE);
+		FormData pnmsUrlLabelFormData=new FormData();
+		pnmsUrlLabelFormData.width=120;  
+		pnmsUrlLabel.setLayoutData(pnmsUrlLabelFormData);
+		pnmsUrlLabel.setText("PNMS环境:");
+		pnmsUrlLabel.setAlignment(SWT.RIGHT);
+		pnmsPrdRadio = new Button(pnmsUrlComposite, SWT.RADIO | SWT.LEFT);
+		pnmsPrdRadio.setText("正式环境");
+		FormData pnmsPrdRadioFormData=new FormData();
+		pnmsPrdRadioFormData.top=new FormAttachment(0);
+		pnmsPrdRadioFormData.left=new FormAttachment(pnmsUrlLabel,10);
+		pnmsPrdRadioFormData.width=100;
+		pnmsPrdRadio.setLayoutData(pnmsPrdRadioFormData);
+		pnmsUatRadio = new Button(pnmsUrlComposite, SWT.RADIO | SWT.LEFT);
+		pnmsUatRadio.setText("测试环境");
+		FormData pnmsUatRadioFormData=new FormData();
+		pnmsUatRadioFormData.top=new FormAttachment(0);
+		pnmsUatRadioFormData.left=new FormAttachment(pnmsPrdRadio,0);
+		pnmsUatRadio.setLayoutData(pnmsUatRadioFormData);					
+		
+		plantComposite=new Composite(formComposite, SWT.NONE);	
+		plantCompositeFormData=new FormData();
+		plantCompositeFormData.height=0;
+		plantCompositeFormData.left=new FormAttachment(0);
+		plantCompositeFormData.right=new FormAttachment(100);
+		plantCompositeFormData.top=new FormAttachment(pnmsUrlComposite,0);
+		plantComposite.setLayoutData(plantCompositeFormData);
+		plantComposite.setLayout(new FormLayout());
+		Label plantLabel = new Label(plantComposite, SWT.NONE);
+		FormData plantLabelFormData=new FormData();
+		plantLabelFormData.width=120;     
+		plantLabel.setLayoutData(plantLabelFormData);
+		plantLabel.setText(reg.getString("plant.txt"));
+		plantLabel.setAlignment(SWT.RIGHT);
+		plantCombo= new Combo(plantComposite, SWT.READ_ONLY);
+		FormData plantComboFormData=new FormData();
+		plantComboFormData.width=100;
+		plantComboFormData.left=new FormAttachment(plantLabel,10);
+		plantCombo.setLayoutData(plantComboFormData);
+		List<String> plantPre=TCUtil.getArrayPreference(session, TCPreferenceService.TC_preference_site, "D9_PartInfo_Plant");
+	    String[]  plantls=  new String[plantPre.size()+1];
+	    plantls[0]="";
+	    for(int i=0;i<plantPre.size();i++) {
+	    	plantls[i+1]=plantPre.get(i).split("=")[0].trim();
+	    }
+		plantCombo.setItems(plantls);	    
+				
+		
+		sapUrlComposite=new Composite(formComposite, SWT.NONE);	
+	    sapUrlCompositeFormData=new FormData();
+	    sapUrlCompositeFormData.height=0;
+	    sapUrlCompositeFormData.left=new FormAttachment(0);
+	    sapUrlCompositeFormData.right=new FormAttachment(100);
+	    sapUrlCompositeFormData.top=new FormAttachment(plantComposite,0);
+	    sapUrlComposite.setLayoutData(sapUrlCompositeFormData);
+	    sapUrlComposite.setLayout(new FormLayout());
+		Label sapUrlLabel = new Label(sapUrlComposite, SWT.NONE);
+		FormData sapUrlLabelFormData=new FormData();
+		sapUrlLabelFormData.width=120;  
+		sapUrlLabel.setLayoutData(sapUrlLabelFormData);
+		sapUrlLabel.setText("SAP环境:");
+		sapUrlLabel.setAlignment(SWT.RIGHT);
+		sapPrdRadio = new Button(sapUrlComposite, SWT.RADIO | SWT.LEFT);
+		sapPrdRadio.setText("正式环境");
+		FormData sapPrdRadioFormData=new FormData();
+		sapPrdRadioFormData.top=new FormAttachment(0);
+		sapPrdRadioFormData.left=new FormAttachment(sapUrlLabel,10);
+		sapPrdRadioFormData.width=100;
+		sapPrdRadio.setLayoutData(sapPrdRadioFormData);
+		sapUatRadio = new Button(sapUrlComposite, SWT.RADIO | SWT.LEFT);
+		sapUatRadio.setText("测试环境");
+		FormData sapUatRadioFormData=new FormData();
+		sapUatRadioFormData.top=new FormAttachment(0);
+		sapUatRadioFormData.left=new FormAttachment(sapPrdRadio,0);
+		sapUatRadio.setLayoutData(sapUatRadioFormData);
+		
+		tipLabel=new Label(formComposite, SWT.NONE|SWT.BOTTOM);	
+		FormData tipLabelFormData=new FormData();
+		tipLabelFormData.height=20;
+		tipLabelFormData.top=new FormAttachment(sapUrlComposite,0);
+		tipLabelFormData.left=new FormAttachment(0);
+		tipLabelFormData.right=new FormAttachment(60);
+		tipLabel.setLayoutData(tipLabelFormData);
+		tipLabel.setText(reg.getString("txt.tip"));	
+		
+		String gn="";
+		try {
+		 gn=session.getCurrentGroup().getGroupName();
+		}catch(Exception e) {}
+		if("dba".equalsIgnoreCase(gn)) {
+			
+		  checkButton=new Button(formComposite,SWT.CHECK|SWT.CENTER);
+		  checkButton.setText("覆蓋更新");
+		  FormData ckLabelFormData=new FormData();
+		  ckLabelFormData.height=20;
+	   	  ckLabelFormData.top=new FormAttachment(plantComposite,0);
+		  ckLabelFormData.right=new FormAttachment(100);
+		  checkButton.setLayoutData(ckLabelFormData);
+		
+		   releaseButton=new Button(formComposite,SWT.CHECK|SWT.CENTER);
+		   releaseButton.setEnabled(false);
+		   releaseButton.setText("發行物料");
+		   FormData rlLabelFormData=new FormData();
+		   rlLabelFormData.height=20;
+		   rlLabelFormData.top=new FormAttachment(plantComposite,0);
+		   rlLabelFormData.right=new FormAttachment(checkButton,-10);
+		   releaseButton.setLayoutData(rlLabelFormData);
+		   
+		   String[] createTypls2=new String[createTypls.length+2];
+		   for(int i=0;i<createTypls.length;i++) {
+			   createTypls2[i]=createTypls[i];
+		   }
+		   createTypls2[createTypls.length]="成品";
+		   createTypls2[createTypls.length+1]="虚拟件";
+		   createTypeCombo.setItems(createTypls2);
+		   
+		}
+
+		middleComposite = new Composite(mainContainer, SWT.NONE);
+		FormData middleCompositeFormData=new FormData();
+		middleCompositeFormData.left=new FormAttachment(0);
+		middleCompositeFormData.top=new FormAttachment(formComposite,0);
+		middleCompositeFormData.right=new FormAttachment(100);
+		middleCompositeFormData.bottom=new FormAttachment(100);
+		middleComposite.setLayoutData(middleCompositeFormData);
+		
+		middleCompositeStackLayout = new StackLayout();
+	    middleCompositeStackLayout.marginHeight=10;
+        middleCompositeStackLayout.marginWidth=10;
+		middleComposite.setLayout(middleCompositeStackLayout);	
+		textModelComposite = new Composite(middleComposite,SWT.BORDER);		
+     
+        middleCompositeStackLayout.topControl=textModelComposite;
+    
+        textModelComposite.setLayout(new FormLayout());
+        FormData fd3=new FormData();
+        fd3.left=new FormAttachment(0);
+        fd3.top=new FormAttachment(0);
+        fd3.right=new FormAttachment(100);
+        fd3.bottom=new FormAttachment(100);
+        textContent = new Text(textModelComposite, SWT.WRAP|SWT.V_SCROLL);       
+        textContent.setLayoutData(fd3);
+		
+
+		bottomContainer = new Composite(sashForm, SWT.NONE);
+		bottomContainer.setLayout(new FormLayout());
+	    okbutton=new Button(bottomContainer,SWT.BUTTON5|SWT.CENTER);
+	    okbutton.setText(reg.getString("confirmButton"));
+	    FormData fd5=new FormData();
+	    fd5.left=new FormAttachment(50,-35);
+	    fd5.top=new FormAttachment(50,-12);
+	    fd5.height=25;
+	    fd5.width=70;
+	    okbutton.setLayoutData(fd5); 
+		
+		sashForm.setWeights(new int[] {6,1});
+		addListener();
+		shell.open();
+		shell.layout();
+		new Thread() {
+			@Override
+			public void run() {
+				setMissPartsFromPSE();
+			}	
+		}.start();
+		
+
+		try {
+		      TCComponentGroup  gm=session.getGroup();
+		      String userGroupString =gm.getFullName();
+		      List<String> fromPrefList=TCUtil.getArrayPreference(session, TCPreferenceService.TC_preference_site, "D9_Group_PartSyncFrom");	      
+		      for(String pref:fromPrefList) {
+		        	if(userGroupString.contains(pref.split("=")[0])) {
+		        		prefString=pref;
+		        		break;
+		        	}
+		       }
+		        List<String> tmpStrings=new ArrayList<>();
+		        if(prefString!=null&&!("".equalsIgnoreCase(prefString))) {
+		        	
+		        	String fromString=prefString.split("=")[1].trim();
+		        	String[] mStrings=fromString.split(",");
+		        	for(String m:mStrings) {
+		        		tmpStrings.add(m.trim());
+		        	}
+		        }else {
+		        	tmpStrings.add("PNMS");		        	
+		        }
+		
+		        sysIds=new String[tmpStrings.size()];
+		        for(int i=0;i<tmpStrings.size();i++) {
+		        	sysIds[i]=tmpStrings.get(i);
+		        }
+		        dataFromCombo.setItems(sysIds);
+		        
+		        if(prefString!=null&&!("".equalsIgnoreCase(prefString))) {
+		        	String fromString=prefString.split("=")[1].trim();
+		        	fromString=fromString.split(",")[0].trim();
+		        	if(fromString!=null&&!("".equalsIgnoreCase(fromString))) {
+		        		for(int i=0;i<sysIds.length;i++) {
+		        			if(fromString.equalsIgnoreCase(sysIds[i])) {
+		        				dataFromCombo.select(i);
+		        				mDataFrom=dataFromCombo.getText();
+		        				System.out.print("dataFrom====>"+mDataFrom);
+		        				if("sap".equalsIgnoreCase(sysIds[i])) {
+		        					mPlant="";
+		        					plantCombo.setText("");
+		        					plantCompositeFormData.height=40;
+		        					rohsCompositeFormData.height=0;
+		        					pnmsUrlCompositeFormData.height=0;
+		        				}else if("pnms".equalsIgnoreCase(sysIds[i])) {
+		        					rohsRadio.setSelection(true);
+		        					rfRadio.setSelection(false);
+		        					mRohs=0;
+		        					rohsCompositeFormData.height=30;
+		        					
+		        					mPmns=0;
+		        					pnmsPrdRadio.setSelection(true);
+	        						pnmsUatRadio.setSelection(false);
+		        					if("tcprd".equalsIgnoreCase(curentSite)) {
+		        						pnmsUrlCompositeFormData.height=0;
+		        					}else {
+		        						pnmsUrlCompositeFormData.height=30;
+		        					}
+		        					plantCompositeFormData.height=0;
+		        				}
+		        				mainContainer.layout(true);
+		        				break;
+		        			}
+		        		}
+		        	}
+		        }else {
+		        	dataFromCombo.select(0);
+		        	mDataFrom=dataFromCombo.getText();
+    				System.out.print("dataFrom====>"+mDataFrom);
+		        	rohsRadio.setSelection(true);
+					rfRadio.setSelection(false);
+					mRohs=0;
+					rohsCompositeFormData.height=30;
+					
+					mPmns=0;
+					pnmsPrdRadio.setSelection(true);
+					pnmsUatRadio.setSelection(false);
+					if("tcprd".equalsIgnoreCase(curentSite)) {
+					   pnmsUrlCompositeFormData.height=0;
+					}else {
+					   pnmsUrlCompositeFormData.height=30;
+					}
+					plantCompositeFormData.height=0;
+					mainContainer.layout(true);
+		        }
+
+		    }catch(Exception e) {
+		    	System.out.println(e);
+		    }
+	
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+	}
+	
+
+	
+   /**
+ * 添加事件
+ */
+private void addListener() {
+	
+	
+	pnmsPrdRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mPmns=0;
+			System.out.print("pnms====>"+0);
+		}
+	});
+	
+	pnmsUatRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mPmns=1;
+			System.out.print("pnms====>"+1);
+		}
+	});
+	
+	
+	sapPrdRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mSAP=2;
+			System.out.print("sap====>"+2);
+		}
+	});
+	
+	sapUatRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mSAP=1;
+			System.out.print("sap====>"+1);
+		}
+	});
+	
+	rohsRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mRohs=0;
+			System.out.print("rohs====>"+0);
+		}
+	});
+	
+	
+	rfRadio.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mRohs=1;
+			System.out.print("rohs====>"+1);
+		}
+	});
+	
+	plantCombo.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mPlant=plantCombo.getText();
+			System.out.print("plant====>"+mPlant);
+		}
+	});
+	
+	
+	 dataFromCombo.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mDataFrom=dataFromCombo.getText();
+			System.out.print("dataFrom====>"+mDataFrom);
+			plantCompositeFormData.height=0;
+			rohsCompositeFormData.height=0;
+			sapUrlCompositeFormData.height=0;
+			pnmsUrlCompositeFormData.height=0;
+			mainContainer.layout(true);
+			if("pnms".equalsIgnoreCase(mDataFrom)) {
+				rohsCompositeFormData.height=30;					
+				if("tcprd".equalsIgnoreCase(curentSite)) {
+				   pnmsUrlCompositeFormData.height=0;
+				}else {
+				   pnmsUrlCompositeFormData.height=30;
+			    }						
+				plantCompositeFormData.height=0;
+				sapUrlCompositeFormData.height=0;
+			}else if("sap".equalsIgnoreCase(mDataFrom)) {	
+				mPlant="";
+				plantCombo.setText("");
+				plantCompositeFormData.height=40;
+				rohsCompositeFormData.height=0;
+				pnmsUrlCompositeFormData.height=0;
+							
+				String gn="";
+				try {
+				 gn=session.getCurrentGroup().getGroupName();
+				}catch(Exception e) {}
+				if("dba".equalsIgnoreCase(gn)) {
+					sapUrlCompositeFormData.height=30;
+				}else {
+					sapUrlCompositeFormData.height=0;
+				}
+				
+			}
+			mainContainer.layout(true);
+		}
+	});
+	
+	
+	createTypeCombo.addSelectionListener( new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent var1) {
+			mCreateType=createTypeCombo.getText();
+			System.out.print("CreateType====>"+mCreateType);
+		}
+	});
+	if(checkButton!=null) {
+	    checkButton.addSelectionListener( new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent var1) {
+				 if(checkButton.getSelection()) {
+					    dataFromCombo.select(2);
+					    dataFromCombo.setEnabled(false);
+					    mPlant="";	
+					    mDataFrom="SAP";
+						plantCombo.setText("");
+						plantCompositeFormData.height=40;
+						rohsCompositeFormData.height=0;
+						pnmsUrlCompositeFormData.height=0;
+						mainContainer.layout(true);
+						mUpFlag=1;
+						releaseButton.setEnabled(true);
+						releaseButton.setSelection(false);
+						mReleaseFlag=0;
+				 }else {
+					   dataFromCombo.setEnabled(true); 
+						mUpFlag=-1;
+						releaseButton.setEnabled(false);
+						releaseButton.setSelection(false);
+						mReleaseFlag=-1;
+				 }
+			}
+		});
+		
+	}
+	
+	if(releaseButton!=null) {
+		releaseButton.addSelectionListener( new SelectionAdapter() {
+				@Override
+				public void widgetSelected(SelectionEvent var1) {
+					 if(releaseButton.getSelection()) {						   
+							mReleaseFlag=1;
+					 }else {						
+							mReleaseFlag=0;
+					 }
+				}
+			});
+	}
+	
+        //确定按钮事件
+	   okbutton.addSelectionListener( new SelectionAdapter() {
+
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				try {
+					    if(mCreateType==null||"".equalsIgnoreCase(mCreateType)) {
+						    MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("createType.select.txt"), "Error", MessageBox.ERROR);
+						    return ;
+					     }
+					
+					   if(mDataFrom==null||"".equalsIgnoreCase(mDataFrom)) {
+						 MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("dataFrom.select.txt"), "Error", MessageBox.ERROR);
+						  return ;
+					   }
+					   if(mDataFrom.equalsIgnoreCase("sap")) {
+						 if(mPlant==null||"".equalsIgnoreCase(mPlant)) {
+							MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("plant.select.txt"), "Error", MessageBox.ERROR);
+							return ;
+						 }
+					   }
+					   if(mDataFrom.equalsIgnoreCase("pnms")) {
+						   if(mRohs==-1) {
+							 MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("rohs.select.txt"), "Error", MessageBox.ERROR);
+							 return ;
+						    }
+						   if(mPmns==-1) {
+							MessageBox.post(AIFUtility.getActiveDesktop(),reg.getString("pnms.select.txt"), "Error", MessageBox.ERROR);
+							return ;
+						   }
+					    }
+					
+					List<HHPNPojo> hhpns=new ArrayList<>();				
+					Map<String,String> hhpnMap=new HashMap<String,String>();				
+					
+					System.out.println("=================20220509===========");
+					String strText=textContent.getText();						
+					if(strText==null||"".equalsIgnoreCase(strText)) {
+						MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("notext"), "Error", MessageBox.ERROR);
+						return ;
+					}					
+					String[] itemIds= strText.split("\n");
+					int i=1;						
+					for(String itemId:itemIds) {						
+						    if(itemId==null||"".equalsIgnoreCase(itemId.trim())) {
+							  continue;
+						    }
+							itemId=itemId.trim();
+							itemId=itemId.split("\\s+")[0].trim();
+							itemId=itemId.split("\t")[0].trim();
+							if(itemId==null||"".equalsIgnoreCase(itemId.trim())) {
+								continue;
+							}
+							if(hhpnMap.get(itemId.trim())!=null) {
+								continue;//去重
+							}
+							
+							hhpnMap.put(itemId, itemId);
+							HHPNPojo hhpnPojo=new HHPNPojo();
+							if(mDataFrom.equalsIgnoreCase("pnms")) {	
+							    // if(itemId.endsWith("-G")||itemId.endsWith("-H")) {
+								//  itemId=itemId.substring(0, itemId.length()-2);
+							    // }
+							    // if(mRohs==0) {
+							    //	 itemId=itemId+"-G";
+							    //  }else if(mRohs==1) {
+							    //	 itemId=itemId+"-H";
+							    // }
+							}
+							hhpnPojo.setItemId(itemId);
+							hhpnPojo.setIndex(i);
+							hhpnPojo.setPlant(mPlant);
+							hhpnPojo.setRohos(mRohs);
+							hhpnPojo.setPnms(mPmns);
+							hhpnPojo.setDataFrom(mDataFrom);
+							hhpnPojo.setIsExistInTC(0);
+							i++;
+							hhpns.add(hhpnPojo);
+					}												
+				
+					
+					if(hhpns==null||hhpns.size()<=0) {
+						MessageBox.post(AIFUtility.getActiveDesktop(), reg.getString("errdata"), "Error", MessageBox.ERROR);
+						return;
+					}
+					
+					shell.setVisible(false);
+					new SyncDialog(tCComponentFolder,app,AIFDesktop.getActiveDesktop().getShell(),shell,reg,hhpns,mCreateType,mUpFlag,mReleaseFlag,mDataFrom,mRohs,mSAP);
+				} catch (Exception e2) {
+					e2.printStackTrace();
+				}
+			}
+		});
+	   
+	 
+	   
+	 
+   }
+
+    
+   private  void setMissPartsFromPSE ()  {
+	 
+	   Map<String,String> missMap=new HashMap<String,String>();
+	   InterfaceAIFComponent interfaceAIFComponent=null;
+	   if(app.getApplicationId().contains("PSEApplication")) {
+			interfaceAIFComponent = this.app.getTargetComponent();
+			if(interfaceAIFComponent==null) {
+			  return;
+			}
+		}else {
+			return;
+		}
+	   
+	   TCComponentBOMLine bomLine = (TCComponentBOMLine) interfaceAIFComponent;
+	   try {
+	      String pro =bomLine.getProperty("bl_line_object");
+	      if(pro.contains("missing_part_number")) {
+	    		String itemId= getItemId(bomLine);
+	    		if(itemId!=null) {
+				  missMap.put(itemId,itemId);
+	    		}
+				TCComponentBOMLine[] packlines=bomLine.getPackedLines();
+				if(packlines!=null&&packlines.length>0) {
+					for(TCComponentBOMLine packline :packlines ) {
+						itemId= getItemId(packline);
+						 if(itemId==null) {
+							continue;
+						 }	
+						missMap.put(itemId,itemId);
+					}
+				}
+	      }
+	   }catch(Exception e) {}
+	   try {
+			   AIFComponentContext[] children = bomLine.getChildren();
+			  for(AIFComponentContext aifComponentContext : children) {
+				InterfaceAIFComponent component = aifComponentContext.getComponent();
+				if (!(component instanceof TCComponentBOMLine)) {
+					continue;
+				}
+				TCComponentBOMLine childBomLine = (TCComponentBOMLine) component;
+				String pro =childBomLine.getProperty("bl_line_object");
+				if(pro==null ||(!pro.contains("missing_part_number"))) {
+					continue;
+				}
+				String itemId= getItemId(childBomLine);
+				if(itemId==null) {
+					continue;
+				}
+				missMap.put(itemId,itemId);
+				
+				TCComponentBOMLine[] packlines=childBomLine.getPackedLines();
+				if(packlines!=null&&packlines.length>0) {
+					for(TCComponentBOMLine packline :packlines ) {
+						 itemId= getItemId(packline);
+						 if(itemId==null) {
+							continue;
+						 }
+						missMap.put(itemId,itemId);
+					}
+				}
+			
+			}  
+	   }catch(Exception e) {}
+	     String missParts="";
+	    Set<String> keys= missMap.keySet();
+	    for(String key:keys) {
+	    	if(key.equalsIgnoreCase("tbd")) {
+	    		continue;
+	    	}
+	    	missParts+=key+"\n";
+	    }
+	    if(missParts.endsWith("\n")) {
+	    	missParts=missParts.substring(0, missParts.length()-1);
+	    }
+	   final String text=missParts;
+	   Display.getDefault().syncExec(new Runnable() {
+   	    public void run() {
+   	    	 textContent.setText(text);
+   	    }
+   	    });
+	   
+   }
+
+      String getItemId(TCComponentBOMLine line) throws Exception {
+	  
+    	      String itemId =null;
+			  String itemIdDT =line.getProperty("bl_occ_d9_FoxconnPartNumber");
+			  if(itemIdDT==null||"".equalsIgnoreCase(itemIdDT.trim())) {
+				 itemIdDT=null;
+			  }
+			
+			  String itemIdNoDT =line.getProperty("bl_occ_d9_FoxconnPartNumberNoDT");
+			  if(itemIdNoDT==null||"".equalsIgnoreCase(itemIdNoDT.trim())) {
+				itemIdNoDT=null;
+			  }
+			  
+			  String itemIdStd =line.getProperty("bl_occ_d9_StandardPN");
+			  if(itemIdStd==null||"".equalsIgnoreCase(itemIdStd.trim())) {
+				  itemIdStd=null;
+			  }
+			  
+			
+			 TCComponentGroup group=session.getCurrentGroup();
+			 if(group.getFullName().contains("Desktop")) {
+						itemId=itemIdDT;
+			 }else if(group.getFullName().contains("Monitor")){
+						itemId=itemIdNoDT;
+			 }else if(group.getFullName().contains("Printer")){
+						itemId=itemIdStd;
+			 }
+			  
+			 if(itemId==null) {
+				if(itemIdDT!=null) {
+					itemId=itemIdDT;
+				}else if(itemIdNoDT!=null) {
+					itemId=itemIdNoDT;
+				}else if(itemIdStd!=null) {
+					itemId=itemIdStd;
+				}
+			  }
+			
+	  
+	       return itemId; 
+       }
+
+      
+      
+      String[] getCreateTypes() {
+    	   List<String> createTypePre=TCUtil.getArrayPreference(session, TCPreferenceService.TC_preference_site, "D9_PartInfo_CreateType");
+  	       String[]  createTypls=  new String[createTypePre.size()];
+  	       for(int i=0;i<createTypePre.size();i++) {
+  	    	 createTypls[i]=createTypePre.get(i).split("=")[0].trim();
+  	       }
+  	    
+  	       List<String> groupPartType=TCUtil.getArrayPreference(session, TCPreferenceService.TC_preference_site, "D9_Group_PartType");
+  	     
+  	       String gn="";
+ 		   try {
+ 		    gn=session.getCurrentGroup().getFullName();
+ 		   }catch(Exception e) {}
+ 		   if(gn.contains("dba")) {
+ 			  return createTypls;
+ 		   }
+  	       int maxCnt=-1;
+  	       String partType="";
+  	       for(String pref:groupPartType) {
+  	    	    int cnt=getMatchCnt(gn,pref);
+  	    	    if(cnt>maxCnt) {
+  	    	    	maxCnt=cnt;
+  	    	    	partType=pref;
+  	    	    }
+  	       }
+  	       if(partType!=null&&(!"".equalsIgnoreCase(partType))) {
+  	          return partType.split("=")[1].split(",");
+  	       }
+  	       
+  	       return createTypls;
+      }
+	      
+      
+      
+     private int getMatchCnt(String group,String pref){
+        	     String npref=pref.split("=")[0];
+        	     String[] groups=group.split("\\.");
+        	     groups= revert(groups);
+        	     int cnt=0;
+        	     for(int i=0;i<groups.length;i++) {
+        	    	boolean rs= isContainer(groups[i],npref,i);
+        	    	if(!rs) {
+        	    		return cnt;
+        	    	}
+        	    	cnt++;
+        	     }   
+        	  return  cnt;
+       }
+         
+         
+         
+      private boolean isContainer(String str,String pref,int i) {
+        	    String[] prefs=pref.split("\\.");
+        	    prefs= revert(prefs);
+                try {
+        	      if(prefs[i].equalsIgnoreCase(str)) {
+        			  return true;
+        	       }
+                }catch(Exception e) {}
+        	  
+        	  return false;
+        }
+      
+       private  String[] revert( String[]  str) {
+        	String[]  nl=new String[str.length]; 
+        	for(int i=str.length-1;i>-1;i--) {
+        		nl[str.length-1-i]=str[i];
+        	}
+        	return nl;
+        }
+      
+}

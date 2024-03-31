@@ -1,0 +1,220 @@
+package com.foxconn.mechanism.dtpac.matmaintain.listener;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MouseAdapter;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.ShellAdapter;
+import org.eclipse.swt.events.ShellEvent;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableItem;
+
+import com.foxconn.mechanism.dtpac.matmaintain.dialog.PACMatMaintainDialog;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.mechanism.dtpac.matmaintain.util.TableTools;
+import com.foxconn.tcutils.util.CommonTools;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+public class ButtonSelectionListener extends SelectionAdapter {
+	private Shell shell = null;
+	private TCSession session = null;
+	private Registry reg = null;
+	private TableViewer tv = null;	
+	private Label typeLabel = null;
+	private Label nameLabel = null;
+	private Combo typeCombo = null;
+	private Combo nameCombo = null;
+	private PACMatMaintainDialog dialog = null;
+	
+	public ButtonSelectionListener(Shell shell, TCSession session, Registry reg, TableViewer tv, Label typeLabel, Combo typeCombo, Label nameLabel, Combo nameCombo, PACMatMaintainDialog dialog) {
+		super();
+		this.shell = shell;
+		this.session = session;
+		this.reg = reg;
+		this.tv = tv;
+		this.typeLabel = typeLabel;
+		this.typeCombo = typeCombo;
+		this.nameLabel = nameLabel;
+		this.nameCombo = nameCombo;
+		this.dialog = dialog;
+		addListener();
+	}
+
+
+
+	@Override
+	public void widgetSelected(SelectionEvent e) {
+		System.out.println("开始执行");
+		Button button = (Button) e.getSource();
+		String buttonName = button.getText();
+		System.out.println("==>> buttonName: " + buttonName);
+		if (reg.getString("AddBtn.LABEL").equals(buttonName)) {
+			add();
+		} else if (reg.getString("CancelBtn.LABEL").equals(buttonName)) {
+			cancel();
+		}
+	}
+
+
+
+	private void addListener() {
+		
+		Table table = tv.getTable();
+		
+		typeCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				TableItem[] items = table.getItems(); // 获取table表记录
+				if (!dialog.getCurMatType().equals(text)) {
+					boolean flag = false;
+					if (CommonTools.isNotEmpty(items)) {
+						flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + typeLabel.getText() 
+						+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					} 				
+					if (flag || CommonTools.isEmpty(items)) { // 点击了是或者table表数据为空
+						nameCombo.removeAll();
+						List<String> matNameLovList = dialog.getLovValue(partType, text, null, null);
+						dialog.setComboValues(nameCombo, matNameLovList, 0);
+						
+						dialog.setCurMatType(text);
+						dialog.setCurMatName(nameCombo.getText());
+						
+						List<String> typeList = dialog.getLovValue(partType, text, nameCombo.getText(), null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+						
+					} else {
+						List<String> lovList = new ArrayList<String>(Arrays.asList(typeCombo.getItems()));
+						typeCombo.select(dialog.getIndex(lovList, dialog.getCurMatType()));
+					}					
+				}
+				
+			}
+		});	
+		
+		nameCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				TableItem[] items = table.getItems(); // 获取table表记录
+				
+				if (!dialog.getCurMatName().equals(text)) { // 点击了是或者table表数据为空
+					boolean flag = false;
+					if (CommonTools.isNotEmpty(items)) {
+						flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + nameLabel.getText() 
+						+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					}					
+					
+					if (flag || CommonTools.isEmpty(items)) {
+						dialog.setCurMatName(text);
+						List<String> typeList = dialog.getLovValue(partType, typeCombo.getText(), text, null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+					} else {
+						nameCombo.setText(dialog.getCurMatName());
+					}				
+					
+				}
+				
+			}
+		});	
+		
+		
+		table.addMouseListener(new MouseAdapter() {
+
+			@Override
+			public void mouseDown(MouseEvent e) {			
+				
+		        Point point = new Point(e.x, e.y); // 获取鼠标点击坐标
+		        TableItem item = table.getItem(point);     
+		        
+		        if (item == null) {	// 判断是否点击了空白区域（没有选中的行）	            
+		            table.deselectAll(); // 取消选择
+		        }
+			}
+			
+		});	
+	
+		addPaintItemListener(table); // 添加PaintItem监听事件
+		
+		shell.addShellListener(new ShellAdapter() {
+
+			@Override
+			public void shellClosed(ShellEvent e) {
+				boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("CloseTip.MSG"));
+				System.out.println("==>> flag: " + flag);
+				e.doit = flag == true;
+				if (e.doit) {
+					shell.dispose();
+				}
+			}			
+		});
+	}
+
+	
+	private void addPaintItemListener(Table table) {
+        table.addListener(SWT.PaintItem, event -> {         	
+        	TableItem item = (TableItem) event.item;
+        	MatMaintainBean bean = (MatMaintainBean) item.getData();			
+        	if (bean == null) {
+				return;
+			}
+        	if (!bean.isSelect()) {
+				return;
+			}
+//        	table.redraw();
+        	if (bean.isDelete()) {
+//        		table.redraw(); // 需要更新删除线的显示状态，需要调用表格的redraw()方法来触发重绘
+        		event.gc.setForeground(event.display.getSystemColor(SWT.COLOR_RED));
+                event.gc.setLineStyle(SWT.LINE_SOLID); 
+                
+                Rectangle bounds = item.getBounds();
+                int y = bounds.y + bounds.height / 2;
+                for (int columnIndex = 0; columnIndex < table.getColumnCount(); columnIndex++) {
+                    Rectangle cellBounds = item.getBounds(columnIndex);
+                    int x1 = cellBounds.x;
+                    int y1 = y;
+                    int x2 = cellBounds.x + cellBounds.width - 1;
+                    int y2 = y;
+                    event.gc.drawLine(x1, y1, x2, y2);
+                }
+        	} else { 
+        		table.redraw();
+        		event.detail &= ~SWT.HOT; // 取消删除线    
+			}
+        });        
+        
+	}
+	
+	
+	private void add() {
+		TableTools.addRow(tv, dialog);
+	}
+	
+	private void cancel() {
+		boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("CloseTip.MSG"));
+		System.out.println("==>> flag: " + flag);
+		if (flag) {
+			shell.dispose();
+		}
+	}
+}

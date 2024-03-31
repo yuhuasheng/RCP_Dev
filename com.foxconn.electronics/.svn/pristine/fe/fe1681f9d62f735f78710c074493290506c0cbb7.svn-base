@@ -1,0 +1,47 @@
+package com.foxconn.electronics.issuemanagement.controller;
+
+import java.util.ResourceBundle;
+
+import com.foxconn.electronics.issuemanagement.dialog.CreateIssueDialog;
+import com.foxconn.electronics.issuemanagement.service.CreateIssueService;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.plm.tc.httpService.jhttp.GetMapping;
+import com.plm.tc.httpService.jhttp.HttpRequest;
+import com.plm.tc.httpService.jhttp.PostMapping;
+import com.plm.tc.httpService.jhttp.RequestParam;
+import com.teamcenter.rac.kernel.TCSession;
+
+public class CreateIssueController {
+	private CreateIssueService service;
+
+	public CreateIssueController(TCSession session,ResourceBundle reg,String customer,CreateIssueDialog dialog) {
+		super();
+		this.service = new CreateIssueService(session,reg,customer,dialog);
+	}
+	
+	@GetMapping("/createIssue/getBaseData")
+	public AjaxResult getBaseData(@RequestParam("type") String type) {
+		return service.getBaseData(type);
+	}
+	
+	@GetMapping("/createIssue/getAcutalUser")
+	public AjaxResult getAcutalUser() {
+		return service.getActualUsers();
+	}
+	
+	@PostMapping("/createIssue/createHpIssue")
+	public AjaxResult createHpIssue(HttpRequest req) {
+		return service.createHpIssue(req);
+	}
+	
+	@PostMapping("/createIssue/createLenovoIssue")
+	public AjaxResult createLenovoIssue(HttpRequest req) {
+		return service.createLenovoIssue(req);
+	}
+	
+	@PostMapping("/createIssue/createDellIssue")
+	public AjaxResult createDellIssue(HttpRequest req) {
+		return service.createDellIssue(req);
+	}
+
+}

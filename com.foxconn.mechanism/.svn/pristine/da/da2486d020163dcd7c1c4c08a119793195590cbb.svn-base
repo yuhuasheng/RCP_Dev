@@ -1,0 +1,865 @@
+package com.foxconn.mechanism.dtpac.matmaintain.dialog;
+
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.viewers.TableLayout;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.TableViewerColumn;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.ProgressBar;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.Text;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.LinkLovBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainConstant;
+import com.foxconn.mechanism.dtpac.matmaintain.listener.ButtonSelectionListener;
+import com.foxconn.tcutils.constant.ColorEnum;
+import com.foxconn.tcutils.constant.DatasetEnum;
+import com.foxconn.tcutils.constant.PreferenceConstant;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCPropertes;
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.io.IoUtil;
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
+
+public class PACMatMaintainDialog extends Dialog {
+
+	private AbstractAIFUIApplication app = null;
+	private TCSession session = null;
+	private Shell shell = null;
+	private Shell parentShell = null;
+	private Registry reg = null;
+	private Label typeLabel = null;
+	private Label nameLabel = null;
+	private Label totalMatCostLabel = null;
+	private Text totalMatCostText = null;
+	private Combo typeCombo = null;
+	private Combo nameCombo = null;
+	private TableViewer tv;
+	private Table table;
+	private TableLayout tableLayout = null;
+	private Composite statusBar = null;
+	private Label status = null;
+	private ProgressBar progressBar = null;
+	private Button saveBtn = null;
+	private Button cancelBtn = null;
+	private String[] tableTitle = {"序号", "零组件ID", "版本号", "类别", "材质", "长", "宽", "高", "厚", "密度", "重量", "数量", "用量单位", "材料用量计算", "材料成本因子", "物料成本"};
+	private TCComponentBOMLine topLine = null;
+	private Map<String, List<ExcelBean>> retMap = null;
+	private List<ExcelBean> matBeanList = null;
+	private List<ExcelBean> matCostBeanList = null;
+	private List<LinkLovBean> linkLovList = null;
+	private ButtonSelectionListener btnSelectionListener = null;
+	private List<MatMaintainBean> dataList = null;
+	
+	public PACMatMaintainDialog(AbstractAIFUIApplication app, Shell parentShell) {
+		super(parentShell);
+		this.app = app;
+		this.session = (TCSession) this.app.getSession();
+		this.parentShell = parentShell;
+		reg = Registry.getRegistry("com.foxconn.mechanism.dtpac.dtpac");
+		topLine = getSelectBOMLine(); // 获取当前选中的BOMLine
+		initUI();
+		
+	}
+
+	
+	private void initUI() {
+		shell = new Shell(parentShell, SWT.DIALOG_TRIM | SWT.MAX | SWT.RESIZE | SWT.CLOSE);
+		shell.setSize(700, 600);
+		shell.setText(reg.getString("PACMatMaintain.TITLE"));
+		shell.setLayout(new GridLayout(1, false));
+		TCUtil.centerShell(shell);
+		
+		Image image = getDefaultImage();
+		if (CommonTools.isNotEmpty(image)) {
+			shell.setImage(image);
+		}
+		
+		GridData topData = new GridData(GridData.HORIZONTAL_ALIGN_FILL);
+		
+		Composite topComposite = new Composite(shell, SWT.NONE);
+		GridLayout topGridLayout = new GridLayout(4, false);
+		topGridLayout.horizontalSpacing = 20;
+		
+		topComposite.setLayout(topGridLayout);
+		topComposite.setLayoutData(topData);
+		
+		typeLabel = new Label(topComposite, SWT.NONE);
+		typeLabel.setText(reg.getString("TypeCombo.LABEL"));
+		
+		GridData typeGridData = new GridData();
+		typeGridData.widthHint = 120;		
+		
+		typeCombo = new Combo(topComposite, SWT.READ_ONLY);
+		typeCombo.setLayoutData(typeGridData);
+		
+		nameLabel = new Label(topComposite, SWT.NONE);
+		nameLabel.setText(reg.getString("NameCombo.LABEL"));
+		
+		GridData nameGridData = new GridData();
+		nameGridData.widthHint = 100;	
+		
+		nameCombo = new Combo(topComposite, SWT.READ_ONLY);
+		nameCombo.setLayoutData(nameGridData);
+		
+		if (topLine.hasChildren()) { // 判断选择的是否为根节点
+			typeLabel.setVisible(false);
+			nameLabel.setVisible(false);
+			typeCombo.setVisible(false);
+			nameCombo.setVisible(false);			
+		}
+		
+		Composite tableComposite = new Composite(shell, SWT.NONE);
+		tableComposite.setLayout(new GridLayout(1, false));
+		tableComposite.setLayoutData(new GridData(GridData.FILL_BOTH));	
+		
+		tv = new TableViewer(tableComposite, SWT.V_SCROLL | SWT.H_SCROLL | SWT.FULL_SELECTION | SWT.BORDER | SWT.MULTI);
+		table = tv.getTable();
+		
+		table.setHeaderVisible(true); // 显示表头
+		table.setLinesVisible(true); // 显示
+		table.setHeaderBackground(ColorEnum.GoldGray.color());
+		
+		tableLayout = new TableLayout(); // 专用于表格的布局
+		table.setLayout(tableLayout);
+		table.setLayoutData(new GridData(GridData.FILL_BOTH));		
+		
+		createTreeColumn(); // 创建表格列
+		
+		
+		Composite totalMatCostComposite = new Composite(tableComposite, SWT.NONE);
+		
+		GridLayout totalMatGridLayout = new GridLayout(3, false);
+		totalMatGridLayout.horizontalSpacing = 10;
+		
+		totalMatCostComposite.setLayoutData(createGridData(GridData.HORIZONTAL_ALIGN_FILL, 1, SWT.END));		
+		totalMatCostComposite.setLayout(totalMatGridLayout);
+		
+		GridData totalMatCostData = new GridData(GridData.FILL_HORIZONTAL);
+		totalMatCostData.horizontalAlignment = SWT.END;
+		totalMatCostData.horizontalSpan = 1;
+		
+		
+		totalMatCostLabel = new Label(totalMatCostComposite, SWT.NONE);
+		totalMatCostLabel.setText(reg.getString("TotalMatCost.LABEL"));
+		totalMatCostLabel.setLayoutData(totalMatCostData);
+		
+		GridData totalMatCostTextData = new GridData(GridData.FILL_HORIZONTAL);
+		totalMatCostTextData.horizontalAlignment = SWT.CENTER;
+		totalMatCostTextData.horizontalSpan = 1;
+		totalMatCostTextData.widthHint = 100;
+		totalMatCostTextData.heightHint = 15;
+		
+		
+		totalMatCostText = new Text(totalMatCostComposite, SWT.SINGLE | SWT.BORDER);
+		totalMatCostText.setEnabled(false); // 设置不可编辑
+		totalMatCostText.setLayoutData(totalMatCostTextData);
+		
+		totalMatCostData.horizontalAlignment = SWT.CENTER;
+		totalMatCostData.horizontalSpan = 1;
+		totalMatCostData.widthHint = 35;
+		
+		Label label = new Label(totalMatCostComposite, SWT.NONE);
+		label.setLayoutData(totalMatCostData);
+		
+		
+		Composite bottomBtnComposite = new Composite(shell, SWT.NONE);		
+		GridData bottomBtnData = new GridData(GridData.FILL_HORIZONTAL);
+		bottomBtnData.horizontalAlignment = GridData.CENTER; 		
+		bottomBtnComposite.setLayoutData(bottomBtnData);
+		
+		RowLayout bottomRowLayout = new RowLayout(); 
+		bottomRowLayout.spacing = 15;
+		
+		bottomBtnComposite.setLayout(bottomRowLayout);
+		
+		RowData bottomBtnRowData = new RowData();
+		bottomBtnRowData.width = 60;
+		bottomBtnRowData.height = 30;
+		
+		
+		saveBtn = new Button(bottomBtnComposite, SWT.PUSH);
+		saveBtn.setText(reg.getString("SaveBtn.LABEL"));
+		saveBtn.setLayoutData(bottomBtnRowData);
+		
+		cancelBtn = new Button(bottomBtnComposite, SWT.PUSH);
+		cancelBtn.setText(reg.getString("CancelBtn.LABEL"));
+		cancelBtn.setLayoutData(bottomBtnRowData);
+		
+		btnSelectionListener = new ButtonSelectionListener(session, reg, tv, typeCombo, nameCombo, this);
+		saveBtn.addSelectionListener(btnSelectionListener);
+		cancelBtn.addSelectionListener(btnSelectionListener);
+		
+		typeCombo.setEnabled(false);
+		nameCombo.setEnabled(false);
+		table.setEnabled(false);
+		saveBtn.setEnabled(false);
+		cancelBtn.setEnabled(false);
+		
+		setUpStatusBar(tableComposite, reg.getString("ProgressBar1.TITLE"), false);
+		updateProgressBarByLoad();
+		
+		shell.open();
+		shell.layout();
+		
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+	}
+	
+	
+	/**
+	 * 创建表格的列并设置列宽
+	 */
+	private void createTreeColumn() {
+		List<String> list = Stream.of(tableTitle).map(e -> S2TTransferUtil.toTraditionnalString(e)).collect(Collectors.toList());
+		for (int index = 0; index < list.size(); index++) {
+			TableViewerColumn tvc = new TableViewerColumn(tv, SWT.CENTER, index);
+			TableColumn tableColumn = tvc.getColumn();
+			tableColumn.setText(list.get(index));
+			int columnWidth = 0;
+			if (index == 0) {
+				columnWidth = 50;
+			} else if (index == 1) {
+				columnWidth = 180;
+			}else if (index == 13) {
+				columnWidth = 420;
+			} else {
+				columnWidth = 120;
+			}
+			
+			tableColumn.setWidth(columnWidth);	
+			
+			if (index == 0) {				
+				tableColumn.addListener(SWT.Move, new Listener() {
+
+					@Override
+					public void handleEvent(Event event) {
+
+						int[] order = table.getColumnOrder();
+						for (int i = 0, col = 0; i < order.length; i++) {
+							int tmp = order[i];
+							order[i] = col;
+							col = tmp;
+							if (col == 0)
+								if (i == 0)
+									return;
+								else
+									break;
+						}
+						table.setColumnOrder(order);
+					}
+				});					
+			
+		        
+			} else {
+				tableColumn.setMoveable(true);
+			}
+		}
+	}
+
+	
+	/**
+	 * 加载数据更新进度条信息
+	 */
+
+	private void updateProgressBarByLoad() {
+		new Thread(new Runnable() {
+			private int progress = 0;
+			private static final int INCREMENT = 10;
+			private boolean flag = false; // 数据接口获取成功与否接口
+//			private List<MatMaintainBean> dataList = null;
+			
+			@Override
+			public void run() {
+				new Thread() {
+					public void run() {	
+						
+						if (!checkPreCondition()) { // 前置条件校验
+							Display.getDefault().syncExec(new Runnable() {
+								public void run() {
+									status.setVisible(false);
+									progressBar.dispose(); // 销毁进度条组件
+								}
+							});								
+							return;
+						}
+						
+						matBeanList = retMap.get("matBeanList");
+						matCostBeanList = retMap.get("matCostBeanList");
+						linkLovList = groupByLov(matBeanList);
+						
+						dataList = getData(); // 获取数据的逻辑
+						if (dataList == null) {
+							Display.getDefault().syncExec(new Runnable() {
+								public void run() {
+									status.setVisible(false);
+									progressBar.dispose(); // 销毁进度条组件
+								}
+							});	
+							TCUtil.errorMsgBox(reg.getString("DataLoadingErr.MSG"), reg.getString("ERROR.MSG"));							
+							return;
+						}
+						
+						flag = true;						 						
+					}
+				}.start();
+				
+				while (progressBar != null && !progressBar.isDisposed()) {
+					Display.getDefault().asyncExec(new Runnable() {
+						@Override
+						public void run() {
+							if (flag) {
+								if (!shell.isDisposed()) {
+									status.setVisible(false);
+						    		
+									tv.setContentProvider(new MatMaintainTableViewerContentProvider());
+									tv.setLabelProvider(new MatMaintainTableViewerLabelProvider());
+									
+					    			tv.setInput(dataList); // 设置数据并刷新TableViewer
+						            tv.refresh();						    		
+						           
+						            if (dataList.size() == 1) {
+						            	typeCombo.setEnabled(true);
+						            	nameCombo.setEnabled(true);
+						            	
+						            	MatMaintainBean bean = dataList.get(0);
+						            	String partType = S2TTransferUtil.toTraditionnalString(bean.getPartType());
+						            	String matType = S2TTransferUtil.toTraditionnalString(bean.getMatType());						            	
+						            	String matName = S2TTransferUtil.toTraditionnalString(bean.getMatName());
+						            	
+						            	List<String> matTypeLovList = getLovValue(partType, null, null, null);
+						            	if (CommonTools.isEmpty(matTypeLovList)) {
+						            		TCUtil.errorMsgBox(S2TTransferUtil.toTraditionnalString("当前零组件: " + bean.getItemId() + ", 版本号: " + bean.getVersion()) + reg.getString("PartTypeErr.MSG"), reg.getString("ERROR.MSG"));
+						            		progressBar.dispose(); // 销毁进度条组件
+						            		return;
+										}						            	
+						            	
+						            	int matTypeIndex = getIndex(matTypeLovList, matType);
+						            	
+						            	setComboValues(typeCombo, matTypeLovList, matTypeIndex);
+						            	
+						            	if (matTypeIndex != -1) {
+											List<String> matNameLovList = getLovValue(partType, matType, null, null);
+											if (CommonTools.isEmpty(matNameLovList)) {
+												TCUtil.errorMsgBox(S2TTransferUtil.toTraditionnalString("当前零组件: " + bean.getItemId() + ", 版本号: " + bean.getVersion()) + reg.getString("PartType2Err.MSG"), reg.getString("ERROR.MSG"));
+							            		progressBar.dispose(); // 销毁进度条组件
+							            		return;
+											}
+											
+											int matNameIndex = getIndex(matNameLovList, matName);
+											
+											setComboValues(nameCombo, matNameLovList, matNameIndex);
+										}
+									}
+						            
+						    		
+						    		table.setEnabled(true);
+						    		saveBtn.setEnabled(true);
+						    		cancelBtn.setEnabled(true);
+						    		
+						    		progressBar.dispose(); // 销毁进度条组件
+								}								
+							}
+							if (!progressBar.isDisposed()) {
+								progressBar.setSelection((progress += INCREMENT) % (progressBar.getMaximum() + INCREMENT));
+							}								
+						}
+					});
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}					
+					
+				}
+			}
+		}).start();
+	}
+	
+	
+	private boolean checkPreCondition() {
+		try {
+			String filePath = downloadTemplate(session, reg);
+			if (CommonTools.isEmpty(filePath)) {
+				TCUtil.errorMsgBox(reg.getString("DownLoadingErr.MSG"), reg.getString("ERROR.MSG"));
+ 				return false;
+			}
+			
+			retMap = parseExcelTemplate(filePath);
+			if (CommonTools.isEmpty(retMap)) {
+				TCUtil.errorMsgBox(reg.getString("TemplateParseErr.MSG"), reg.getString("ERROR.MSG"));
+ 				return false;
+			}
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+	
+	
+	private List<LinkLovBean> groupByLov(List<ExcelBean> list) {
+		List<LinkLovBean> resultList = new ArrayList<>();
+		Map<String, List<ExcelBean>> partTypeGroup = list.stream().collect(Collectors.groupingBy(bean -> bean.getPartType()));
+		partTypeGroup.forEach((k1, v1) -> {
+			LinkLovBean rootBean = new LinkLovBean();			
+			rootBean.setValue(k1);
+			rootBean.setIndex(v1.get(0).getIndex());
+			
+			Map<String, List<ExcelBean>> matTypeGroup = v1.stream().collect(Collectors.groupingBy(bean -> bean.getMatType()));
+			matTypeGroup.forEach((k2, v2) -> {
+				LinkLovBean matTypeBean = new LinkLovBean();
+				matTypeBean.setValue(k2);
+				matTypeBean.setIndex(v2.get(0).getIndex());
+				rootBean.addChild(matTypeBean);
+				
+				Map<String, List<ExcelBean>> matNameGroup = v2.stream().collect(Collectors.groupingBy(bean -> bean.getMatName()));
+				matNameGroup.forEach((k3, v3) -> {
+					LinkLovBean matNameBean = new LinkLovBean();
+					matNameBean.setValue(k3);
+					matNameBean.setIndex(v3.get(0).getIndex());
+					matTypeBean.addChild(matNameBean);
+					
+					Map<String, List<ExcelBean>> typeGroup = v3.stream().collect(Collectors.groupingBy(bean -> bean.getType()));
+					typeGroup.forEach((k4, v4) -> {
+						LinkLovBean typeBean = new LinkLovBean();
+						typeBean.setValue(k4);
+						typeBean.setIndex(v4.get(0).getIndex());
+						matNameBean.addChild(typeBean);
+						
+						Map<String, List<ExcelBean>> materialGroup = v4.stream().collect(Collectors.groupingBy(bean -> bean.getMaterial()));
+						materialGroup.forEach((k5, v5) -> {
+							LinkLovBean materialBean = new LinkLovBean();
+							materialBean.setValue(k5);
+							materialBean.setIndex(v5.get(0).getIndex());							
+							typeBean.addChild(materialBean);
+						});
+					});	
+					
+				});
+			});
+			
+			resultList.add(rootBean);
+		});
+		return resultList;
+	}
+	
+	
+	/**
+	 * 获取下拉值
+	 * @param partType
+	 * @param matType
+	 * @param matName
+	 * @param type
+	 * @return
+	 */
+	public List<String> getLovValue(String partType, String matType, String matName, String type) {
+//		List<String> lovList = new ArrayList<String>();
+		if (CommonTools.isEmpty(partType) && CommonTools.isEmpty(matType) && CommonTools.isEmpty(matName) && CommonTools.isEmpty(type)) {
+			return null;
+		}
+		
+		if (CommonTools.isNotEmpty(partType) && CommonTools.isEmpty(matType) && CommonTools.isEmpty(matName) && CommonTools.isEmpty(type)) {
+			Optional<LinkLovBean> findAny = linkLovList.stream().filter(bean -> bean.getValue().equals(partType)).findAny();
+			if (findAny.isPresent()) {
+				LinkLovBean matTypeBean = findAny.get();
+				List<LinkLovBean> childs = matTypeBean.getChilds();
+				childs.sort(Comparator.comparing(LinkLovBean::getIndex));
+				return childs.stream().map(e -> e.getValue()).collect(Collectors.toList());
+			}
+		} else if (CommonTools.isNotEmpty(partType) && CommonTools.isNotEmpty(matType) && CommonTools.isEmpty(matName) && CommonTools.isEmpty(type)) {
+			Optional<LinkLovBean> findAny = linkLovList.stream().filter(bean -> bean.getValue().equals(partType)).findAny();
+			if (findAny.isPresent()) {
+				LinkLovBean matTypeBean = findAny.get();
+				Optional<LinkLovBean> findAny2 = matTypeBean.getChilds().stream().filter(bean -> bean.getValue().equals(matType)).findAny();
+				if (findAny2.isPresent()) {
+					LinkLovBean matNameBean = findAny2.get();
+					List<LinkLovBean> childs = matNameBean.getChilds();
+					childs.sort(Comparator.comparing(LinkLovBean::getIndex));
+					return childs.stream().map(e -> e.getValue()).collect(Collectors.toList());
+				}
+			}
+		}
+		
+		
+		return null;
+	}
+	
+	/**
+	 * 下载数据集模板文件
+	 * @param str
+	 * @return
+	 * @throws Exception
+	 */
+	public static String downloadTemplate(TCSession session, Registry reg) throws Exception {		
+		String filePath = null;
+		String preference = TCUtil.getPreference(session, TCPreferenceService.TC_preference_site, PreferenceConstant.D9_DT_PAC_MATERIAL_MAINTAIN);
+		if (CommonTools.isEmpty(preference)) {
+			TCUtil.warningMsgBox(reg.getString("PreferenceName.MSG") +  PreferenceConstant.D9_DT_PAC_MATERIAL_MAINTAIN + reg.getString("PreferenceErr.MSG") , reg.getString("WARNING.MSG"));
+				return null;
+		}
+		
+		TCComponentItem findItem = TCUtil.findItem(preference);
+		if (CommonTools.isEmpty(findItem)) {
+			System.err.println("首选项为: " +  PreferenceConstant.D9_DT_PAC_MATERIAL_MAINTAIN + ", 值为: " + preference + ", 系统查找对象失败");
+			return null;
+		}
+		
+		TCComponentItemRevision itemRev = findItem.getLatestItemRevision();
+		TCComponent[] relatedComponents = itemRev.getRelatedComponents("IMAN_specification");
+		
+		if (CommonTools.isNotEmpty(relatedComponents)) {
+			Optional<TCComponent> findAny = Stream.of(relatedComponents).filter(tcComponent -> {
+				if (tcComponent instanceof TCComponentDataset) {
+					String objectType = tcComponent.getTypeObject().getName();
+					return DatasetEnum.MSExcel.type().equals(objectType) || DatasetEnum.MSExcelX.type().equals(objectType);
+				}
+				return false;
+			}).findAny();
+			
+			if (findAny.isPresent()) {
+				TCComponentDataset dataset = (TCComponentDataset) findAny.get();
+				
+				String dir = CommonTools.getFilePath("DT PAC Material Maintain");
+				System.out.println("【INFO】 dir: " + dir);
+				CommonTools.deletefile(dir); // 删除文件夹下面的所有文件
+				
+				String type = dataset.getType();
+				String fileExtensions = null;
+				String refName = null;
+				if (DatasetEnum.MSExcel.type().equals(type)) {
+					fileExtensions = DatasetEnum.MSExcel.fileExtensions();
+					refName = DatasetEnum.MSExcel.refName();
+				} else if (DatasetEnum.MSExcelX.type().equals(type)) {
+					fileExtensions = DatasetEnum.MSExcelX.fileExtensions();
+					refName = DatasetEnum.MSExcel.refName();
+				}
+				if (CommonTools.isNotEmpty(fileExtensions) && CommonTools.isNotEmpty(refName)) {
+					filePath = TCUtil.downloadFile(dataset, dir, fileExtensions, refName, "", false);
+				}
+				
+				if (CommonTools.isEmpty(filePath)) {
+					System.err.println("首选项为: " +  PreferenceConstant.D9_DT_PAC_MATERIAL_MAINTAIN + ", 值为: " + preference + ", 下载DT_PAC_Material_Maintain_Template.xlsx 文件失败");
+					return null;
+				}
+			}
+		}
+		return filePath;
+	}
+	
+	
+	/**
+	 * 解析Excel模板文件
+	 * @param filePath
+	 * @return
+	 */
+	public static Map<String, List<ExcelBean>> parseExcelTemplate(String filePath) {
+		List<List<Object>> tempReadList = null;
+		List<List<Object>> matList = new ArrayList<List<Object>>();
+		List<List<Object>> matCostList = new ArrayList<List<Object>>();
+		Map<String, List<ExcelBean>> retMap = new LinkedHashMap<String, List<ExcelBean>>();
+		List<ExcelBean> matBeanList = new ArrayList<ExcelBean>();
+		List<ExcelBean> matCostBeanList = new ArrayList<ExcelBean>();
+		try {
+			ExcelReader reader1 = ExcelUtil.getReader(filePath, "Material");
+			tempReadList = reader1.read();
+			tempReadList.remove(0);
+			
+			IoUtil.close(reader1);
+			
+			matList.addAll(tempReadList);
+			
+			
+			ExcelReader reader2 = ExcelUtil.getReader(filePath, "Material_Cost_Factor");
+			tempReadList = reader2.read();
+			ListIterator<List<Object>> listIterator = tempReadList.listIterator();
+			while (listIterator.hasNext()) {
+				List<Object> next = listIterator.next();
+				String str = next.toString();
+				if (!CommonTools.isStartWithNumber(str)) {
+					listIterator.remove();
+				}
+			}
+			
+			IoUtil.close(reader2);
+			
+			matCostList.addAll(tempReadList);
+			
+			int index = 1;
+			for (List<Object> read : matList) {
+			 String partType = read.get(CommonTools.getColumIntByString("A")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("A")).toString());
+			 String matType = read.get(CommonTools.getColumIntByString("B")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("B")).toString());
+			 String matName = read.get(CommonTools.getColumIntByString("C")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("C")).toString());
+			 String type = read.get(CommonTools.getColumIntByString("D")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("D")).toString());
+			 String material = read.get(CommonTools.getColumIntByString("E")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("E")).toString());
+			 String length = read.get(CommonTools.getColumIntByString("F")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("F")).toString());
+			 String width = read.get(CommonTools.getColumIntByString("G")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("G")).toString());
+			 String height = read.get(CommonTools.getColumIntByString("H")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("H")).toString());
+			 String thickness = read.get(CommonTools.getColumIntByString("I")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("I")).toString());
+			 String density = read.get(CommonTools.getColumIntByString("J")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("J")).toString());
+			 String weight = read.get(CommonTools.getColumIntByString("K")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("K")).toString());
+			 String usageCalculation = read.get(CommonTools.getColumIntByString("M")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("M")).toString());
+			 String calcullationUnit = read.get(CommonTools.getColumIntByString("N")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("N")).toString());
+			 
+			 ExcelBean bean = new ExcelBean(index, partType, matType, matName, type, material, length, width, height, thickness, density, weight, usageCalculation, calcullationUnit);
+			 matBeanList.add(bean);
+			 index++;
+			}
+			
+			for (List<Object> read : matCostList) {
+				String material = read.get(CommonTools.getColumIntByString("C")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("C")).toString());
+				String costFactor = read.get(CommonTools.getColumIntByString("D")) == null ? "" : CommonTools.replaceBlank(read.get(CommonTools.getColumIntByString("D")).toString());
+				ExcelBean bean = new ExcelBean(material, costFactor);
+				matCostBeanList.add(bean);
+			}
+			
+			retMap.put("matBeanList", matBeanList);
+			retMap.put("matCostBeanList", matCostBeanList);
+			
+		} catch (Exception e) {
+			e.printStackTrace();			
+		} 
+		
+		return retMap;
+	}
+	
+	
+	private List<MatMaintainBean> getData() {
+		try {			
+			List<MatMaintainBean> list = recurseBOMLine(topLine, null);
+			
+			int k =1;
+			for (MatMaintainBean bean : list) {
+				bean.setIndex(k);
+				k++;
+			}
+			return list;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	
+	/**
+	 * 递归遍历BOMLine
+	 * @param topLine
+	 * @param list
+	 * @throws TCException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 */
+	private List<MatMaintainBean> recurseBOMLine(TCComponentBOMLine topLine, List<MatMaintainBean> list) throws TCException, IllegalArgumentException, IllegalAccessException {
+		if (list == null) {
+			list = new ArrayList<MatMaintainBean>();
+		}		
+		topLine.refresh();
+		AIFComponentContext[] children = topLine.getChildren();
+		if (CommonTools.isEmpty(children)) {
+			MatMaintainBean bean = tcPropMapping(new MatMaintainBean(), topLine, "BOMLine");
+			bean = tcPropMapping(bean, topLine.getItemRevision(), "ItemRevision");
+			
+			MatMaintainBean newBean = (MatMaintainBean) bean.clone();
+			TCComponent[] relatedComponents = topLine.getItemRevision().getRelatedComponents(MatMaintainConstant.D9_PACMATERIALTABLE);
+			for (int i = 0; i < relatedComponents.length; i++) {
+				newBean = tcPropMapping(newBean, relatedComponents[i], "TCComponentFnd0TableRow");
+				list.add(newBean);
+			}
+			
+		} else {
+			for (AIFComponentContext e : children) {
+				TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+				recurseBOMLine(bomLine, list);
+			}
+		}
+		
+		return list;
+	}
+	
+	
+	/**
+	 * 返回BOMLine
+	 * @return
+	 * @throws TCException 
+	 */
+	private TCComponentBOMLine getSelectBOMLine() {
+		TCComponentBOMLine bomLine = null;
+		try {
+			bomLine = (TCComponentBOMLine) app.getTargetComponents()[0];
+			bomLine.refresh();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+		return bomLine;
+	}
+	
+	
+	/**
+	 * 设置进度条
+	 * @param tableComposite
+	 * @param statusName
+	 * @param saveFlag
+	 */
+
+	private void setUpStatusBar(Composite tableComposite, String statusName, boolean saveFlag) {
+		if (!saveFlag) {
+			statusBar = new Composite(tableComposite, SWT.NONE);
+			statusBar.setLayout(new GridLayout(2, false));
+			statusBar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			
+			status = new Label(statusBar, SWT.NONE);
+			status.setText(statusName);
+		} else {
+			status.setVisible(true);
+		}
+		
+		progressBar = new ProgressBar(statusBar, SWT.SMOOTH);
+		progressBar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		progressBar.setMaximum(100);
+		
+		if (saveFlag) {
+			statusBar.layout();
+		}
+	}
+	
+	
+	/**
+	 * 设置下拉值
+	 * @param combo
+	 * @param list
+	 * @param index
+	 */
+	public void setComboValues(Combo combo, List<String> list, int index) {
+		combo.removeAll(); // 清除所有的下拉值
+		for (int i = 0; i < list.size(); i++) {
+			combo.add(list.get(i));
+		}
+		
+		combo.select(index); // 设置当前项
+	}
+	
+	
+	/**
+	 * 创建GridData布局
+	 * @param style
+	 * @param horizontalSpan
+	 * @return
+	 */
+	private GridData createGridData(int style, int horizontalSpan, int horizontalAlignment) {
+		GridData gridData = new GridData(style);
+		gridData.horizontalSpan = horizontalSpan;
+		gridData.horizontalAlignment = horizontalAlignment;
+		return gridData;
+	}
+
+	/**
+	 * 返回下拉框的索引
+	 * @param list
+	 * @param selectValue
+	 * @return
+	 */
+	private int getIndex(List<String> list, String value) {
+		return IntStream.range(0, list.size()).filter(i -> value.equals(list.get(i))).findFirst().orElse(0);
+	}
+	
+	
+	public static <T> T tcPropMapping(T bean, TCComponent tcComponent, String objectType)
+			throws IllegalArgumentException, IllegalAccessException, TCException {
+		if (bean != null && tcComponent != null) {			
+			Field[] fields = bean.getClass().getDeclaredFields();
+			List<Field> fieldList = new ArrayList<Field>(Arrays.asList(fields));
+			fieldList.removeIf(field -> field.getAnnotation(TCPropertes.class) == null);
+			fieldList.removeIf(field -> field.getType() == boolean.class);
+			for (Field field : fieldList) {
+				field.setAccessible(true);
+				TCPropertes tcPropName = field.getAnnotation(TCPropertes.class);
+				if (tcPropName != null) {
+					String propertyName = tcPropName.tcProperty();
+					String tcType = tcPropName.tcType();
+					Object val = null;
+					if (CommonTools.isNotEmpty(propertyName)) {	
+						if (tcType.equals(objectType)) {
+							if (tcComponent.isValidPropertyName(propertyName)) {
+								val = tcComponent.getProperty(propertyName);
+								if (propertyName.startsWith("bl")) {
+									if (CommonTools.isNotEmpty(val)) {
+										BigDecimal bigDecimal = new BigDecimal(val.toString());
+										val = String.valueOf(bigDecimal.stripTrailingZeros().toPlainString());
+									}
+								}
+								field.set(bean, val);
+							} else {
+								System.out.println(propertyName + " propertyName is not exist ");
+							}	
+						}											
+					}					
+				}
+			}
+		}		
+		return bean;
+	}
+
+
+	
+	
+	public List<MatMaintainBean> getDataList() {
+		return dataList;
+	}
+
+
+	public void setDataList(List<MatMaintainBean> dataList) {
+		this.dataList = dataList;
+	}
+
+	
+}

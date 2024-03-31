@@ -1,0 +1,161 @@
+package com.foxconn.mechanism.dtpac.matmaintain.domain;
+
+import com.foxconn.tcutils.util.TCPropertes;
+
+public class MatMaintainBean {
+	
+	private int index;
+	
+	@TCPropertes(tcProperty = "d9_Type")
+	private String type;
+	
+	@TCPropertes(tcProperty = "d9_Material")
+	private String material;
+	
+	@TCPropertes(tcProperty = "d9_Length")
+	private String length;
+	
+	@TCPropertes(tcProperty = "d9_Width")
+	private String width;
+	
+	@TCPropertes(tcProperty = "d9_Height")
+	private String height;
+	
+	@TCPropertes(tcProperty = "d9_Thickness")
+	private String thickness;
+	
+	@TCPropertes(tcProperty = "d9_Density")
+	private String density;
+	
+	@TCPropertes(tcProperty = "d9_Quantity")
+	private String qty;
+	
+	@TCPropertes(tcProperty = "d9_UsageUnit")
+	private String usageUnit;
+	
+	@TCPropertes(tcProperty = "d9_UsageCalculation")
+	private String usageCalculation;
+	
+	@TCPropertes(tcProperty = "d9_CalculationUnit")
+	private String calcullationUnit;
+	
+	@TCPropertes(tcProperty = "d9_CostFactor")
+	private String costFactor;
+	
+	@TCPropertes(tcProperty = "d9_Cost")
+	private String cost;
+
+	public int getIndex() {
+		return index;
+	}
+
+	public void setIndex(int index) {
+		this.index = index;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getMaterial() {
+		return material;
+	}
+
+	public void setMaterial(String material) {
+		this.material = material;
+	}
+
+	public String getLength() {
+		return length;
+	}
+
+	public void setLength(String length) {
+		this.length = length;
+	}
+
+	public String getWidth() {
+		return width;
+	}
+
+	public void setWidth(String width) {
+		this.width = width;
+	}
+
+	public String getHeight() {
+		return height;
+	}
+
+	public void setHeight(String height) {
+		this.height = height;
+	}
+
+	public String getThickness() {
+		return thickness;
+	}
+
+	public void setThickness(String thickness) {
+		this.thickness = thickness;
+	}
+
+	public String getDensity() {
+		return density;
+	}
+
+	public void setDensity(String density) {
+		this.density = density;
+	}
+
+	public String getQty() {
+		return qty;
+	}
+
+	public void setQty(String qty) {
+		this.qty = qty;
+	}
+
+	public String getUsageUnit() {
+		return usageUnit;
+	}
+
+	public void setUsageUnit(String usageUnit) {
+		this.usageUnit = usageUnit;
+	}
+
+	public String getUsageCalculation() {
+		return usageCalculation;
+	}
+
+	public void setUsageCalculation(String usageCalculation) {
+		this.usageCalculation = usageCalculation;
+	}
+
+	public String getCalcullationUnit() {
+		return calcullationUnit;
+	}
+
+	public void setCalcullationUnit(String calcullationUnit) {
+		this.calcullationUnit = calcullationUnit;
+	}
+
+	public String getCostFactor() {
+		return costFactor;
+	}
+
+	public void setCostFactor(String costFactor) {
+		this.costFactor = costFactor;
+	}
+
+	public String getCost() {
+		return cost;
+	}
+
+	public void setCost(String cost) {
+		this.cost = cost;
+	}
+	
+	
+}

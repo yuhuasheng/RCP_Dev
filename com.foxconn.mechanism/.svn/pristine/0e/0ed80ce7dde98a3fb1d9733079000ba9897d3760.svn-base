@@ -1,0 +1,176 @@
+package com.foxconn.mechanism.hhpnmaterialapply.export.domain;
+
+import com.foxconn.mechanism.hhpnmaterialapply.export.util.TCPropertes;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+
+public class MNTDataModel implements DataModel
+{
+    @TCPropertes(tcProperty = "bl_item_object_name", tcType = "BOMLine", cell = 3)
+    private String                  modelName          = "";
+    //
+    @TCPropertes(tcProperty = "d9_HHPN", tcType = "", cell = 15)
+    private String                  hhpn               = "";
+    //
+    @TCPropertes(tcProperty = "d9_TempPN", tcType = "", cell = 4)
+    private String                  bupn               = "";
+    @TCPropertes(tcProperty = "d9_EnglishDescription", tcType = "", cell = 2)
+    private String                  descriptionEn      = "";
+    //
+    @TCPropertes(tcProperty = "d9_ChineseDescription", tcType = "", cell = 2)
+    private String                  descriptionZh      = "";
+    //
+    @TCPropertes(tcProperty = "bl_quantity", tcType = "BOMLine", cell = 10)
+    private String                  usage              = "1";
+    //
+    @TCPropertes(tcProperty = "d9_Material", tcType = "", cell = 6)
+    private String                  material           = "";
+    //
+    @TCPropertes(tcProperty = "d9_PartWeight", tcType = "", cell = 11)
+    private String                  partWeight         = "";
+    //
+    @TCPropertes(tcProperty = "d9_MaterialColor", tcType = "", cell = 7)
+    private String                  color              = "";
+    //
+    @TCPropertes(tcProperty = "d9_Remarks", tcType = "", cell = 14)
+    private String                  remark             = "";
+    //
+    @TCPropertes(tcProperty = "d9_Finish", tcType = "", cell = 8)
+    private String                  finishing          = "";
+    //
+    @TCPropertes(tcProperty = "d9_ReferenceDimension", tcType = "", cell = 9)
+    private String                  referenceDimension = "";
+    //
+    @TCPropertes(tcProperty = "d9_RunnerWeight", tcType = "", cell = 12)
+    private String                  runnerWeight       = "";
+    //
+    @TCPropertes(tcProperty = "d9_TotalWeight", tcType = "", cell = 13)
+    private String                  totalweight        = "";
+    // part
+    private TCComponentItemRevision itemRevision;
+
+    @Override
+    public Object clone() throws CloneNotSupportedException
+    {
+        return super.clone();
+    }
+
+    public String getHhpn()
+    {
+        return hhpn;
+    }
+
+    public void setHhpn(String hhpn)
+    {
+        this.hhpn = hhpn;
+    }
+
+    public String getBupn()
+    {
+        return bupn;
+    }
+
+    public void setBupn(String bupn)
+    {
+        this.bupn = bupn;
+    }
+
+    public String getUsage()
+    {
+        return usage;
+    }
+
+    public void setUsage(String usage)
+    {
+        this.usage = usage;
+    }
+
+    public String getMaterial()
+    {
+        return material;
+    }
+
+    public void setMaterial(String material)
+    {
+        this.material = material;
+    }
+
+    public String getPartWeight()
+    {
+        return partWeight;
+    }
+
+    public void setPartWeight(String partWeight)
+    {
+        this.partWeight = partWeight;
+    }
+
+    public String getColor()
+    {
+        return color;
+    }
+
+    public void setColor(String color)
+    {
+        this.color = color;
+    }
+
+    public String getRemark()
+    {
+        return remark;
+    }
+
+    public void setRemark(String remark)
+    {
+        this.remark = remark;
+    }
+
+    public String getFinishing()
+    {
+        return finishing;
+    }
+
+    public void setFinishing(String finishing)
+    {
+        this.finishing = finishing;
+    }
+
+    public TCComponentItemRevision getItemRevision()
+    {
+        return itemRevision;
+    }
+
+    public void setItemRevision(TCComponentItemRevision itemRevision)
+    {
+        this.itemRevision = itemRevision;
+    }
+
+    public String getDescriptionZh()
+    {
+        return descriptionZh;
+    }
+
+    public void setDescriptionZh(String descriptionZh)
+    {
+        this.descriptionZh = descriptionZh;
+    }
+
+    public String getDescriptionEn()
+    {
+        return descriptionEn;
+    }
+
+    public void setDescriptionEn(String descriptionEn)
+    {
+        this.descriptionEn = descriptionEn;
+    }
+
+    public String getModelName()
+    {
+        return modelName;
+    }
+
+    public void setModelName(String modelName)
+    {
+        this.modelName = modelName;
+    }
+}

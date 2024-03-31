@@ -1,0 +1,11 @@
+#for tests only !
+#Wed Oct 21 11:05:45 CST 2020
+jco.destination.pool_capacity=3
+jco.client.lang=ZF
+jco.client.ashost=10.134.28.112
+jco.client.user=EDI
+jco.destination.peak_limit=22
+jco.client.sysnr=00
+jco.client.passwd=BCEDIUSR
+jco.client.client=801
+jco.client.codepage=4110

@@ -1,0 +1,340 @@
+package com.foxconn.mechanism.pacmaterial;
+
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+import java.awt.FlowLayout;
+import java.util.Date;
+
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Shell;
+
+import com.foxconn.mechanism.custommaterial.custommaterialnumrequest.window.CustomMaterialNumDialog;
+import com.foxconn.mechanism.custommaterial.custommaterialnumrequest.window.CustomMaterialNumService;
+import com.foxconn.mechanism.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFDialog;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.util.Registry;
+
+import cn.hutool.poi.excel.ExcelUtil;
+import cn.hutool.poi.excel.ExcelWriter;
+
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.custom.CCombo;
+import org.eclipse.swt.custom.TableEditor;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
+
+public class PACImportBOMDialog extends Dialog {
+
+	private Registry reg = null;
+	public Shell shell = null;
+	public TCComponentFolder folder;
+	PACImportBOMService service;
+	public AbstractAIFUIApplication app;
+	private int fonSize = 9;
+	private Text txt_path;
+	public Table table;
+	public CCombo cmb_project;
+	public CCombo cmb_object_name;
+	public CCombo cmb_level;
+	public CCombo cmb_phase;
+	
+	public PACImportBOMDialog(Registry reg, AbstractAIFUIApplication app,Shell parent,TCComponentFolder folder) {
+		super(parent);
+		
+		this.shell = parent;
+		this.app = app;
+		this.service = new PACImportBOMService(this);
+		this.reg = reg;
+		this.folder = folder;
+		createContents();
+
+	}
+	
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					new PACImportBOMDialog(null, null, new Shell(),null);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	protected void createContents() {
+		Rectangle bounds = Display.getDefault().getPrimaryMonitor().getBounds();
+		if (bounds.width > 2000) {
+			fonSize = 8;
+		}
+
+		Shell parent = shell;
+
+		shell = new Shell(shell, SWT.DIALOG_TRIM | SWT.CLOSE | SWT.PRIMARY_MODAL | SWT.RESIZE | SWT.MAX);
+
+		shell.setSize(1300, 800);
+		shell.setImage(Registry.getRegistry(AbstractAIFDialog.class).getImage("aifDesktop.ICON"));
+		Rectangle parentBounds = parent.getBounds();
+		Rectangle shellBounds = shell.getBounds();
+		shell.setLocation(parentBounds.x + (parentBounds.width - shellBounds.width) / 2,
+				parentBounds.y + (parentBounds.height - shellBounds.height) / 2);
+		String title = "物料清单导入v1.07";
+		// 收尾
+		shell.setText(title);
+		shell.setLayout(new FormLayout());
+		
+		txt_path = new Text(shell, SWT.BORDER);
+		txt_path.setEditable(false);
+		txt_path.setText("请选择文件");
+		FormData fd_txt_path = new FormData();
+		fd_txt_path.right = new FormAttachment(100, -65);
+		fd_txt_path.top = new FormAttachment(0, 62);
+		fd_txt_path.left = new FormAttachment(0, 10);
+		txt_path.setLayoutData(fd_txt_path);
+		txt_path.setSize(100,100);
+		
+		Button bt_broswer = new Button(shell, SWT.NONE);
+		bt_broswer.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				String openFileChooser = TCUtil.openFileChooser(shell);
+				if(openFileChooser!=null) {
+					txt_path.setText(openFileChooser);
+					service.onImport(openFileChooser);
+				}
+			}
+		});
+		FormData fd_bt_broswer = new FormData(50,25);
+		fd_bt_broswer.left = new FormAttachment(txt_path, 10);
+		fd_bt_broswer.top = new FormAttachment(txt_path,0,SWT.TOP);
+		bt_broswer.setLayoutData(fd_bt_broswer);
+		bt_broswer.setText("瀏覽");
+		
+		cmb_project = new CCombo(shell, SWT.BORDER);
+		cmb_project.setEditable(false);
+		FormData fd_cmb_project = new FormData();
+		fd_cmb_project.top = new FormAttachment(0, 10);
+		fd_cmb_project.left = new FormAttachment(0, 10);
+		fd_cmb_project.right = new FormAttachment(100, -155);
+		cmb_project.setLayoutData(fd_cmb_project);
+		cmb_project.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				 CCombo c = (CCombo) e.getSource();
+				 service.onSelectedProject(c);
+			}
+		});
+		
+		cmb_phase = new CCombo(shell, SWT.BORDER);
+		cmb_phase.setEditable(false);
+		cmb_phase.setItems(new String[] {"P4","P5","P6"});
+		FormData fd_cmb_phase = new FormData();
+		fd_cmb_phase.right = new FormAttachment(txt_path, 0, SWT.RIGHT);
+		fd_cmb_phase.top = new FormAttachment(cmb_project,0,SWT.TOP);
+		fd_cmb_phase.left = new FormAttachment(cmb_project,10);
+		cmb_phase.select(0);
+		cmb_phase.setLayoutData(fd_cmb_phase);
+		
+		cmb_level = new CCombo(shell, SWT.BORDER);
+		cmb_level.setEditable(false);
+		cmb_level.setItems(new String[] { "L5", "L6" ,"L10" });
+		FormData fd_cmb_level = new FormData(80,SWT.DEFAULT);
+		fd_cmb_level.top = new FormAttachment(cmb_project, 6,SWT.BOTTOM);
+		fd_cmb_level.left = new FormAttachment(0, 10);
+		cmb_level.select(0);
+		cmb_level.setLayoutData(fd_cmb_level);
+		cmb_level.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				 CCombo c = (CCombo) e.getSource();
+				 service.onSelectedLevel(c);
+			}
+		});
+		
+		cmb_object_name = new CCombo(shell, SWT.BORDER);
+		FormData fd_cmb_object_name = new FormData(100,-1);
+		fd_cmb_object_name.top = new FormAttachment(cmb_level, 0, SWT.TOP);
+		fd_cmb_object_name.left = new FormAttachment(cmb_level,10);
+		fd_cmb_object_name.right = new FormAttachment(100, -65);
+		cmb_object_name.setLayoutData(fd_cmb_object_name);
+		
+		Button bt_save = new Button(shell, SWT.NONE);
+		bt_save.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				if(service.onSave()) {
+					shell.dispose();
+				}
+			}
+		});
+		FormData fd_bt_save = new FormData(50,25);
+		fd_bt_save.top = new FormAttachment(cmb_project, 0, SWT.TOP);
+		fd_bt_save.left = new FormAttachment(cmb_object_name,10);
+		bt_save.setLayoutData(fd_bt_save);
+		bt_save.setText("保存");
+		
+		table = new Table(shell, SWT.BORDER | SWT.FULL_SELECTION);
+		FormData fd_table = new FormData();
+		fd_table.top = new FormAttachment(10, 15);
+		fd_table.left = new FormAttachment(txt_path, 0, SWT.LEFT);
+		fd_table.right = new FormAttachment(99, 5);
+		fd_table.bottom = new FormAttachment(98, 0);
+		table.setLayoutData(fd_table);
+		table.setHeaderVisible(true);
+		table.setLinesVisible(true);
+		// 设置列编辑器
+		final TableEditor editor = new TableEditor(table);
+		editor.horizontalAlignment = SWT.LEFT;
+		editor.grabHorizontal = true;
+
+		table.addListener(SWT.MouseDown, new Listener() {
+		    public void handleEvent(Event event) {
+		        Control oldEditor = editor.getEditor();
+		        if (oldEditor != null) {
+		            oldEditor.dispose();
+		        }
+
+		 
+
+		        Point point = new Point(event.x, event.y);
+		        final TableItem item = table.getItem(point);
+		        if (item == null) {
+		            return;
+		        }
+
+		 
+
+		        int columnIndex = -1;
+		        for (int i = 0; i < table.getColumnCount(); i++) {
+		            Rectangle bounds = item.getBounds(i);
+		            if (bounds.contains(point)) {
+		                columnIndex = i;
+		                break;
+		            }
+		        }
+
+		 
+		        final int cIndex = columnIndex;
+		        if (cIndex != 7) {
+		            return;
+		        }
+		        
+		        PACBOMBean bean = (PACBOMBean) item.getData("bean");
+		        if(!cmb_project.getText().equals(bean.initialProject)) {
+		        	return;
+		        }
+		        
+		        if(bean.isReleased) {
+		        	return;
+		        }
+		        
+		        // 创建编辑器控件（这里使用Text作为示例）
+		        final CCombo cmb = new CCombo(table, SWT.NONE);
+//		        cmb.add(cmb_project.getText());
+		        String option = (String)item.getData("original");
+		        cmb.add(option);
+				if(!"历史专案".equals(option)) {
+					cmb.add("历史专案");
+				}
+		        cmb.select((int) item.getData("selected"));
+		        cmb.setEditable(false);
+
+		        // 设置编辑器控件到TableEditor
+		        editor.setEditor(cmb, item, columnIndex);
+
+		        // 添加事件监听，当编辑器控件失去焦点或按下回车键时保存修改并清除编辑器
+		        cmb.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						// 处理事件
+						String text = ((CCombo) e.getSource()).getText();
+						PACBOMBean data = (PACBOMBean) item.getData("bean");
+		            	data.initialProject = text;
+		            	data.isChange = true;
+		                item.setText(cIndex, text);
+		                item.setData("selected",cmb.getSelectionIndex());
+		                cmb.dispose();
+					}
+				});
+		    }
+		});
+		
+		TableColumn tableColumn = new TableColumn(table,SWT.BORDER_SOLID);
+		tableColumn.setWidth(50);
+		tableColumn.setText("Level");
+		
+		tableColumn = new TableColumn(table,SWT.BORDER_SOLID);
+		tableColumn.setWidth(150);
+		tableColumn.setText("P/N");
+		
+		TableColumn tblclmnNewColumn = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn.setWidth(100);
+		tblclmnNewColumn.setText("Part Type");
+		
+		TableColumn tblclmnNewColumn_1 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_1.setMoveable(true);
+		tblclmnNewColumn_1.setWidth(100*3);
+		tblclmnNewColumn_1.setText("Description");
+		
+		TableColumn tblclmnNewColumn_2 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_2.setWidth(50);
+		tblclmnNewColumn_2.setText("Qty");
+		
+		
+		TableColumn tblclmnNewColumn_3 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_3.setWidth(50);
+		tblclmnNewColumn_3.setText("Unit");
+		
+		TableColumn tblclmnNewColumn_4 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_4.setWidth(100);
+		tblclmnNewColumn_4.setText("Remark");
+		
+		TableColumn tblclmnNewColumn_5 = new TableColumn(table, SWT.NONE);
+		tblclmnNewColumn_5.setWidth(150*2);
+		tblclmnNewColumn_5.setText("首用專案");
+		
+		service.onGUIInited();
+		shell.open();
+		shell.layout();
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+	}
+	
+	
+}

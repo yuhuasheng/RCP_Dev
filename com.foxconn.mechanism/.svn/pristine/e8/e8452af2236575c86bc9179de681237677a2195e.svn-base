@@ -1,0 +1,355 @@
+package com.foxconn.mechanism.mntL5MgfEcnManagement;
+
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CCombo;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Dialog;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.wb.swt.SWTResourceManager;
+
+import com.teamcenter.rac.aif.AbstractAIFDialog;
+import com.teamcenter.rac.util.Registry;
+
+import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+
+public class CreateEcnDialog extends Dialog {
+
+	protected Object result;
+	protected Shell shell;
+	private Text txt_ecn_num;
+
+	/**
+	 * Create the dialog.
+	 * @param parent
+	 * @param style
+	 */
+	public CreateEcnDialog(Shell parent) {
+		super(parent,SWT.DIALOG_TRIM | SWT.CLOSE| SWT.MIN | SWT.PRIMARY_MODAL);
+		open();
+	}
+
+	
+
+	/**
+	 * Create contents of the dialog.
+	 */
+	private void createContents() {
+		shell = new Shell(getParent(), getStyle());
+		shell.setLayout(new FormLayout());
+		
+		
+		FormData formData = new FormData();
+		formData.top = new FormAttachment(0,10);
+		formData.left = new FormAttachment(0,10);
+		Composite comp_label = new Composite(shell, SWT.NONE);
+		comp_label.setLayoutData(formData);
+		comp_label.setLayout(new RowLayout());
+
+		Label label = new Label(comp_label, SWT.NONE);
+		RowData rowData = new RowData();
+		rowData.width = 180;
+		label.setLayoutData(rowData);
+		label.setText("ECN 編號：");
+		
+		txt_ecn_num = new Text(shell, SWT.BORDER);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_label,0,SWT.RIGHT);
+		formData.width = 100;
+		txt_ecn_num.setLayoutData(formData);
+		txt_ecn_num.setText("CSAP0000004");
+		
+		CCombo cmb_ecn_role = new CCombo(shell, SWT.BORDER);		
+		formData = new FormData();
+		formData.left = new FormAttachment(txt_ecn_num,10,SWT.RIGHT);
+		formData.top = new FormAttachment(txt_ecn_num,0,SWT.TOP);
+		formData.bottom = new FormAttachment(txt_ecn_num,0,SWT.BOTTOM);
+		cmb_ecn_role.add("\"CSAP\"NNNNNN");
+		cmb_ecn_role.select(0);
+		cmb_ecn_role.setLayoutData(formData);
+		cmb_ecn_role.setEditable(false);
+			
+		Button bt_assign_ecn = new Button(shell, SWT.NONE);
+		bt_assign_ecn.setText("指派");
+		formData = new FormData();
+		formData.left = new FormAttachment(cmb_ecn_role,10,SWT.RIGHT);
+		formData.top = new FormAttachment(cmb_ecn_role,0,SWT.TOP);
+		formData.bottom = new FormAttachment(cmb_ecn_role,0,SWT.BOTTOM);
+		bt_assign_ecn.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_label,0,SWT.LEFT);
+		Composite comp_lblNewLabel_1 = new Composite(shell, SWT.NONE);
+		comp_lblNewLabel_1.setLayoutData(formData);
+		comp_lblNewLabel_1.setLayout(new RowLayout());
+		
+		Label lblNewLabel_1 = new Label(comp_lblNewLabel_1, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 180;
+		lblNewLabel_1.setLayoutData(rowData);
+		lblNewLabel_1.setText("概要：");
+		
+		Text txt_name = new Text(shell, SWT.BORDER);
+		FormData fd_txt_name = new FormData();
+		fd_txt_name.top = new FormAttachment(comp_lblNewLabel_1, 0,SWT.TOP);
+		fd_txt_name.left = new FormAttachment(comp_lblNewLabel_1, 0,SWT.RIGHT);
+		fd_txt_name.right = new FormAttachment(bt_assign_ecn, 0,SWT.RIGHT);
+		txt_name.setLayoutData(fd_txt_name);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_lblNewLabel_1,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_lblNewLabel_1,0,SWT.LEFT);
+		Composite comp_lblNewLabel_2 = new Composite(shell, SWT.NONE);
+		comp_lblNewLabel_2.setLayoutData(formData);
+		comp_lblNewLabel_2.setLayout(new RowLayout());
+		
+		Label lblNewLabel_2 = new Label(comp_lblNewLabel_2, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 180;
+		lblNewLabel_2.setLayoutData(rowData);
+		lblNewLabel_2.setText("變更描述：");
+		
+		StyledText txt_change_desc = new StyledText(shell, SWT.BORDER|SWT.MULTI|SWT.WRAP|SWT.V_SCROLL);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_lblNewLabel_2, 0,SWT.TOP);
+		formData.height=128;
+		formData.left = new FormAttachment(comp_lblNewLabel_2, 0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_ecn,0,SWT.RIGHT);
+		txt_change_desc.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(txt_change_desc,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_lblNewLabel_2,0,SWT.LEFT);
+		Composite comp_lblNewLabel_3 = new Composite(shell, SWT.NONE);
+		comp_lblNewLabel_3.setLayoutData(formData);
+		comp_lblNewLabel_3.setLayout(new RowLayout());
+		
+		Label lblNewLabel_3 = new Label(comp_lblNewLabel_3, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 180;
+		lblNewLabel_3.setLayoutData(rowData);
+		lblNewLabel_3.setText("Reason for Change：");
+		
+		StyledText txt_reason_change = new StyledText(shell, SWT.BORDER|SWT.MULTI|SWT.WRAP|SWT.V_SCROLL);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_lblNewLabel_3, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_lblNewLabel_3, 0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_ecn,0,SWT.RIGHT);
+		formData.height=50;
+		txt_reason_change.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(txt_reason_change,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_lblNewLabel_3,0,SWT.LEFT);
+		Composite comp_lblNewLabel_4 = new Composite(shell, SWT.NONE);
+		comp_lblNewLabel_4.setLayoutData(formData);
+		comp_lblNewLabel_4.setLayout(new RowLayout());
+		
+		Label lblNewLabel_4 = new Label(comp_lblNewLabel_4, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 180;
+		lblNewLabel_4.setLayoutData(rowData);
+		lblNewLabel_4.setText("Customer ECR/DCR Number：");
+		
+		Text txt_customer_number = new Text(shell, SWT.BORDER);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_lblNewLabel_4, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_lblNewLabel_4, 0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_ecn, 0,SWT.RIGHT);
+		txt_customer_number.setLayoutData(formData);
+		
+		// 右邊===============================================================================================================================
+		formData = new FormData();
+		formData.top = new FormAttachment(0,10);
+		formData.left = new FormAttachment(bt_assign_ecn,40,SWT.RIGHT);
+		Composite comp_label5 = new Composite(shell, SWT.NONE);
+		comp_label5.setLayoutData(formData);
+		comp_label5.setLayout(new RowLayout());
+
+		Label label5 = new Label(comp_label5, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 100;
+		label5.setLayoutData(rowData);
+		label5.setText("版本：");
+		
+		Text txt_rev_num = new Text(shell, SWT.BORDER);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label5, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_label5,0,SWT.RIGHT);
+		formData.width = 100;
+		txt_rev_num.setLayoutData(formData);
+		txt_rev_num.setText("01");
+		
+		CCombo cmb_rev_role = new CCombo(shell, SWT.BORDER);		
+		formData = new FormData();
+		formData.left = new FormAttachment(txt_rev_num,10,SWT.RIGHT);
+		formData.width=100;
+		formData.top = new FormAttachment(txt_rev_num,0,SWT.TOP);
+		formData.bottom = new FormAttachment(txt_rev_num,0,SWT.BOTTOM);
+		cmb_rev_role.add("NN");
+		cmb_rev_role.add("@");
+		cmb_rev_role.select(0);
+		cmb_rev_role.setLayoutData(formData);
+		cmb_rev_role.setEditable(false);
+			
+		Button bt_assign_rev = new Button(shell, SWT.NONE);
+		bt_assign_rev.setText("指派");
+		formData = new FormData();
+		formData.left = new FormAttachment(cmb_rev_role,10,SWT.RIGHT);
+		formData.top = new FormAttachment(cmb_rev_role,0,SWT.TOP);
+		formData.bottom = new FormAttachment(cmb_rev_role,0,SWT.BOTTOM);
+		bt_assign_rev.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label5,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_label5,0,SWT.LEFT);
+		Composite comp_label6 = new Composite(shell, SWT.NONE);
+		comp_label6.setLayoutData(formData);
+		comp_label6.setLayout(new RowLayout());
+
+		Label label6 = new Label(comp_label6, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 100;
+		label6.setLayoutData(rowData);
+		label6.setText("實際用戶：");
+
+		CCombo cmb_real_user = new CCombo(shell, SWT.BORDER);		
+		formData = new FormData();
+		formData.left = new FormAttachment(comp_label6,0,SWT.RIGHT);
+		formData.width=100;
+		formData.top = new FormAttachment(comp_label6,0,SWT.TOP);
+		cmb_real_user.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label6,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_label6,0,SWT.LEFT);
+		Composite comp_label7 = new Composite(shell, SWT.NONE);
+		comp_label7.setLayoutData(formData);
+		comp_label7.setLayout(new RowLayout());
+
+		Label label7 = new Label(comp_label7, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 100;
+		label7.setLayoutData(rowData);
+		label7.setText("Reason Code：");
+		
+		Text txt_reason_code = new Text(shell, SWT.BORDER);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label7, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_label7,0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_rev,0,SWT.RIGHT);
+		txt_reason_code.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label7,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_label7,0,SWT.LEFT);
+		Composite comp_label8 = new Composite(shell, SWT.NONE);
+		comp_label8.setLayoutData(formData);
+		comp_label8.setLayout(new RowLayout());
+
+		Label label8 = new Label(comp_label8, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 100;
+		label8.setLayoutData(rowData);
+		label8.setText("Change Analyst：");
+//		label5.setText("Affected Plants：");
+		
+		Text txt_change_analyst = new Text(shell, SWT.BORDER);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label8, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_label8,0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_rev,0,SWT.RIGHT);
+		txt_change_analyst.setLayoutData(formData);
+		
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label7,10,SWT.BOTTOM);
+		formData.left = new FormAttachment(comp_label7,0,SWT.LEFT);
+		Composite comp_label9 = new Composite(shell, SWT.NONE);
+		comp_label9.setLayoutData(formData);
+		comp_label9.setLayout(new RowLayout());
+
+		Label label9 = new Label(comp_label9, SWT.NONE);
+		rowData = new RowData();
+		rowData.width = 100;
+		label9.setLayoutData(rowData);		
+		label9.setText("Affected Plants：");
+		
+		StyledText txt_affected_plants = new StyledText(shell, SWT.BORDER|SWT.MULTI|SWT.WRAP|SWT.V_SCROLL);
+		formData = new FormData();
+		formData.top = new FormAttachment(comp_label9, 0,SWT.TOP);
+		formData.left = new FormAttachment(comp_label9,0,SWT.RIGHT);
+		formData.right = new FormAttachment(bt_assign_rev,0,SWT.RIGHT);
+		formData.bottom = new FormAttachment(txt_customer_number,0,SWT.BOTTOM);
+		txt_affected_plants.setLayoutData(formData);
+		
+		Label label_10 = new Label(shell, SWT.SEPARATOR | SWT.VERTICAL);
+		formData = new FormData();
+		formData.top = new FormAttachment(0, 10);
+		formData.left = new FormAttachment(bt_assign_ecn,20,SWT.RIGHT);
+		formData.bottom = new FormAttachment(txt_customer_number,0,SWT.BOTTOM);
+		label_10.setLayoutData(formData);
+		
+		Label label_11 = new Label(shell, SWT.SEPARATOR | SWT.HORIZONTAL);
+		formData = new FormData();
+		formData.top = new FormAttachment(txt_customer_number,10, SWT.BOTTOM);
+		formData.left = new FormAttachment(label,20,SWT.LEFT);
+		formData.right = new FormAttachment(bt_assign_rev,-10,SWT.RIGHT);
+		label_11.setLayoutData(formData);
+		label_11.setVisible(false);
+		
+		Button bt_close = new Button(shell, SWT.NONE);
+		bt_close.setText("關閉");
+		formData = new FormData();
+		formData.top = new FormAttachment(label_11,10,SWT.BOTTOM);
+		formData.right = new FormAttachment(bt_assign_rev,0,SWT.RIGHT);
+		formData.width = 60;
+		bt_close.setLayoutData(formData);
+		
+		Button bt_complete = new Button(shell, SWT.NONE);
+		bt_complete.setText("完成");
+		formData = new FormData();
+		formData.right = new FormAttachment(bt_close,-10,SWT.LEFT);
+		formData.top = new FormAttachment(bt_close,0,SWT.TOP);
+		formData.width = 60;
+		bt_complete.setLayoutData(formData);
+	}
+	
+	/**
+	 * Open the dialog.
+	 * @return the result
+	 */
+	public Object open() {
+		createContents();
+		Point computeSize = shell.computeSize(SWT.DEFAULT, SWT.DEFAULT);
+		computeSize.x+=30;
+		computeSize.y+=20;
+		shell.setSize(computeSize);
+		Rectangle parentBounds = getParent().getBounds();
+		Rectangle shellBounds = shell.getBounds();
+		shell.setLocation(parentBounds.x + (parentBounds.width - shellBounds.width) / 2,
+				parentBounds.y + (parentBounds.height - shellBounds.height) / 2);
+		shell.setText("創建ECN");		
+		shell.setImage(Registry.getRegistry(AbstractAIFDialog.class).getImage("aifDesktop.ICON"));
+		shell.open();
+		shell.layout();
+		Display display = getParent().getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+		return result;
+	}
+}

@@ -1,0 +1,101 @@
+package com.foxconn.electronics.issuemanagement.service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.foxconn.electronics.issuemanagement.domain.FileRes;
+import com.foxconn.electronics.issuemanagement.domain.UpdatesRes;
+import com.foxconn.electronics.login.UserLoginSecond;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCSession;
+
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+
+public class IssueUpdatesService {
+	
+	private TCSession session;
+	private String customer;
+	private TCComponentItemRevision itemRevision;
+	
+	public IssueUpdatesService(TCSession session, String customer,TCComponentItemRevision itemRevision) {
+		super();
+		this.session = session;
+		this.customer = customer;
+		this.itemRevision = itemRevision;
+	}
+
+	public AjaxResult getBaseData() {
+		JSONObject object = JSONUtil.createObj();
+		try {
+			itemRevision.getItem().refresh();
+			itemRevision.refresh();
+			//  獲取實際用戶
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+					new String[] {UserLoginSecond.getOSSUserInfo().getEmp_no()});
+			if (executeQuery != null && executeQuery.length > 0) {
+				object.set("actualUser", executeQuery[0].getProperty("d9_UserInfo"));
+			}
+			object.set("itemRevUid", itemRevision.getUid());
+			object.set("customer",customer);
+			object.set("state", itemRevision.getProperty("d9_IRState"));
+			object.set("taskActualUser", itemRevision.getProperty("d9_IRCurrentTaskActualUser"));
+			object.set("taskOwner", itemRevision.getProperty("d9_IRCurrentTaskOwner"));
+			Object[] states = TCUtil.getLovValues("D9_IRState_LOV_HP");
+			List<String> stateList = new ArrayList<String>();
+			for (int i = 0; i < states.length; i++) {
+				String item = states[i].toString();
+				stateList.add(item);
+			}
+			object.set("stateList",stateList);
+			// 查詢上傳文件列表
+			List<FileRes> fileHistoryList= new ArrayList<FileRes>();
+			TCComponent[] relatedComponent = itemRevision.getRelatedComponents("CMReferences");
+			for (TCComponent tcComponent : relatedComponent){
+	            if (tcComponent instanceof TCComponentDataset)
+	            {
+	                TCComponentDataset tcComponentDataset = (TCComponentDataset) tcComponent;
+	                String author = tcComponentDataset.getProperty("d9_RealAuthor");
+	                TCComponent[] datesetComponents = tcComponentDataset.getRelatedComponents("ref_list");
+	                for (int i = 0; i < datesetComponents.length; i++) {
+	                	TCComponent component = datesetComponents[i];
+	                	String fileName = component.getProperty("original_file_name");
+	                	Date createTime = component.getDateProperty("creation_date");
+	                	fileHistoryList.add(new FileRes(fileName, author, createTime));
+					}
+	            }
+	        }
+			object.set("fileHistoryList",fileHistoryList.parallelStream()
+					.sorted(Comparator.comparing(FileRes::getCreateTime).reversed()).collect(Collectors.toList()));
+			// 查詢updates列表
+			List<UpdatesRes> updatesHistoryList = new ArrayList<UpdatesRes>();
+			TCComponent[] updatesComponents = itemRevision.getRelatedComponents("d9_IRUpdateHistoryTable");
+			for (int i = 0; i < updatesComponents.length; i++) {
+				TCComponent itemComponent = updatesComponents[i];
+				UpdatesRes res = new UpdatesRes();
+				res.setCreateBy(itemComponent.getProperty("d9_CreatedBy"));
+				res.setAssignedTo(itemComponent.getProperty("d9_AssignedTo"));
+				res.setCreateDate(itemComponent.getProperty("d9_Date"));
+				res.setState(itemComponent.getProperty("d9_State"));
+				res.setResponse(itemComponent.getProperty("d9_Response"));
+				Date createTime = itemComponent.getDateProperty("creation_date");
+				res.setCreateTime(DateUtil.date(createTime).getTime());
+				updatesHistoryList.add(res);
+			}
+			object.set("updatesHistoryList",updatesHistoryList.parallelStream()
+					.sorted(Comparator.comparing(UpdatesRes::getCreateTime).reversed()).collect(Collectors.toList()));
+			
+		}catch (Exception e) {
+			return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, e.getMessage());
+		}
+		return AjaxResult.success(object);
+	}
+}

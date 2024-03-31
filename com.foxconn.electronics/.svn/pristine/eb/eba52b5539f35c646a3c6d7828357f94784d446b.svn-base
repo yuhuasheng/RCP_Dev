@@ -1,0 +1,1698 @@
+package com.foxconn.electronics.managementebom.updatebom.service;
+
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.poi.util.StringUtil;
+
+import com.foxconn.electronics.managementebom.updatebom.domain.EBOMUpdateBean;
+import com.foxconn.electronics.domain.Constants;
+import com.foxconn.electronics.managementebom.export.changelist.mnt.MntDCNChange;
+import com.foxconn.electronics.managementebom.secondsource.constants.AlternativeConstant;
+import com.foxconn.electronics.managementebom.updatebom.domain.EBOMLineBean;
+import com.foxconn.electronics.util.HttpUtil;
+import com.foxconn.electronics.util.PartBOMUtils;
+import com.foxconn.electronics.util.TCPropName;
+import com.foxconn.tcutils.constant.DatasetEnum;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.TCUtil;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.ITypeName;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentBOMWindowType;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentItemType;
+import com.teamcenter.rac.kernel.TCComponentManager;
+import com.teamcenter.rac.kernel.TCComponentPseudoFolder;
+import com.teamcenter.rac.kernel.TCComponentRevisionRule;
+import com.teamcenter.rac.kernel.TCComponentRevisionRuleType;
+import com.teamcenter.rac.kernel.TCComponentSnapshot;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+import com.teamcenter.services.strong.core.DataManagementService;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.soa.client.model.Property;
+import com.teamcenter.soa.client.model.strong.Dataset;
+import com.teamcenter.soa.exceptions.NotLoadedException;
+
+import cn.hutool.core.util.ArrayUtil;
+
+/**
+ * 
+ * @author Robert
+ *
+ */
+public class UpdateEBOMService
+{
+    public enum BOMTYPE
+    {
+     MNT_L10, MNT_L6;
+    }
+
+    private static Map<String, Object>   MAX_FINDNUMMAP     = new ConcurrentHashMap<String, Object>();
+    private static final String          FIND_PARTS         = "__D9_Find_Parts";
+    private static final String          EEPART_TYPE        = "EDAComPart";
+    public static final String[]         CAN_CHANGE_FIELD   = { "qty", "findNum", "referenceDimension", "location" };
+    public static final String[]         CAN_COPY_FIELD     = { "location", "qty", "packageType", "alternativeGroup", "side", "referenceDimension" };
+    public static final String[]         CAN_BOM_Edit_FIELD = { "findNum", "location", "qty" };
+    public static final String[]         PART_ATTRI         = { "description", "mfg", "mfgPn", "unit", "materialType", "materialGroup", "procurementType", "sapRev", "supplierZF" };
+    public static final String[]         UPDATE_ATTRI       = { "description", "sapDescription", "mfg", "mfgPn", "unit", "materialType", "materialGroup", "procurementType", "sapRev", "supplierZF" };
+    public static final String[]         ALL_PART_ATTRS     = { "item_id", "current_revision_id", "release_status_list", "d9_EnglishDescription", "d9_DescriptionSAP", "d9_ManufacturerID", "d9_ManufacturerPN", "d9_MaterialGroup", "d9_MaterialType", "d9_Un", "d9_ProcurementMethods", "d9_TempPN", "d9_SAPRev", "d9_SupplierZF" };
+    public static final String[]         ALL_BOM_ATTRS      = { "bl_sequence_no", "bl_occ_d9_Location", "bl_occ_ref_designator", "bl_quantity", "bl_occ_d9_PackageType", "bl_occ_d9_Side", "bl_occ_d9_AltGroup", "bl_occ_d9_ReferenceDimension" };
+    public static String                 springCloudUrl;
+    private TCSession                    session;
+    private TCComponentItemType          itemType;
+    private Set<TCComponentItemRevision> updatedBOMs;
+    private Set<TCComponentItemRevision> updatedParts;
+
+    public UpdateEBOMService() throws TCException
+    {
+        session = RACUIUtil.getTCSession();
+        itemType = (TCComponentItemType) session.getTypeComponent(ITypeName.Item);
+        updatedBOMs = new HashSet<TCComponentItemRevision>();
+        updatedParts = new HashSet<TCComponentItemRevision>();
+    }
+
+    public int[] getMaxFindNum(String itemRevUid) throws Exception
+    {
+        int max[] = new int[2];
+        Object result = MAX_FINDNUMMAP.get(itemRevUid);
+        if (result != null)
+        {
+            if (result instanceof int[])
+            {
+                max = (int[]) result;
+            }
+            else
+            {
+                max = ((Future<int[]>) result).get();
+            }
+        }
+        else
+        {
+            TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager().getTCComponent(itemRevUid);
+            if (TCUtil.isReleased(itemRev))
+            {
+                max = getMaxFindNum(itemRev);
+            }
+            else
+            {
+                TCComponentItemRevision baseOnRev = getPreviousRev(itemRev);
+                if (baseOnRev != null)
+                {
+                    max = getMaxFindNum(baseOnRev);
+                }
+            }
+            MAX_FINDNUMMAP.put(itemRevUid, max);
+        }
+        return max;
+    }
+
+    public List<EBOMLineBean> queryMainSource(String hhpn, String mfg, String mfgPn) throws Exception
+    {
+        List<String> queryNames = new ArrayList<>();
+        List<String> queryValues = new ArrayList<>();
+        if (!TCUtil.isNull(hhpn))
+        {
+            queryNames.add("item_id");
+            queryValues.add(hhpn + "*");
+        }
+        if (!TCUtil.isNull(mfg))
+        {
+            queryNames.add("Part Revision<-items_tag.d9_ManufacturerID");
+            queryValues.add(mfg + "*");
+        }
+        if (!TCUtil.isNull(mfgPn))
+        {
+            queryNames.add("Part Revision<-items_tag.d9_ManufacturerPN");
+            queryValues.add(mfgPn + "*");
+        }
+        System.out.println("find parts param: " + hhpn + "   " + mfg + "    " + mfgPn);
+        TCComponent[] results = (TCComponent[]) TCUtil.executeQuery(RACUIUtil.getTCSession(), FIND_PARTS, queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+        return Stream.of(results).map(e -> {
+            EBOMLineBean bean = null;
+            try
+            {
+                TCComponentItemRevision item = ((TCComponentItem) e).getLatestItemRevision();
+                bean = tcPropMapping(new EBOMLineBean(), item);
+                bean.setSourceSystem("tc");
+                bean.setItemRevUid(item.getUid());
+            }
+            catch (Exception e1)
+            {
+                e1.printStackTrace();
+            }
+            return bean;
+        }).collect(Collectors.toList());
+    }
+
+    public BOMTYPE getBOMType(TCComponentBOMLine bomLine) throws TCException
+    {
+        TCComponentBOMLine topBomLine = bomLine.getCachedWindow().getTopBOMLine();
+        TCComponentItemRevision itemRev = topBomLine.getItemRevision();
+        String topId = itemRev.getProperty("item_id");
+        if (topId.startsWith("8"))
+        {
+            return BOMTYPE.MNT_L10;
+        }
+        return BOMTYPE.MNT_L6;
+    }
+
+    public boolean isExpandChilds(TCComponentBOMLine bomLine, EBOMLineBean bomBean) throws TCException
+    {
+        String materialGroup = bomBean.getMaterialGroup();
+        if ("B8X80".equalsIgnoreCase(materialGroup))
+        {
+            BOMTYPE bomType = getBOMType(bomLine);
+            if (BOMTYPE.MNT_L10.equals(bomType))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public EBOMLineBean getBOMStruct(TCComponentBOMLine rootLine) throws TCException
+    {
+        // rootLine.unpack();
+        // rootLine.refresh();
+        EBOMLineBean rootBean = new EBOMLineBean(rootLine);
+        AIFComponentContext[] componmentContext = null;
+        if (rootLine.hasChildren() && isExpandChilds(rootLine, rootBean))
+        {
+            componmentContext = rootLine.getChildren();
+            // componmentContext = rootLine.getPreviousChildren();
+            // if (componmentContext == null)
+            // {
+            // componmentContext = rootLine.getChildren();
+            // }
+        }
+        if (componmentContext != null)
+        {
+            Stream.of(componmentContext).forEach(e -> {
+                try
+                {
+                    TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+                    if (!bomLine.isSubstitute())
+                    {
+                        EBOMLineBean bomBean = getBOMStruct(bomLine);
+                        setLocationByDesignBOM(bomBean, bomLine);
+                        bomBean.setParentItem(rootBean.getItem());
+                        bomBean.setParentRevUid(rootLine.getItemRevision().getUid());
+                        if (bomLine.hasSubstitutes())
+                        {
+                            TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+                            List<EBOMLineBean> subBeans = new ArrayList<EBOMLineBean>();
+                            for (TCComponentBOMLine subBomline : listSubstitutes)
+                            {
+                                EBOMLineBean subBean = null;
+                                if (BOMTYPE.MNT_L10.equals(getBOMType(bomLine)))
+                                {
+                                    subBean = getBOMStruct(subBomline);
+                                }
+                                else
+                                {
+                                    subBean = tcPropMapping(new EBOMLineBean(), subBomline);
+                                }
+                                subBean.setParentItem(bomBean.getParentItem());
+                                subBean.setIsSecondSource(true);
+                                subBean.setMainSource(bomBean.getItem());
+                                subBean.setLocation("");
+                                subBean.setBomId();
+                                subBean.setParentItem(bomBean.getParentRevUid());
+                                TCProperty p = subBomline.getItemRevision().getTCProperty("owning_user");
+                                TCComponentUser o = (TCComponentUser) p.getReferenceValue();
+                                String uid = o.getProperty("user_id");
+                                subBean.setOwner(uid);
+                                TCComponentItemRevision itemRev = subBomline.getItemRevision();
+                                if (itemRev == null)
+                                {
+                                    TCComponent itemRevs[] = subBomline.getItem().getRelatedComponents("revision_list");
+                                    itemRev = (TCComponentItemRevision) itemRevs[itemRevs.length - 1];
+                                }
+                                subBean.setItemRevUid(itemRev.getUid());
+                                subBeans.add(subBean);
+                                subBean.setAlternativeCode(AlternativeConstant.ALT);
+                            }
+                            bomBean.setSecondSource(subBeans);
+                            bomBean.setAlternativeCode(AlternativeConstant.PRI);
+                        }
+                        bomBean.setBomId();
+                        rootBean.addChild(bomBean);
+                    }
+                }
+                catch (Exception e1)
+                {
+                    throw new RuntimeException(e1);
+                }
+            });
+            if (rootBean.getChilds().size() > 0)
+            {
+                // rootBean.getChilds().sort(Comparator.comparing(EBOMLineBean::getFindNum));
+                rootBean.getChilds().sort(Comparator.comparing(e -> {
+                    if (e.getFindNum() == null)
+                    {
+                        return 9999;
+                    }
+                    return e.getFindNum();
+                }));
+            }
+        }
+        return rootBean;
+    }
+
+    public EBOMLineBean getBOMStructSingleSnapshot(TCComponentBOMLine rootLine) throws TCException
+    {
+        EBOMLineBean rootBean = new EBOMLineBean(rootLine);
+        // 如果子BOM的發佈版本不為最新 則獲取最新子BOM 的快照結構
+        if (rootLine.hasChildren())
+        {
+            TCComponentItemRevision bomItemRev = rootLine.getItemRevision();
+            TCComponentItemRevision previousRevision = getLatestReleased(bomItemRev);
+            if (previousRevision != null && !previousRevision.equals(bomItemRev))
+            {
+                TCComponentBOMWindow bomWindow = PartBOMUtils.createBomWindowBySnapshot(previousRevision);
+                if (bomWindow != null)
+                {
+                    TCComponentBOMLine newRootLine = bomWindow.getTopBOMLine();
+                    if (newRootLine.hasChildren())
+                    {
+                        rootLine = newRootLine;
+                        try
+                        {
+                            rootBean.setVersion(previousRevision.getProperty("current_revision_id"));
+                            unpackageBOMStructure(rootLine);
+                            rootLine.refresh();
+                        }
+                        catch (Exception e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        }
+        AIFComponentContext[] componmentContext = rootLine.getChildren();
+        if (componmentContext != null)
+        {
+            for (AIFComponentContext e : componmentContext)
+            {
+                try
+                {
+                    TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+                    int tempFindNum = 0;
+                    if (!bomLine.isSubstitute())
+                    {
+                        // TCComponentItemRevision childItemRev = bomLine.getItemRevision();
+                        // 快照处理 !TCUtil.isReleased(childItemRev)
+                        // if (bomLine.hasChildren())
+                        // {
+                        // tempFindNum = Integer.parseInt(bomLine.getProperty("bl_sequence_no"));
+                        // TCComponentItemRevision previousRevision = getLatestReleased(childItemRev);
+                        // if (previousRevision != null)
+                        // {
+                        // TCComponentBOMWindow bomWindow = PartBOMUtils.createBomWindowBySnapshot(previousRevision);
+                        // if (bomWindow == null)
+                        // {
+                        // bomWindow = PartBOMUtils.createBomWindow(previousRevision);
+                        // }
+                        // tempFindNum = Integer.parseInt(bomLine.getProperty("bl_sequence_no"));
+                        // bomLine = bomWindow.getTopBOMLine();
+                        // unpackageBOMStructure(bomLine);
+                        // }
+                        // }
+                        //
+                        EBOMLineBean bomBean = getBOMStructSingleSnapshot(bomLine);
+                        setLocationByDesignBOM(bomBean, bomLine);
+                        if (tempFindNum > 0)
+                        {
+                            bomBean.setFindNum(tempFindNum);
+                        }
+                        bomBean.setParentItem(rootBean.getItem());
+                        bomBean.setParentRevUid(rootLine.getItemRevision().getUid());
+                        if (bomLine.hasSubstitutes())
+                        {
+                            TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+                            List<EBOMLineBean> subBeans = new ArrayList<EBOMLineBean>();
+                            for (TCComponentBOMLine subBomline : listSubstitutes)
+                            {
+                                EBOMLineBean subBean = tcPropMapping(new EBOMLineBean(), subBomline);
+                                subBean.setParentItem(bomBean.getParentItem());
+                                subBean.setIsSecondSource(true);
+                                subBean.setMainSource(bomBean.getItem());
+                                subBean.setLocation("");
+                                subBean.setBomId();
+                                subBean.setParentItem(bomBean.getParentRevUid());
+                                TCComponentItemRevision itemRev = subBomline.getItemRevision();
+                                if (itemRev == null)
+                                {
+                                    TCComponent itemRevs[] = subBomline.getItem().getRelatedComponents("revision_list");
+                                    itemRev = (TCComponentItemRevision) itemRevs[itemRevs.length - 1];
+                                }
+                                subBean.setItemRevUid(itemRev.getUid());
+                                subBeans.add(subBean);
+                                subBean.setAlternativeCode(AlternativeConstant.ALT);
+                            }
+                            bomBean.setSecondSource(subBeans);
+                            bomBean.setAlternativeCode(AlternativeConstant.PRI);
+                        }
+                        bomBean.setBomId();
+                        rootBean.addChild(bomBean);
+                    }
+                }
+                catch (Exception e1)
+                {
+                    throw new RuntimeException(e1);
+                }
+            }
+            if (rootBean.getChilds().size() > 0)
+            {
+                rootBean.getChilds().sort(Comparator.comparing(EBOMLineBean::getFindNum));
+            }
+        }
+        return rootBean;
+    }
+
+    public EBOMLineBean getSingleBOMStruct(TCComponentBOMLine parentLine) throws TCException
+    {
+        EBOMLineBean parentBean = new EBOMLineBean(parentLine);
+        AIFComponentContext[] componmentContext = parentLine.getChildren();
+        if (componmentContext != null)
+        {
+            Stream.of(componmentContext).forEach(e -> {
+                try
+                {
+                    TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+                    if (!bomLine.isSubstitute())
+                    {
+                        EBOMLineBean bomBean = new EBOMLineBean(bomLine);
+                        bomBean.setParentUid(parentLine.getUid());
+                        setLocationByDesignBOM(bomBean, bomLine);
+                        bomBean.setParentItem(parentBean.getItem());
+                        bomBean.setParentRevUid(parentLine.getItemRevision().getUid());
+                        bomBean.setHasChild(bomLine.hasChildren());
+                        if (bomLine.hasSubstitutes())
+                        {
+                            TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+                            List<EBOMLineBean> subBeans = new ArrayList<EBOMLineBean>();
+                            for (TCComponentBOMLine subBomline : listSubstitutes)
+                            {
+                                EBOMLineBean subBean = tcPropMapping(new EBOMLineBean(), subBomline);
+                                subBean.setParentItem(bomBean.getParentItem());
+                                subBean.setIsSecondSource(true);
+                                subBean.setMainSource(bomBean.getItem());
+                                subBean.setLocation("");
+                                subBean.setBomId();
+                                subBean.setParentItem(bomBean.getParentRevUid());
+                                TCComponentItemRevision itemRev = subBomline.getItemRevision();
+                                if (itemRev == null)
+                                {
+                                    TCComponent itemRevs[] = subBomline.getItem().getRelatedComponents("revision_list");
+                                    itemRev = (TCComponentItemRevision) itemRevs[itemRevs.length - 1];
+                                }
+                                subBean.setItemRevUid(itemRev.getUid());
+                                subBeans.add(subBean);
+                                subBean.setAlternativeCode(AlternativeConstant.ALT);
+                            }
+                            bomBean.setSecondSource(subBeans);
+                            bomBean.setAlternativeCode(AlternativeConstant.PRI);
+                        }
+                        bomBean.setBomId();
+                        parentBean.addChild(bomBean);
+                    }
+                }
+                catch (Exception e1)
+                {
+                    throw new RuntimeException(e1);
+                }
+            });
+            if (parentBean.getChilds().size() > 0)
+            {
+                parentBean.getChilds().sort(Comparator.comparing(EBOMLineBean::getFindNum));
+            }
+        }
+        return parentBean;
+    }
+
+    public static < T > T tcPropMapping(T bean, TCComponentItemRevision itemRev) throws IllegalArgumentException, IllegalAccessException, TCException
+    {
+        if (bean != null && itemRev != null)
+        {
+            Field[] fields = bean.getClass().getDeclaredFields();
+            for (int i = 0; i < fields.length; i++)
+            {
+                fields[i].setAccessible(true);
+                TCPropName tcPropName = fields[i].getAnnotation(TCPropName.class);
+                if (tcPropName != null)
+                {
+                    String tcAttrName = tcPropName.value();
+                    if (!tcAttrName.isEmpty())
+                    {
+                        if (!tcAttrName.startsWith("bl_"))
+                        {
+                            fields[i].set(bean, itemRev.getProperty(tcAttrName));
+                        }
+                    }
+                }
+            }
+        }
+        return bean;
+    }
+
+    public void updateItems(EBOMLineBean newRootBOMBean) throws Exception
+    {
+        if (newRootBOMBean.getIsModifyItem() != null && newRootBOMBean.getIsModifyItem() && !TCUtil.isNull(newRootBOMBean.getItemRevUid()))
+        {
+            Map<String, String> attriMap = getRevisionMap(newRootBOMBean, UPDATE_ATTRI);
+            TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager().getTCComponent(newRootBOMBean.getItemRevUid());
+            updateAttriMap(itemRev, attriMap);
+            if (attriMap.size() > 0)
+            {
+                if (!TCUtil.isNull(newRootBOMBean.getStatus()))
+                {
+                    itemRev = doRevise(itemRev);
+                }
+                itemRev.setProperties(attriMap);
+                updatedParts.add(itemRev);
+            }
+        }
+        if (newRootBOMBean.getSecondSource() != null)
+        {
+            for (EBOMLineBean secondeBean : newRootBOMBean.getSecondSource())
+            {
+                updateItems(secondeBean);
+            }
+        }
+        for (EBOMLineBean cBean : newRootBOMBean.getChilds())
+        {
+            updateItems(cBean);
+        }
+    }
+
+    public String getBuByGroup() throws TCException
+    {
+        String group = session.getCurrentGroup().getLocalizedFullName().toLowerCase();
+        if (group.indexOf("printer") != -1)
+        {
+            return Constants.PRT;
+        }
+        else if (group.indexOf("monitor") != -1)
+        {
+            return Constants.MNT;
+        }
+        return "";
+    }
+
+    public void updateAttriMap(TCComponentItemRevision itemRev, Map<String, String> attriMap) throws TCException
+    {
+        Iterator<Entry<String, String>> entrySet = attriMap.entrySet().iterator();
+        while (entrySet.hasNext())
+        {
+            Entry<String, String> entry = entrySet.next();
+            if (entry.getValue().equalsIgnoreCase(itemRev.getProperty(entry.getKey())))
+            {
+                entrySet.remove();
+            }
+        }
+    }
+
+    public boolean isUpdate(TCComponentItemRevision itemRev, Map<String, String> attriMap)
+    {
+        return attriMap.entrySet().stream().map(e -> {
+            try
+            {
+                return e.getValue().equals(itemRev.getProperty(e.getKey()));
+            }
+            catch (TCException e1)
+            {
+                e1.printStackTrace();
+            }
+            return false;
+        }).anyMatch(e -> !e);
+    }
+
+    public List<Map<String, Map<String, String>>> flatMapToBean(EBOMLineBean rootBean, List<Map<String, Map<String, String>>> allList) throws Exception
+    {
+        if (allList == null)
+        {
+            allList = new ArrayList<Map<String, Map<String, String>>>();
+        }
+        Map<String, Map<String, String>> map = new HashMap<String, Map<String, String>>();
+        map.put(rootBean.getItemRevUid(), new LinkedHashMap<String, String>(getRevisionMap(rootBean, UPDATE_ATTRI)));
+        allList.add(map);
+        if (rootBean.getSecondSource() != null)
+        {
+            for (EBOMLineBean secondeBean : rootBean.getSecondSource())
+            {
+                flatMapToBean(secondeBean, allList);
+            }
+        }
+        for (EBOMLineBean cBean : rootBean.getChilds())
+        {
+            flatMapToBean(cBean, allList);
+        }
+        return allList;
+    }
+
+    public TCComponentBOMLine updateBOM(TCComponentBOMLine rootLine, EBOMLineBean newRootBOMBean, EBOMLineBean oldRootBOMBean, boolean isTop) throws Exception
+    {
+        CompareBOM result = new CompareBOM(newRootBOMBean, oldRootBOMBean);
+        List<EBOMLineBean> adds = result.getAdd();
+        List<EBOMLineBean> dels = result.getDel();
+        List<EBOMUpdateBean> changes = result.getChange();
+        TCComponentItemRevision revItem = rootLine.getItemRevision();
+        if (TCUtil.isReleased(revItem))
+        {
+            boolean isChange = changes.stream().anyMatch(e -> e.getChangeFiledNames().size() > 0);
+            if (adds.size() > 0 || dels.size() > 0 || isChange)
+            {
+                System.out.println("doRevise :: -->>  -->>" + revItem);
+                revItem = doRevise(revItem);
+                updatedBOMs.add(revItem);
+                TCComponentBOMWindow bomWindow = rootLine.getCachedWindow();
+                if (isTop)
+                {
+                    bomWindow.setWindowTopLine(null, revItem, null, null);
+                    bomWindow.refresh();
+                    bomWindow.clearCache();
+                    rootLine = bomWindow.getTopBOMLine();
+                    Map<String, String> map = new ConcurrentHashMap<String, String>();
+                    getBOMMap(rootLine, map);
+                    newRootBOMBean.setUid(rootLine.getUid());
+                    oldRootBOMBean.setUid(rootLine.getUid());
+                    refreshBOMUid(newRootBOMBean, map);
+                    refreshBOMUid(oldRootBOMBean, map);
+                }
+                else
+                {
+                    bomWindow.refresh();
+                }
+            }
+        }
+        // if (isTop & TCUtil.isReleased(revItem))
+        // {
+        // TCComponentItemRevision newItemRev = doRevise(revItem); // TCUtil.doRevise(revItem);
+        // TCComponentBOMWindow bomWindow = rootLine.getCachedWindow();
+        // bomWindow.setWindowTopLine(null, newItemRev, null, null);
+        // bomWindow.refresh();
+        // bomWindow.clearCache();
+        // rootLine = bomWindow.getTopBOMLine();
+        // String newUid = rootLine.getUid();
+        // System.out.println("newUid :: " + newUid);
+        // Map<String, String> map = new ConcurrentHashMap<String, String>();
+        // getBOMMap(rootLine, map);
+        // newRootBOMBean.setUid(rootLine.getUid());
+        // oldRootBOMBean.setUid(rootLine.getUid());
+        // refreshBOMUid(newRootBOMBean, map);
+        // refreshBOMUid(oldRootBOMBean, map);
+        // // TCComponentBOMLine bomLine = findBOMLine(rootLine, newItemRev);
+        // }
+        // if (!isTop & TCUtil.isReleased(revItem))
+        // {
+        // boolean isChange = changes.stream().anyMatch(e -> e.getChangeFiledNames().size() > 0);
+        // if (adds.size() > 0 || dels.size() > 0 || isChange)
+        // {
+        // System.out.println("doRevise :: -->> -->>" + revItem);
+        // // TCComponentItemRevisionType itemRevType = (TCComponentItemRevisionType) revItem.getTypeComponent();
+        // // TCComponentItemType itemType = itemRevType.getItemType();
+        // // String newRevId = itemType.getNewRev(revItem.getItem());
+        // // TCUtil.doRevise(revItem, newRevId); // 鍗囩増瀵硅薄鐗堟湰
+        // revItem = doRevise(revItem);
+        // updatedBOMs.add(revItem);
+        // rootLine.getCachedWindow().refresh();
+        // // TCComponentBOMLine pLine = rootLine.parent();
+        // // TCComponentItemRevision newItemRev = TCUtil.doRevise(revItem);
+        // // rootLine.getCachedWindow().refresh();
+        // // // rootLine.clearCache();
+        // // TCComponentBOMLine bomLine = findBOMLine(pLine, newItemRev);
+        // // Map<String, String> map = new ConcurrentHashMap<String, String>();
+        // // getBOMMap(bomLine, map);
+        // // if (adds.size() > 0)
+        // // {
+        // // rootLine = bomLine;
+        // // }
+        // // newRootBOMBean.setUid(bomLine.getUid());
+        // // oldRootBOMBean.setUid(bomLine.getUid());
+        // // refreshBOMUid(newRootBOMBean, map);
+        // // refreshBOMUid(oldRootBOMBean, map);
+        // }
+        // }
+        addBOMLine(rootLine, adds, oldRootBOMBean);
+        delBOMLine(dels);
+        changeBOMLine(changes);
+        return rootLine;
+    }
+
+    public void refreshBOMUid(EBOMLineBean bomBean, Map<String, String> map)
+    {
+        for (EBOMLineBean bean : bomBean.getChilds())
+        {
+            if (bean.getBomId() != null)
+            {
+                bean.setUid(map.get(bean.getBomId()));
+            }
+            refreshBOMUid(bean, map);
+        }
+    }
+
+    public TCComponentBOMLine findBOMLine(TCComponentBOMLine pLine, TCComponentItemRevision newItemRev) throws TCException
+    {
+        pLine.refresh();
+        AIFComponentContext[] componmentContexts = pLine.getChildren();
+        if (componmentContexts != null)
+        {
+            for (AIFComponentContext ac : componmentContexts)
+            {
+                TCComponentBOMLine bomLine = (TCComponentBOMLine) ac.getComponent();
+                if (bomLine.getItemRevision().equals(newItemRev))
+                {
+                    return bomLine;
+                }
+            }
+        }
+        return null;
+    }
+
+    public void getBOMMap(TCComponentBOMLine bomLine, Map<String, String> map) throws TCException
+    {
+        if (bomLine.isPacked())
+        {
+            bomLine.unpack();
+            bomLine.refresh();
+        }
+        AIFComponentContext[] componmentContexts = bomLine.getChildren();
+        if (componmentContexts != null)
+        {
+            String parentItemId = bomLine.getProperty("bl_item_item_id");
+            Stream.of(componmentContexts).forEach(e -> {
+                TCComponentBOMLine childBomline = (TCComponentBOMLine) e.getComponent();
+                try
+                {
+                    String itemId = childBomline.getProperty("bl_item_item_id");
+                    map.put(parentItemId + "$" + itemId, childBomline.getUid());
+                    if (childBomline.hasChildren())
+                    {
+                        getBOMMap(childBomline, map);
+                    }
+                }
+                catch (TCException e1)
+                {
+                    e1.printStackTrace();
+                }
+            });
+        }
+    }
+
+    private static Map<String, String> getRevisionMap(Object itemBean, String[] fieldNames) throws Exception
+    {
+        Map<String, String> revisionMap = new HashMap<>();
+        for (String fieldName : fieldNames)
+        {
+            Field field = itemBean.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            TCPropName tcProp = field.getAnnotation(TCPropName.class);
+            if (tcProp != null)
+            {
+                String tcPropName = tcProp.value();
+                Object value = field.get(itemBean) == null ? "" : field.get(itemBean);
+                revisionMap.put(tcPropName, value + "");
+            }
+        }
+        return revisionMap;
+    }
+
+    public static Map<String, String> getMaterialGroupAndBaseUnit(String itemID)
+    {
+        Map<String, String> resultMap = new HashMap<String, String>();
+        resultMap.put("d9_MaterialType", "ZROH");
+        try
+        {
+            if (UpdateEBOMService.springCloudUrl == null)
+            {
+                UpdateEBOMService.springCloudUrl = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+            }
+            String result = HttpUtil.httpPost(UpdateEBOMService.springCloudUrl + "/tc-service/materialInfo/getMaterialGroupAndBaseUnit", "[{\"materialNum\":\"" + itemID + "\"}]", 10000);
+            if (result.length() > 0)
+            {
+                Gson gson = new Gson();
+                AjaxResult ajaxRsult = gson.fromJson(result, AjaxResult.class);
+                List list = (List) ajaxRsult.get(ajaxRsult.DATA_TAG);
+                if (list.size() > 0)
+                {
+                    Map<String, String> map = (Map) list.get(0);
+                    resultMap.put("d9_MaterialGroup", map.get("materialGroup"));
+                    resultMap.put("d9_Un", map.get("baseUnit"));
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return resultMap;
+    }
+
+    public static TCComponentItem createEEPartItem(String itemID, String[] partAttri, Object bean) throws Exception
+    {
+        System.out.println("create pnms -->>" + itemID);
+        TCComponentItem item = TCUtil.createItem(itemID, EEPART_TYPE, itemID, "@", EEPART_TYPE + " Revision");
+        Map<String, String> porpMap = getRevisionMap(bean, partAttri);
+        porpMap.putAll(getMaterialGroupAndBaseUnit(itemID));
+        item.getLatestItemRevision().setProperties(porpMap);
+        return item;
+    }
+
+    private void addBOMLine(TCComponentBOMLine parentBOMline, List<EBOMLineBean> addLists, EBOMLineBean oldRootBOMBean) throws TCException
+    {
+        TCComponentManager tcMgr = session.getComponentManager();
+        // String parentItemId = parentBOMline.getProperty("bl_item_item_id");
+        addLists.stream().forEach(e -> {
+            try
+            {
+                String itemID = e.getItem();
+                TCComponentItem item = null;
+                if (!TCUtil.isNull(e.getItemRevUid()))
+                {
+                    TCComponentItemRevision itemRev = (TCComponentItemRevision) tcMgr.getTCComponent(e.getItemRevUid());
+                    if (itemRev != null)
+                    {
+                        item = itemRev.getItem();
+                    }
+                }
+                if (item == null)
+                {
+                    item = itemType.find(itemID);
+                    if (item == null && "pnms".equalsIgnoreCase(e.getSourceSystem()))
+                    {
+                        System.out.println("create pnms -->>" + itemID);
+                        item = createEEPartItem(itemID, PART_ATTRI, e);
+                        // item = TCUtil.createItem(itemID, EEPART_TYPE, itemID, "@", EEPART_TYPE + " Revision");
+                        // Map<String, String> porpMap = getRevisionMap(e, PART_ATTRI);
+                        // porpMap.putAll(getMaterialGroupAndBaseUnit(itemID));
+                        // item.getLatestItemRevision().setProperties(porpMap);
+                    }
+                }
+                String[] fields = CAN_CHANGE_FIELD;
+                if (!TCUtil.isNull(e.getUid()))
+                {
+                    fields = CAN_COPY_FIELD;
+                }
+                if (e.getIsJumpLine() != null && e.getIsJumpLine())
+                {
+                    // fields = CAN_BOM_Edit_FIELD;
+                }
+                Map<String, String> bomAttriMap = new HashMap<String, String>();
+                for (int i = 0; i < fields.length; i++)
+                {
+                    Field field = EBOMLineBean.class.getDeclaredField(fields[i]);
+                    field.setAccessible(true);
+                    bomAttriMap.put(field.getAnnotation(TCPropName.class).value(), Optional.ofNullable(field.get(e)).orElse("") + "");
+                }
+                // bl_uom====Other
+                TCComponentBOMLine childBOMLine = parentBOMline.add(item, item.getLatestItemRevision(), null, false);
+                if (ArrayUtils.indexOf(fields, "qty") != -1 & !TCUtil.isNull(e.getQty()) && e.getQty().indexOf(".") != -1)
+                {
+                    childBOMLine.setProperty("bl_uom", "Other");
+                }
+                childBOMLine.setProperties(bomAttriMap);
+                if (!TCUtil.isNull(e.getUid()))
+                {
+                    List<EBOMLineBean> subs = e.getSecondSource();
+                    if (subs != null)
+                    {
+                        for (EBOMLineBean sub : subs)
+                        {
+                            TCComponentItemRevision subItemRev = (TCComponentItemRevision) tcMgr.getTCComponent(sub.getItemRevUid());
+                            childBOMLine.add(subItemRev.getItem(), subItemRev, null, true); // 为当前BOMLine添加替代料
+                        }
+                    }
+                }
+                if (e.getChilds().size() > 0)
+                {
+                    if (!TCUtil.isNull(e.getUid()))
+                    {
+                        EBOMLineBean oldBean = findOldChildBean(oldRootBOMBean, e);
+                        if (oldBean != null)
+                        {
+                            updateBOM(childBOMLine, e, oldBean, false);
+                        }
+                    }
+                    else
+                    {
+                        addBOMLine(childBOMLine, e.getChilds(), oldRootBOMBean);
+                    }
+                }
+            }
+            catch (Exception e1)
+            {
+                throw new RuntimeException(e1);
+            }
+        });
+    }
+
+    private EBOMLineBean findOldChildBean(EBOMLineBean oldRootBOMBean, EBOMLineBean bean)
+    {
+        for (EBOMLineBean bomBean : oldRootBOMBean.getChilds())
+        {
+            if (bean.equals(bomBean))
+            {
+                return bomBean;
+            }
+            else
+            {
+                findOldChildBean(bomBean, bean);
+            }
+        }
+        return null;
+    }
+
+    private void changeBOMLine(List<EBOMUpdateBean> changes)
+    {
+        changes.stream().forEach(e -> {
+            try
+            {
+                List<String> changeFields = e.getChangeFiledNames();
+                EBOMLineBean nbomBean = e.getNewEBomBean();
+                TCComponentBOMLine bomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(nbomBean.getUid());
+                TCComponentItemRevision rev = bomLine.getItemRevision();
+                if (changeFields.size() > 0)
+                {
+                    Map<String, String> tcPropMap = new HashMap<>();
+                    for (String fieldName : changeFields)
+                    {
+                        Field field = EBOMLineBean.class.getDeclaredField(fieldName);
+                        field.setAccessible(true);
+                        String tcProp = field.getAnnotation(TCPropName.class).value();
+                        String value = field.get(nbomBean) + "";
+                        tcPropMap.put(tcProp, value);
+                    }
+                    bomLine.setProperties(tcPropMap);
+                    bomLine.refresh();
+                }
+                EBOMLineBean obomBean = e.getOldEBomBean();
+                updateBOM(bomLine, nbomBean, obomBean, false);
+            }
+            catch (Exception e1)
+            {
+                throw new RuntimeException(e1);
+            }
+        });
+    }
+
+    private void delBOMLine(List<EBOMLineBean> delLists)
+    {
+        delLists.stream().forEach(e -> {
+            try
+            {
+                TCComponentBOMLine bLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(e.getUid());
+                updatedBOMs.add(bLine.parent().getItemRevision());
+                if (bLine.hasSubstitutes())
+                {
+                    TCComponentBOMLine[] listSubstitutes = bLine.listSubstitutes();
+                    for (TCComponentBOMLine sub : listSubstitutes)
+                    {
+                        sub.cut();
+                    }
+                }
+                bLine.cut();
+            }
+            catch (TCException e1)
+            {
+                throw new RuntimeException(e1);
+            }
+        });
+    }
+
+    @Deprecated
+    public TCComponentBOMLine _addChild(TCComponentBOMLine bomlineParent, TCComponentItem childItem, String[] arrayPropertyName, String[] arrayPropertyValue) throws TCException
+    {
+        TCComponentBOMLine bomline = bomlineParent.add(childItem, childItem.getLatestItemRevision(), null, false);
+        TCProperty[] arrayTCProperty = bomline.getTCProperties(arrayPropertyName);
+        for (int i = 0; i < arrayPropertyValue.length; i++)
+        {
+            if (arrayTCProperty[i] != null)
+            {
+                arrayTCProperty[i].setStringValue(arrayPropertyValue[i]);
+            }
+        }
+        bomline.setTCProperties(arrayTCProperty);
+        return bomline;
+    }
+
+    public static EBOMLineBean tcPropMapping(EBOMLineBean bean, TCComponentBOMLine tcbomLine) throws IllegalArgumentException, IllegalAccessException, TCException
+    {
+        if (bean != null && tcbomLine != null)
+        {
+            TCComponentItemRevision itemRev = tcbomLine.getItemRevision();
+            if (itemRev == null)
+            {
+                TCComponent itemRevs[] = tcbomLine.getItem().getRelatedComponents("revision_list");
+                itemRev = (TCComponentItemRevision) itemRevs[itemRevs.length - 1];
+            }
+            Field[] fields = bean.getClass().getDeclaredFields();
+            for (int i = 0; i < fields.length; i++)
+            {
+                fields[i].setAccessible(true);
+                TCPropName tcPropName = fields[i].getAnnotation(TCPropName.class);
+                if (tcPropName != null)
+                {
+                    String tcAttrName = tcPropName.value();
+                    if (!tcAttrName.isEmpty())
+                    {
+                        Object value = "";
+                        if (tcAttrName.startsWith("bl"))
+                        {
+                            value = tcbomLine.getProperty(tcAttrName);
+                            if (value == null || value.equals(""))
+                            {
+                                String tcOtherAttrName = tcPropName.otherVal();
+                                if (!TCUtil.isNull(tcOtherAttrName))
+                                {
+                                    value = tcbomLine.getProperty(tcOtherAttrName);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            value = itemRev.getProperty(tcAttrName);
+                        }
+                        if (fields[i].getType() == Integer.class)
+                        {
+                            try
+                            {
+                                value = Integer.parseInt((String) value);
+                            }
+                            catch (Exception e)
+                            {
+                                value = null;
+                            }
+                        }
+                        fields[i].set(bean, value);
+                    }
+                }
+            }
+            bean.setUid(tcbomLine.getUid());
+        }
+        return bean;
+    }
+
+    public TCComponentBOMWindow createBOMWindow() throws TCException
+    {
+        TCComponentRevisionRuleType revisionRuleType = (TCComponentRevisionRuleType) session.getTypeComponent("RevisionRule");
+        TCComponentRevisionRule defaultRule = revisionRuleType.getDefaultRule();
+        TCComponentBOMWindowType bomWindowType = (TCComponentBOMWindowType) session.getTypeComponent("BOMWindow");
+        TCComponentBOMWindow bomWindow = bomWindowType.create(defaultRule);
+        return bomWindow;
+    }
+
+    public int[] getMaxFindNum(TCComponentItemRevision baseOnRev)
+    {
+        TCComponentBOMWindow bomWindow = null;
+        int[] result = new int[2];
+        result[0] = 0;
+        result[1] = 0;
+        try
+        {
+            bomWindow = createBOMWindow();
+            bomWindow.setWindowTopLine(null, baseOnRev, null, null);
+            TCComponentBOMLine topBomLine = bomWindow.getTopBOMLine();
+            unpackageBOMStructure(topBomLine);
+            topBomLine.refresh();
+            AIFComponentContext[] componmentContext = topBomLine.getChildren();
+            if (componmentContext != null && componmentContext.length > 0)
+            {
+                AIFComponentContext lastAIFCom = componmentContext[componmentContext.length - 1];
+                TCComponentBOMLine bomLine = (TCComponentBOMLine) lastAIFCom.getComponent();
+                String findNum = bomLine.getProperty("bl_sequence_no");
+                result[0] = Integer.parseInt(findNum);
+                Integer maxAlt = Stream.of(componmentContext).map(e -> {
+                    TCComponentBOMLine bom = (TCComponentBOMLine) e.getComponent();
+                    try
+                    {
+                        String altGroup = bom.getProperty("bl_occ_d9_AltGroup");
+                        if (!TCUtil.isNull(altGroup))
+                        {
+                            return Integer.parseInt(altGroup);
+                        }
+                    }
+                    catch (TCException e1)
+                    {
+                        e1.printStackTrace();
+                    }
+                    return 0;
+                }).max(Integer::compare).get();
+                if (maxAlt != null)
+                {
+                    result[1] = maxAlt.intValue();
+                }
+                return result;
+            }
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+        finally
+        {
+            if (bomWindow != null)
+            {
+                try
+                {
+                    bomWindow.close();
+                }
+                catch (TCException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return result;
+    }
+
+    public void setMaxFindNumMap(EBOMLineBean rootBean) throws TCException
+    {
+        new Thread(() -> {
+            try
+            {
+                ExecutorService es = Executors.newFixedThreadPool(4);
+                setMaxFindNumMap(rootBean, es);
+                es.shutdown();
+            }
+            catch (TCException e)
+            {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    /**
+     * 
+     * Robert 2022骞�6鏈�15鏃�
+     * 
+     * @param rootBean
+     * @param es
+     * @throws TCException
+     */
+    public void setMaxFindNumMap(EBOMLineBean rootBean, ExecutorService es) throws TCException
+    {
+        String itemUid = rootBean.getItemRevUid();
+        if (!MAX_FINDNUMMAP.containsKey(itemUid))
+        {
+            TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager().getTCComponent(itemUid);
+            if (TCUtil.isReleased(itemRev))
+            {
+                MAX_FINDNUMMAP.put(itemUid, es.submit(() -> getMaxFindNum(itemRev)));
+            }
+            else
+            {
+                TCComponentItemRevision baseOnRev = getPreviousRev(itemRev);
+                if (baseOnRev != null)
+                {
+                    MAX_FINDNUMMAP.put(itemUid, es.submit(() -> getMaxFindNum(baseOnRev)));
+                }
+                else
+                {
+                    MAX_FINDNUMMAP.put(itemUid, new int[] { 0, 0 });
+                }
+            }
+        }
+        for (EBOMLineBean cBomBean : rootBean.getChilds())
+        {
+            if (cBomBean.getChilds().size() > 0)
+            {
+                setMaxFindNumMap(cBomBean, es);
+            }
+        }
+    }
+
+    public TCComponentItemRevision getPreviousRev(TCComponentItemRevision itemRev) throws TCException
+    {
+        TCProperty p = itemRev.getTCProperty("revision_list");
+        TCComponent[] tccom = p.getReferenceValueArray();
+        if (tccom != null && tccom.length > 1)
+        {
+            int index = ArrayUtils.indexOf(tccom, itemRev);
+            if (index > 0)
+            {
+                return (TCComponentItemRevision) tccom[index - 1];
+            }
+        }
+        return null;
+    }
+
+    public void loadAllProperties(TCComponentBOMLine bomLine, String[] partAtrrs, String[] bomAttrs) throws TCException, InterruptedException
+    {
+        DataManagementService dmService = DataManagementService.getService(session.getSoaConnection());
+        Set<TCComponentBOMLine> boms = Collections.synchronizedSet(new HashSet<TCComponentBOMLine>());
+        Set<TCComponentItemRevision> parts = Collections.synchronizedSet(new HashSet<TCComponentItemRevision>());
+        getAllPartBom(bomLine, boms, parts);
+        Thread bomThread = new Thread(() -> {
+            dmService.getProperties(boms.toArray(new TCComponentBOMLine[0]), bomAttrs);
+        });
+        Thread partThread = new Thread(() -> {
+            dmService.getProperties(parts.toArray(new TCComponentItemRevision[0]), partAtrrs);
+        });
+        bomThread.start();
+        partThread.start();
+        bomThread.join();
+        partThread.join();
+    }
+
+    public void getAllPartBom(TCComponentBOMLine bomLine, Set<TCComponentBOMLine> boms, Set<TCComponentItemRevision> parts) throws TCException
+    {
+        boms.add(bomLine);
+        if (bomLine.getItemRevision() != null)
+        {
+            parts.add(bomLine.getItemRevision());
+        }
+        if (bomLine.hasSubstitutes())
+        {
+            for (TCComponentBOMLine sub : bomLine.listSubstitutes())
+            {
+                getAllPartBom(sub, boms, parts);
+            }
+        }
+        if (bomLine.hasChildren())
+        {
+            AIFComponentContext[] componmentContext = bomLine.getPreviousChildren();
+            if (componmentContext == null)
+            {
+                componmentContext = bomLine.getChildren();
+            }
+            Stream.of(componmentContext).forEach(e -> {
+                TCComponentBOMLine cBOMLine = (TCComponentBOMLine) e.getComponent();
+                if (!cBOMLine.isSubstitute())
+                {
+                    try
+                    {
+                        getAllPartBom(cBOMLine, boms, parts);
+                    }
+                    catch (TCException e1)
+                    {
+                        e1.printStackTrace();
+                    }
+                }
+            });
+        }
+    }
+
+    public boolean isEditDept() throws TCException
+    {
+        TCComponentGroup currentGroup = session.getCurrentGroup();
+        String full_name = currentGroup.getProperty("full_name");// PSU.R&D.Monitor.D_Group
+        String[] editdept = { "PSU.R&D.Monitor.D_Group", "EE.R&D.Monitor.D_Group" };
+        return ArrayUtil.indexOf(editdept, full_name) > -1;
+    }
+
+    public ModelObject[] getWfRelation(TCComponentItemRevision itemRev) throws Exception
+    {
+        DataManagementService dmService = DataManagementService.getService(session.getSoaConnection());
+        dmService.getProperties(new ModelObject[] { itemRev }, new String[] { "fnd0AllWorkflows" });
+        Property tcProp2 = itemRev.getPropertyObject("fnd0AllWorkflows"); // fnd0StartedWorkflowTasks fnd0MyWorkflowTasks
+        if (tcProp2 != null)
+        {
+            return tcProp2.getModelObjectArrayValue();
+        }
+        return new ModelObject[0];
+    }
+
+    public TCComponentTask getItemProcessTask(TCComponentItemRevision itemRev) throws Exception
+    {
+        DataManagementService dmService = DataManagementService.getService(session.getSoaConnection());
+        dmService.getProperties(new ModelObject[] { itemRev }, new String[] { "fnd0MyWorkflowTasks" });
+        Property tcProp2 = itemRev.getPropertyObject("fnd0MyWorkflowTasks"); // fnd0StartedWorkflowTasks fnd0MyWorkflowTasks
+        if (tcProp2 != null)
+        {
+            ModelObject[] list = tcProp2.getModelObjectArrayValue();
+            for (ModelObject mo : list)
+            {
+                TCComponentTask task = (TCComponentTask) mo;
+                return task;
+            }
+        }
+        return null;
+    }
+
+    public List<TCComponentItemRevision> getDCNItemRev(TCComponentItemRevision itemRev) throws Exception
+    {
+        List<TCComponentItemRevision> list = new ArrayList<>();
+        AIFComponentContext[] contexts = itemRev.whereReferencedByTypeRelation(new String[] { "D9_MNT_DCNRevision" }, null);
+        if (contexts != null)
+        {
+            for (AIFComponentContext context : contexts)
+            {
+                if (context.getComponent() instanceof TCComponentItemRevision)
+                {
+                    list.add(((TCComponentItemRevision) context.getComponent()).getItem().getLatestItemRevision());
+                }
+            }
+        }
+        return list;
+    }
+
+    public boolean judgeUpdateDcn(TCComponentTask task) throws Exception
+    {
+        if (task != null)
+        {
+            TCComponentTask pTask = task.getParent();
+            TCComponentTask ppTask = pTask.getParent();
+            // 用戶會在流程"FXN19_MNT_DCN_Process-Update”節點“CE Review” & 節點“BOM Team Execute DCN”或流程“FXN38_MNT DCN Quick Released Process”節點“CE Check” &
+            // 節點“BOM Team Confirm”
+            if ((("CE Review".equalsIgnoreCase(pTask.toString()) || ("BOM Team Execute DCN".equalsIgnoreCase(pTask.toString()))) && "FXN19_MNT DCN Process - Update".equalsIgnoreCase(ppTask.toString())) || (("CE Check".equalsIgnoreCase(pTask.toString()) || ("BOMTeam Confirm".equalsIgnoreCase(pTask.toString()))) && "FXN38_MNT DCN Quick Released Process".equalsIgnoreCase(ppTask.toString())))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public TCComponentItemRevision doRevise(TCComponentItemRevision itemRev) throws Exception
+    {
+        String versionRule = "";
+        String version = itemRev.getProperty("item_revision_id");
+        if (version.matches("[0-9]+"))
+        { // 鍒ゆ柇瀵硅薄鐗堟湰鏄惁涓烘暟瀛楃増
+            versionRule = "NN";
+        }
+        else if (version.matches("[a-zA-Z]+"))
+        { // 鍒ゆ柇瀵硅薄鐗堟湰鏄惁涓哄瓧姣嶇増
+            versionRule = "@";
+        }
+        String newRevId = TCUtil.reviseVersion(session, versionRule, itemRev.getTypeObject().getName(), itemRev.getUid()); // 杩斿洖鎸囧畾鐗堟湰瑙勫垯鐨勭増鏈彿
+        TCComponentItemRevision newItemRev = TCUtil.doRevise(itemRev, newRevId); // 鍗囩増瀵硅薄鐗堟湰
+        return newItemRev;
+    }
+
+    public static boolean isNewRevsion(TCComponentItemRevision itemRev)
+    {
+        try
+        {
+            TCComponent[] itemRevs = itemRev.getRelatedComponents("revision_list");
+            if (itemRev.equals(itemRevs[itemRevs.length - 1]))
+            {
+                return true;
+            }
+        }
+        catch (TCException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public TCComponentItemRevision getLatestReleased(TCComponentItemRevision itemRevision) throws TCException
+    {
+        TCComponent[] revions = itemRevision.getItem().getRelatedComponents("revision_list");
+        for (int i = revions.length - 1; i >= 0; i--)
+        {
+            TCComponentItemRevision itemRev = (TCComponentItemRevision) revions[i];
+            if (TCUtil.isReleased(itemRev))
+            {
+                return itemRev;
+            }
+        }
+        return null;
+    }
+
+    public void setLocationByDesignBOM(EBOMLineBean rootBean, TCComponentBOMLine bomLine) throws TCException
+    {
+        List<String> packedLocations = getBomAttrMergeByPacked(bomLine, "bl_occ_ref_designator");
+        if (packedLocations != null)
+        {
+            packedLocations.add(rootBean.getLocation());
+            packedLocations.sort((s1, s2) -> s1.compareTo(s2));
+            rootBean.setLocation(String.join(",", packedLocations));
+        }
+    }
+
+    public List<String> getBomAttrMergeByPacked(TCComponentBOMLine bomLine, String arrtName) throws TCException
+    {
+        if (bomLine.isPacked())
+        {
+            TCComponentBOMLine[] packedLines = bomLine.getPackedLines();
+            if (packedLines.length > 0)
+            {
+                List<String> strList = new ArrayList<>();
+                for (TCComponentBOMLine pakcedLine : packedLines)
+                {
+                    String value = pakcedLine.getProperty(arrtName);
+                    if (value != null && value.length() > 0)
+                    {
+                        strList.add(value);
+                    }
+                }
+                if (strList.size() > 0)
+                {
+                    return strList;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void updateEERelation(TCComponentItemRevision itemRevOld, TCComponentItemRevision itemRevNew) throws TCException, NotLoadedException
+    {
+        if (!itemRevOld.equals(itemRevNew))
+        {
+            AIFComponentContext[] contexts = itemRevOld.whereReferencedByTypeRelation(null, new String[] { "IMAN_specification" });
+            if (contexts != null)
+            {
+                List<TCComponentItemRevision> list = new ArrayList<TCComponentItemRevision>();
+                for (AIFComponentContext context : contexts)
+                {
+                    if (context.getComponent() instanceof TCComponentItemRevision)
+                    {
+                        TCComponentItemRevision pcbBOM = (TCComponentItemRevision) context.getComponent();
+                        String partType = pcbBOM.getTypeObject().getName();
+                        if ("D9_EE_PCBARevision".equalsIgnoreCase(partType))
+                        {
+                            list.add(pcbBOM);
+                        }
+                    }
+                }
+                if (list.size() > 0)
+                {
+                    list.sort((c1, c2) -> getCreateDate(c2).compareTo(getCreateDate(c1)));
+                    TCComponentItemRevision pcbItemRev = list.get(0);
+                    pcbItemRev.remove("IMAN_specification", itemRevOld);
+                    pcbItemRev.add("IMAN_specification", itemRevNew);
+                }
+            }
+        }
+    }
+
+    public static Date getCreateDate(TCComponentItemRevision itemRev)
+    {
+        try
+        {
+            Property p = itemRev.getPropertyObject("creation_date");
+            return p.getCalendarValue().getTime();
+        }
+        catch (NotLoadedException e)
+        {
+            e.printStackTrace();
+        }
+        return new Date(0);
+    }
+
+    public static Object[] getDeriveItems(TCComponentItemRevision itemRev)
+    {
+        List<Object[]> list = new ArrayList<Object[]>();
+        try
+        {
+            if (itemRev != null)
+            {
+                AIFComponentContext[] aifs = itemRev.getRelated("IMAN_specification");
+                for (AIFComponentContext cx : aifs)
+                {
+                    InterfaceAIFComponent acom = cx.getComponent();
+                    if (acom instanceof TCComponentItemRevision)
+                    {
+                        String pitemId = acom.getProperty("item_id");
+                        if (pitemId.startsWith("79"))
+                        {
+                            AIFComponentContext[] deriveFolders = acom.getChildren();
+                            for (AIFComponentContext dcx : deriveFolders)
+                            {
+                                InterfaceAIFComponent dcom = dcx.getComponent();
+                                if (dcom instanceof TCComponentPseudoFolder)
+                                {
+                                    TCComponent df = (TCComponent) dcom;
+                                    if (df.getUid().endsWith("D9_HasDerivedBOM_REL"))
+                                    {
+                                        AIFComponentContext[] deriveCx = df.getChildren();
+                                        for (AIFComponentContext deCx : deriveCx)
+                                        {
+                                            InterfaceAIFComponent deCom = deCx.getComponent();
+                                            String modelName = "";
+                                            //
+                                            try
+                                            {
+                                                modelName = deCom.getProperty("d9_FoxconnModelName");
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                e.printStackTrace();
+                                            }
+                                            String itemId = "";
+                                            try
+                                            {
+                                                itemId = deCom.getProperty("item_id");
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                e.printStackTrace();
+                                            }
+                                            String des = "";
+                                            try
+                                            {
+                                                des = deCom.getProperty("d9_EnglishDescription");
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                e.printStackTrace();
+                                            }
+                                            String cnDes = "";
+                                            try
+                                            {
+                                                cnDes = deCom.getProperty("d9_ChineseDescription");
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                e.printStackTrace();
+                                            }
+                                            //
+                                            list.add(new Object[] { modelName, itemId, des, cnDes });
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return list.toArray();
+    }
+
+    public static Object[] getDeriveItemsByPca(TCComponentItemRevision itemRev)
+    {
+        List<Object[]> list = new ArrayList<Object[]>();
+        try
+        {
+            if (itemRev != null)
+            {
+                AIFComponentContext[] deriveFolders = itemRev.getChildren();
+                for (AIFComponentContext dcx : deriveFolders)
+                {
+                    InterfaceAIFComponent dcom = dcx.getComponent();
+                    if (dcom instanceof TCComponentPseudoFolder)
+                    {
+                        TCComponent df = (TCComponent) dcom;
+                        if (df.getUid().endsWith("D9_HasDerivedBOM_REL"))
+                        {
+                            AIFComponentContext[] deriveCx = df.getChildren();
+                            for (AIFComponentContext deCx : deriveCx)
+                            {
+                                InterfaceAIFComponent deCom = deCx.getComponent();
+                                String modelName = "";
+                                //
+                                try
+                                {
+                                    modelName = deCom.getProperty("d9_FoxconnModelName");
+                                }
+                                catch (Exception e)
+                                {
+                                    e.printStackTrace();
+                                }
+                                String itemId = "";
+                                try
+                                {
+                                    itemId = deCom.getProperty("item_id");
+                                }
+                                catch (Exception e)
+                                {
+                                    e.printStackTrace();
+                                }
+                                String des = "";
+                                try
+                                {
+                                    des = deCom.getProperty("d9_EnglishDescription");
+                                }
+                                catch (Exception e)
+                                {
+                                    e.printStackTrace();
+                                }
+                                String cnDes = "";
+                                try
+                                {
+                                    cnDes = deCom.getProperty("d9_ChineseDescription");
+                                }
+                                catch (Exception e)
+                                {
+                                    e.printStackTrace();
+                                }
+                                //
+                                list.add(new Object[] { modelName, itemId, des, cnDes });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return list.toArray();
+    }
+
+    public static void writeLog(TCComponentItemRevision itemRev, String startDate, String endDate, String function) throws Exception
+    {
+        String springUrl = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+        Map<String, Object> dataMap = new HashMap<>();
+        TCComponentUser user = RACUIUtil.getTCSession().getUser();
+        dataMap.put("project", itemRev.getProperty("project_ids"));
+        dataMap.put("functionName", function);
+        dataMap.put("creator", user.getUserId());
+        dataMap.put("creatorName", user.getUserName());
+        dataMap.put("itemId", itemRev.getProperty("item_id"));
+        dataMap.put("rev", itemRev.getProperty("item_revision_id"));
+        dataMap.put("startTime", startDate);
+        dataMap.put("endTime", endDate);
+        dataMap.put("revUid", itemRev.getUid());
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+        list.add(dataMap);
+        GsonBuilder builder = new GsonBuilder();
+        Gson gson = builder.create();
+        String result = HttpUtil.httpPost(springUrl + "/tc-integrate/actionlog/addlog", gson.toJson(list), 60 * 1000);
+        System.out.println("result --> " + result);
+    }
+
+    public static void unpackageBOMStructure(TCComponentBOMLine topBOMLine) throws Exception
+    {
+        topBOMLine.refresh();
+        AIFComponentContext[] children = topBOMLine.getChildren();
+        for (int i = 0; i < children.length; i++)
+        {
+            TCComponentBOMLine bomLine = (TCComponentBOMLine) children[i].getComponent();
+            if (bomLine.isPacked())
+            {
+                bomLine.unpack();
+            }
+            unpackageBOMStructure(bomLine);
+        }
+    }
+
+    public TCComponentItemRevision getSourceItemRev(TCComponentItemRevision itemRev) throws TCException
+    {
+        AIFComponentContext[] folders = itemRev.getChildren();
+        for (AIFComponentContext dcx : folders)
+        {
+            InterfaceAIFComponent dcom = dcx.getComponent();
+            if (dcom instanceof TCComponentPseudoFolder)
+            {
+                TCComponent df = (TCComponent) dcom;
+                if (df.getUid().endsWith("D9_HasSourceBOM_REL"))
+                {
+                    AIFComponentContext[] deriveCx = df.getChildren();
+                    for (AIFComponentContext deCx : deriveCx)
+                    {
+                        InterfaceAIFComponent deCom = deCx.getComponent();
+                        if (deCom instanceof TCComponentItemRevision)
+                        {
+                            return (TCComponentItemRevision) deCom;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public File addTargetAttachments(TCComponentTask task, EBOMLineBean sourceBOM, EBOMLineBean deriveBom) throws Exception
+    {
+        String fileDesc = "changeListExcel";
+        File file = File.createTempFile(fileDesc, ".xlsx");
+        String suffix = MntDCNChange.exportSourceChange(sourceBOM, deriveBom, file) ? ".xlsx" : "(NoDifference).xlsx";
+        String fileName = "當前審核衍生機種[" + deriveBom.getItem() + "]與源機種[" + sourceBOM.getItem() + "]差異表" + suffix;
+        TCComponent[] referenceList = task.getReferenceListProperty("root_target_attachments");
+        if (referenceList != null)
+        {
+            for (TCComponent com : referenceList)
+            {
+                if (com instanceof TCComponentDataset && fileDesc.equalsIgnoreCase(com.getProperty("object_desc")))
+                {
+                    TCUtil.updateDataset(session, (TCComponentDataset) com, file.getAbsolutePath());
+                    com.setProperty("object_name", fileName);
+                    return file;
+                }
+            }
+        }
+        TCComponentDataset dataSet = TCUtil.createDataSet(session, file.getAbsolutePath(), DatasetEnum.MSExcelX.type(), fileName, DatasetEnum.MSExcelX.refName());
+        dataSet.setProperty("object_desc", fileDesc);
+        task.add("root_target_attachments", dataSet);
+        return file;
+    }
+
+    public Set<TCComponentItemRevision> getUpdatedBOMs()
+    {
+        return updatedBOMs;
+    }
+
+    public Set<TCComponentItemRevision> getUpdatedParts()
+    {
+        return updatedParts;
+    }
+
+    public static void main(String[] args) throws Exception
+    {
+        File file = File.createTempFile("changeList", ".xlsx");
+        System.out.println(file.getAbsolutePath());
+    }
+}

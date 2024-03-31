@@ -1,0 +1,78 @@
+package com.foxconn.electronics.L10Ebom.dialog;
+
+import org.eclipse.jface.viewers.ArrayContentProvider;
+import org.eclipse.jface.viewers.ComboViewer;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.ViewerFilter;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.VerifyEvent;
+import org.eclipse.swt.events.VerifyListener;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
+
+ 
+
+public class ComboBoxViewerCellEditorExample {
+    public static void main(String[] args) {
+        Display display = new Display();
+        Shell shell = new Shell(display);
+        shell.setText("ComboBoxViewerCellEditor Example");
+        shell.setLayout(new GridLayout(1, true));
+
+ 
+
+        // Create a ComboViewer and set its content provider and label provider
+        ComboViewer comboViewer = new ComboViewer(shell);
+        comboViewer.setContentProvider(ArrayContentProvider.getInstance());
+        comboViewer.setLabelProvider(new LabelProvider());
+
+ 
+
+        // Create a combo widget and set it as the control for the ComboViewer
+        Combo combo = comboViewer.getCombo();
+        combo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+
+ 
+
+        // Set the initial input for the ComboViewer
+        String[] input = { "Item 1", "Item 2", "Item 3", "Item 4" };
+        comboViewer.setInput(input);
+
+ 
+
+        // Add a VerifyListener to the Combo widget to dynamically filter values
+//        combo.addVerifyListener(new VerifyListener() {
+//            @Override
+//            public void verifyText(VerifyEvent e) {
+//                String inputText = combo.getText().substring(0, e.start) + e.text + combo.getText().substring(e.end);
+//                comboViewer.setFilters(new ViewerFilter[] { new ViewerFilter() {
+//                    @Override
+//                    public boolean select(org.eclipse.jface.viewers.Viewer viewer, Object parentElement, Object element) {
+//                        // Add your filtering logic here based on the inputText
+//                        return element.toString().toLowerCase().contains(inputText.toLowerCase());
+//                    }
+//                } });
+//            }
+//        });
+
+ 
+
+        shell.pack();
+        shell.open();
+
+ 
+
+        while (!shell.isDisposed()) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+
+ 
+
+        display.dispose();
+    }
+}

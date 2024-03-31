@@ -1,0 +1,138 @@
+Release Notes
+
+版本 1.0.13(Build 13)  
+-发行时间 2023/08/31
+-新增功能
+  -N/A 
+-解决问题
+  1. 修改流程FXN19_MNT DCN Process - Update，更新流程节点Initial confirm修改为 實際工程師設置為 “發起人”。[Dev:黄洋洋  , SA:李俊卿]
+  2. 修改自动指派流程审核人和实际工程师，物料对象实际工程师为空时，跳过需要实际工程师的流程节点指派，不影响其他节点指派人员。[Dev:黄洋洋  , SA:李俊卿]
+-已知问题
+  -N/A
+
+版本 1.0.12(Build 12)  
+-发行时间 2023/08/25
+-新增功能
+   1. 新增MNT MNT部门,清缓存后再发起流程 自动指派人员功能BUG修复[#3097][Dev:黄洋洋  , SA:李东]
+-解决问题
+  -N/A
+-已知问题
+  -N/A
+
+版本 1.0.11(Build 11)  
+-发行时间 2023/08/24
+-新增功能
+   1. 新增MNT MNT部门,發起流程FXN08_MNT EE Schematic Release Process時，流程修改后自动指派代码修复[#3097][Dev:黄洋洋  , SA:李东]
+-解决问题
+  -N/A
+-已知问题
+  -N/A
+
+版本 1.0.10(Build 10)  
+-发行时间 2023/07/21
+-新增功能
+   1. 新增MNT MNT部门,發起流程FXN27_MNT & FXN29_PRT時，新增流程发起前属性检查，属性为空时不允许发起[#3065][Dev:黄洋洋  , SA:邓双波]
+-解决问题
+  -N/A
+-已知问题
+  -N/A
+  
+版本 1.0.9(Build 9)  
+-发行时间 2023/07/21
+-新增功能
+   1. 新增MNT FW部门,發起流程FXN58_MNT FW Design Release Process時，新增MNT PE可选实际工程师[#2921][Dev:黄洋洋  , SA:戴斌]
+-解决问题
+   1、解決MNT部门,發起流程FXN35_MNT PCB Layout Boardfile Release Process時，ME节点自动指派人错误問題[Dev:黄洋洋 , SA:李俊卿]
+-已知问题
+  -N/A
+  
+版本 1.0.8(Build 8)  
+-发行时间 2023/07/12
+-新增功能
+   1. 新增MNT FW部门,發起流程FXN58_MNT FW Design Release Process時，自动指派默认签核人[#2889][Dev:余华胜 , SA:戴斌]
+-解决问题
+   1、修复MNT FW部门,發起流程FXN58_MNT FW Design Release Process時，自动指派默认签核人，获取首选项D9_Auto_Assign_Workflow_Template的场景由判断当前登录用户是角色是否为dba或者Desktop调整为，流程界面打开就获取首选项 [#2889][Dev:余华胜 , SA:戴斌]	
+   2、解決MNT部门,發起流程FXN27_MNT 2nd Source Recommended Process時，自动指派人問題[#2194][Dev:黄洋洋 , SA:李俊卿]
+-已知问题
+  -N/A
+
+版本 1.0.7(Build 7)  
+-发行时间 2023/07/11
+-新增功能
+   -N/A
+-解决问题
+  1. 解決MNT CE部门,發起流程FXN27_MNT 2nd Source Recommended Process時，沒有發簽核通知郵件的問題[#2192][Dev:黎鵬 , SA:鄧雙波]
+-已知问题
+  -N/A
+  
+  
+版本 1.0.5(Build 6)  
+-发行时间 2023/07/06
+-新增功能
+  1. 新增MNT FW部门   流程FXN58_MNT FW Design Release Process新增 指派实际工程师 功能[#349][Dev:黄洋洋 , SA:戴斌]
+-解决问题
+  -N/A
+-已知问题
+  -N/A
+
+ 版本 1.0.4(Build 5)  
+-发行时间 2023/06/30
+-新增功能
+  1. 新增DT部门   FXN06_Design Release Process_ME流程和FXN23_DT ME DCN Process流程 指派實際作者功能[#2773][Dev:黄洋洋 , SA:汪蕾] 
+-解决问题
+  1.解决DT LPD/PSU和SD和Thermal部门 流程节点指派多个人员模板文件(D9_Allow_AssignMore_Workflow_Template)下载失败的问题[MVP2-6 Key User 测试计划_20230604.xlsx #8][Dev:余华胜, SA：李东]
+-已知问题
+  -N/A
+  
+ 版本 1.0.4(Build 5)  
+-发行时间 2023/06/28
+-新增功能
+   1. 新增DT部门   FXN06_Design Release Process_ME流程和FXN23_DT ME DCN Process流程 指派實際作者功能[#2773][Dev:黄洋洋 , SA:汪蕾] 
+ -解决问题
+  -N/A
+ -已知问题
+  -N/A
+  
+ 版本 1.0.3(Build 4)  
+-发行时间 2023/06/20
+-新增功能
+  -N/A
+ -解决问题
+   1、适用单位:DT/LPD/PSU和SD和Thermal部门
+   2.FXN45_DT Lenovo SD Matrix Release Process 流程起草界面实际工作者新增DT_MFG账号信息可选下拉框问题[问题编号(MVP2-6 Key User 测试计划_20230604.xlsx(功能测试 --编号8))][Dev:余华胜, SA：李东]
+   3.FXN45_DT Lenovo PSU List Fast Release Process 流程起草界面实际工作者新增DT_SPM账号信息可选下拉框问题[问题编号(MVP2-6 Key User 测试计划_20230604.xlsx(功能测试 --编号8))][Dev:余华胜, SA：李东]
+   4.FXN45_DT Lenovo SD Matrix Release Process的Notify MFG节点，FXN45_DT Lenovo PSU List Fast Release Process的Notify SPM节点可以指派多个实际工作者问题 [问题编号(MVP2-6 Key User 测试计划_20230604.xlsx(功能测试 --编号8))][Dev:余华胜, SA：李东]
+   5.首选项D9_Auto_Assign_Workflow_Template记录的流程和节点， 流程起草界面，节点自动指派人员问题[问题编号(MVP2-6 Key User 测试计划_20230604.xlsx(功能测试 --编号8))][Dev:余华胜, SA：李东]   
+-升级/优化 
+  -N/A
+  
+ 版本 1.0.2(Build 3)  
+-发行时间 2023/05/25
+-新增功能
+   1.部門主管&工廠人員需參與流程簽核
+   2.根據人員登錄的部門信息，將該部門的經理加入流程簽核清單中
+   3.根據指定流程，將工廠人員加入流程簽核清單中
+ -解决问题
+   -N/A
+-升级/优化 
+  -N/A
+
+版本 1.0.1(Build 2)  
+-发行时间 2023/01/06
+-新增功能
+   1.新增非DBA人员不可以剪切专案知识库下的部门文件夹、系列文件夹、部门文件夹
+   2.新增非DBA人员不可以向专案知识库下的部门文件夹、系列文件夹、部门文件夹里面黏贴文件夹
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A
+
+版本 1.0.0(Build 1)  
+-发行时间 2022/04/28
+-新增功能
+   1.新增新建流程指派实际作者功能
+   2.新增流程中指派实际作者功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A

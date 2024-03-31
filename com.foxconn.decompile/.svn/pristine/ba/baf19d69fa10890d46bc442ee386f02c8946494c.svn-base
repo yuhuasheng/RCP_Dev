@@ -1,0 +1,290 @@
+package com.foxconn.decompile;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.ui.plugin.AbstractUIPlugin;
+import org.osgi.framework.BundleContext;
+
+import com.foxconn.decompile.util.WorkGroup;
+
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
+
+/**
+ * The activator class controls the plug-in life cycle
+ */
+public class Activator extends AbstractUIPlugin {
+
+	// The plug-in ID
+	public static final String PLUGIN_ID = "com.foxconn.decompile"; //$NON-NLS-1$
+
+	// The shared instance
+	private static Activator plugin;
+	
+	/**
+	 * The constructor
+	 */
+	public Activator() {
+	}
+
+	@Override
+	public void start(BundleContext context) throws Exception {
+		super.start(context);
+		plugin = this;
+	}
+
+	@Override
+	public void stop(BundleContext context) throws Exception {
+		plugin = null;
+		super.stop(context);
+	}
+
+	/**
+	 * Returns the shared instance
+	 *
+	 * @return the shared instance
+	 */
+	public static Activator getDefault() {
+		return plugin;
+	}
+
+	/**
+	 * Returns an image descriptor for the image file at the given
+	 * plug-in relative path
+	 *
+	 * @param path the path
+	 * @return the image descriptor
+	 */
+	public static ImageDescriptor getImageDescriptor(String path) {
+		return imageDescriptorFromPlugin(PLUGIN_ID, path);
+	}
+	
+	
+	public static List<List<Object>> getExcel() {
+		String filePath = "C:\\Users\\Chen\\Desktop\\工作\\流程指派实际工程师\\MNT workgroup signature for TC_V3.xls";
+		ExcelReader reader = ExcelUtil.getReader(filePath, 0);
+		List<List<Object>> readLists = reader.read();
+		readLists.remove(0);
+		
+		return readLists;
+	}
+	
+	public static HashMap<String, WorkGroup> getWorkUser(List<List<Object>> readLists,HashMap<String, WorkGroup> mapGroup) {
+		HashMap<String, WorkGroup> map = new HashMap<String, WorkGroup>();
+		for (List<Object> read:readLists) {
+			String read1 = (String) read.get(1);
+			String read2 = (String) read.get(2);
+			
+			String dell = (String) read.get(3);
+			String hp = (String) read.get(4);
+			String lenovo = (String) read.get(5);
+			String g10 = (String) read.get(6);
+			String workId = read.get(7).toString();
+			String name = (String) read.get(8);
+			String doAW = (String) read.get(9);
+			String codeGroup = (String) read.get(10);
+			String tcGroup = (String) read.get(11);
+			String notes = (String) read.get(12);
+			
+			WorkGroup user = new WorkGroup(dell, hp, lenovo, g10, workId, name, doAW, codeGroup, tcGroup, notes);
+			
+			WorkGroup wg = mapGroup.get(codeGroup);
+			if(wg!=null) {
+				WorkGroup approveRealityUser = wg.getApproveRealityUser();
+				user.setApproveRealityUser(approveRealityUser);
+				WorkGroup approveTcUser = wg.getApproveTcUser();
+				user.setApproveTcUser(approveTcUser);
+				WorkGroup reviewRealityUser = wg.getReviewRealityUser();
+				user.setReviewRealityUser(reviewRealityUser);
+				WorkGroup reviewTcUser = wg.getReviewTcUser();
+				user.setReviewTcUser(reviewTcUser);
+			}
+			
+			//if(!"A".equals(read1) && !"R".equals(read1) && !"A/R".equals(read1) && !"R/A".equals(read1) 
+			//	&& !"A".equals(read2) && !"R".equals(read2) && !"A/R".equals(read2) && !"R/A".equals(read2) ) {
+				WorkGroup workGroup = map.get(workId);
+				if(workGroup == null) {
+					map.put(workId, user);
+				}else {
+					if(!"A".equals(read1) && !"R".equals(read1) && !"A/R".equals(read1) && !"R/A".equals(read1) 
+						&& !"A".equals(read2) && !"R".equals(read2) && !"A/R".equals(read2) && !"R/A".equals(read2) ) {
+						map.remove(workId);
+						map.put(workId, user);
+					}
+					System.out.println("-----------重复--------------"+workId);
+				}
+			//}
+		}
+		return map;
+		
+	}
+	
+	
+	public static HashMap<String, WorkGroup> getWorkGroup(List<List<Object>> readLists) {
+		HashMap<String, WorkGroup> map = new HashMap<String, WorkGroup>();
+		for (List<Object> read:readLists) {
+			
+			String read1 = (String) read.get(1);
+			String read2 = (String) read.get(2);
+			
+			String dell = (String) read.get(3);
+			String hp = (String) read.get(4);
+			String lenovo = (String) read.get(5);
+			String g10 = (String) read.get(6);
+			String workId = read.get(7).toString();
+			String name = (String) read.get(8);
+			String doAW = (String) read.get(9);
+			String codeGroup = (String) read.get(10);
+			String tcGroup = (String) read.get(11);
+			String notes = (String) read.get(12);
+			
+			WorkGroup user = new WorkGroup(dell, hp, lenovo, g10, workId, name, doAW, codeGroup, tcGroup, notes);
+			
+			System.out.println("workId = "+workId+",codeGroup = "+codeGroup);
+			
+			if(read1 != null) {
+				if("A".equals(read1)) {
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setApproveRealityUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setApproveRealityUser(user);
+					}
+				}else if("R".equals(read1)) {
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setReviewRealityUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setReviewRealityUser(user);
+					}
+					
+				}else if("A/R".equals(read1) || "R/A".equals(read1)) {
+
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setApproveRealityUser(user);
+						wg.setReviewRealityUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setApproveRealityUser(user);
+						wg.setReviewRealityUser(user);
+					}
+				}
+			}
+			
+			if(read2 != null) {
+				if("A".equals(read2)) {
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setApproveTcUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setApproveTcUser(user);
+					}
+				}else if("R".equals(read2)) {
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setReviewTcUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setReviewTcUser(user);
+					}
+					
+				}else if("A/R".equals(read2) || "R/A".equals(read2)) {
+
+					WorkGroup wg = map.get(codeGroup);
+					if(wg == null) {
+						wg = new WorkGroup();
+						wg.setApproveTcUser(user);
+						wg.setReviewTcUser(user);
+						map.put(codeGroup, wg);
+					} else {
+						wg.setApproveTcUser(user);
+						wg.setReviewTcUser(user);
+					}
+				}
+			}
+		}
+		
+		return map;
+	}
+
+
+	public static void main(String[] args) {
+	
+		List<List<Object>> readLists = getExcel();
+		HashMap<String,WorkGroup> mapWorkGroup = getWorkGroup(readLists);
+		HashMap<String,WorkGroup> workUser = getWorkUser(readLists, mapWorkGroup);
+		
+		for(Entry<String, WorkGroup> entrySet:workUser.entrySet()) {
+			String key = entrySet.getKey();
+			WorkGroup value = entrySet.getValue();
+			String reAid = "";
+			String reRid = "";
+			String tcAid = "";
+			String tcRid = "";
+			
+			
+			
+			
+			WorkGroup approveRealityUser = value.getApproveRealityUser();
+			if(approveRealityUser!=null) {
+				reAid = approveRealityUser.getWorkId();
+			}
+			WorkGroup approveTcUser = value.getApproveTcUser();
+			if(approveTcUser!=null) {
+				tcAid = approveTcUser.getWorkId();
+			}
+			WorkGroup reviewRealityUser = value.getReviewRealityUser();
+			if(reviewRealityUser!=null) {
+				reRid = reviewRealityUser.getWorkId();
+			}
+			WorkGroup reviewTcUser = value.getReviewTcUser();
+			if(reviewTcUser!=null) {
+				tcRid = reviewTcUser.getWorkId();
+			}
+			
+			
+			System.out.println(key+"------------"+value.toString());
+			System.out.println("reAid = "+reAid+",reRid = "+reRid+",tcAid = "+tcAid+",tcRid = "+tcRid);
+		}
+		
+		WorkGroup workGroup = workUser.get("23572");
+		WorkGroup approveRealityUser = workGroup.getApproveRealityUser();
+		if(approveRealityUser!=null) {
+			String reAid = approveRealityUser.getWorkId();
+		}
+		WorkGroup approveTcUser = workGroup.getApproveTcUser();
+		if(approveTcUser!=null) {
+			String tcAid = approveTcUser.getWorkId();
+		}
+		WorkGroup reviewRealityUser = workGroup.getReviewRealityUser();
+		if(reviewRealityUser!=null) {
+			String reRid = reviewRealityUser.getWorkId();
+		}
+		WorkGroup reviewTcUser = workGroup.getReviewTcUser();
+		if(reviewTcUser!=null) {
+			String tcRid = reviewTcUser.getWorkId();
+		}
+		
+		
+		//System.out.println(key+"------------"+value.toString());
+		//System.out.println("reAid = "+reAid+",reRid = "+reRid+",tcAid = "+tcAid+",tcRid = "+tcRid);
+
+		
+		
+	}
+	
+
+}

@@ -1,0 +1,746 @@
+package com.teamcenter.rac.workflow.commands.dotask;
+
+import com.foxconn.decompile.util.FileStreamUtil;
+import com.foxconn.decompile.util.TCUtil;
+import com.teamcenter.rac.aif.AIFDesktop;
+import com.teamcenter.rac.aif.AbstractAIFDialog;
+import com.teamcenter.rac.aif.AbstractAIFOperation;
+import com.teamcenter.rac.aif.InterfaceAIFOperationListener;
+import com.teamcenter.rac.aif.kernel.AIFComponentEvent;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponentEventListener;
+import com.teamcenter.rac.kernel.TCAttachmentScope;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.kernel.TCTaskState;
+import com.teamcenter.rac.util.ButtonLayout;
+import com.teamcenter.rac.util.FilterDocument;
+import com.teamcenter.rac.util.InterfaceSignalOnClose;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.Painter;
+import com.teamcenter.rac.util.PropertyLayout;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.util.Separator;
+import com.teamcenter.rac.util.Utilities;
+import com.teamcenter.rac.util.VerticalLayout;
+import com.teamcenter.rac.util.iTextArea;
+import com.teamcenter.rac.workflow.commands.digitalsign.PerformTaskUtil;
+import java.awt.Graphics;
+import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+//import org.apache.log4j.Logger;
+import javax.swing.SwingUtilities;
+
+public class UserDoTaskPanel extends JPanel
+		implements InterfaceAIFOperationListener, InterfaceAIFComponentEventListener, InterfaceSignalOnClose {
+	private JTextArea taskName;
+
+	private JTextArea taskInstructions;
+
+	private iTextArea processDesc;
+
+	private String oldDesc;
+
+	private String oldComment;
+
+	ButtonGroup completeButtonGroup;
+
+	private JRadioButton completeRadioButton;
+
+	private JRadioButton unableToCompleteRadioButton;
+
+	private JTextArea commentsTextArea;
+
+	private JLabel commentsLabel;
+
+	private String UnsetResult = "Unset";
+
+	private boolean failurePathPresent = false;
+
+	private JButton okButton;
+
+	private JButton cancelButton;
+
+	private PerformTaskUtil performTask = null;
+
+	private TCComponentTask task;
+
+	private TCSession session;
+
+	private Registry registry;
+
+	private AIFDesktop desktop = null;
+
+	private boolean is_secure_task = false;
+
+	protected AbstractAIFDialog parent;
+
+	protected JLabel userPassword;
+
+	protected JPasswordField passwordTextField;
+
+	public static final String PERFORM_DO_TASK_ICON_REG_KEY = "performDoTask.ICON";
+
+	public static final String TASK_NAME_LABEL_REG_KEY = "taskNameLabel";
+
+	public static final String TASK_INSTRUCTIONS_LABEL_REG_KEY = "taskInstructionsLabel";
+
+	public static final String DONE_BOX_LABEL_REG_KEY = "doneLabel";
+
+	public static final String REFRESH_DISPLAY_REG_KEY = "refreshDisplayMessage";
+
+	public static final String COMPLETE_KEY = "completeLabel";
+
+	public static final String UNABLE_COMPLETE_KEY = "unableToCompleteLabel";
+
+	public static final String PROCESS_DESC_LABEL_REG_KEY = "processDescLabel";
+
+	public static final int TASK_COMMENT_SIZE = 4000;
+
+	public UserDoTaskPanel(AIFDesktop paramAIFDesktop, JPanel paramJPanel, TCComponentTask paramTCComponentTask) {
+		this(paramAIFDesktop, (AbstractAIFDialog)null, paramTCComponentTask);
+	}
+
+	public UserDoTaskPanel(AIFDesktop paramAIFDesktop, AbstractAIFDialog paramAbstractAIFDialog, TCComponentTask paramTCComponentTask) {
+		super(new VerticalLayout(5, 2, 2, 2, 2));
+		this.parent = paramAbstractAIFDialog;
+		this.session = paramTCComponentTask.getSession();
+		this.registry = Registry.getRegistry(this);
+		this.task = paramTCComponentTask;
+		this.desktop = paramAIFDesktop;
+		try {
+			this.failurePathPresent = this.task.getLogicalProperty("has_failure_paths");
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+		}
+		initPanel();
+		this.session.addAIFComponentEventListener(this);
+	}
+
+	private void initPanel() {
+		try {
+			JPanel jPanel1 = new JPanel(new PropertyLayout());
+			JPanel jPanel2 = new JPanel(new ButtonLayout());
+			JLabel jLabel1 = new JLabel(this.registry.getImageIcon("performDoTask.ICON"), 0);
+			JLabel jLabel2 = new JLabel(this.registry.getString("taskNameLabel"));
+			String str1 = this.task.getName();
+			this.taskName = new JTextArea(str1, 1, 50);
+			this.taskName.setEditable(false);
+			this.taskName.setLineWrap(true);
+			this.taskName.setBackground(getBackground());
+			this.commentsLabel = new JLabel(this.registry.getString("commentsLabel"));
+			String str2 = TCSession.getServerEncodingName(this.session);
+			this.commentsTextArea = new JTextArea(new FilterDocument(4000, str2), "", 3, 50);
+			JLabel jLabel3 = new JLabel(this.registry.getString("taskInstructionsLabel"));
+			this.taskInstructions = new JTextArea(this.task.getInstructions(), 3, 50);
+			this.taskInstructions.setEditable(false);
+			this.taskInstructions.setLineWrap(true);
+			JLabel jLabel4 = new JLabel(this.registry.getString("processDescLabel"));
+			this.oldDesc = this.task.getProcess().getInstructions();
+			this.processDesc = new iTextArea(this.oldDesc, 2, 50);
+			this.processDesc.setLengthLimit(240);
+			this.processDesc.setLineWrap(true);
+			this.processDesc.setWrapStyleWord(true);
+			if (this.task.getProcess().okToModify()) {
+				this.processDesc.setEditable(true);
+			} else {
+				this.processDesc.setEditable(false);
+			}
+			this.processDesc.addKeyListener(new KeyAdapter() {
+				public void keyReleased(KeyEvent param1KeyEvent) {
+					okButton.setEnabled(true);
+				}
+			});
+			this.taskInstructions.setWrapStyleWord(true);
+			this.completeButtonGroup = new ButtonGroup();
+			JPanel jPanel3 = new JPanel();
+			JLabel jLabel5 = new JLabel(this.registry.getString("doneLabel"));
+			this.completeRadioButton = new JRadioButton(this.registry.getString("completeLabel"));
+			this.completeRadioButton.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent param1ActionEvent) {
+					okButton.setEnabled(true);
+					setResult(true);
+				}
+			});
+			this.unableToCompleteRadioButton = new JRadioButton(this.registry.getString("unableToCompleteLabel"));
+			this.unableToCompleteRadioButton.setVisible(this.failurePathPresent);
+			this.unableToCompleteRadioButton.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent param1ActionEvent) {
+					okButton.setEnabled(true);
+					setResult(false);
+				}
+			});
+			jPanel3.add(this.completeRadioButton);
+			jPanel3.add(this.unableToCompleteRadioButton);
+			this.completeButtonGroup.add(this.completeRadioButton);
+			this.completeButtonGroup.add(this.unableToCompleteRadioButton);
+			if (this.parent != null) {
+				this.okButton = new JButton(this.registry.getString("ok"));
+				this.okButton.setMnemonic(this.registry.getString("ok.MNEMONIC").charAt(0));
+			} else {
+				this.okButton = new JButton(this.registry.getString("apply"));
+				this.okButton.setMnemonic(this.registry.getString("apply.MNEMONIC").charAt(0));
+			}
+			this.okButton.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent param1ActionEvent) {										
+					if (!updateProcessDescription())
+						return;
+					startDoTaskOperation();
+					
+					// recompile 20220323143000 : START
+					sendMail();										
+					// 20220323143000 : END
+				}
+			});
+			this.okButton.setEnabled(false);
+			this.okButton.setVisible(false);
+			jPanel2.add(this.okButton);
+			if (this.parent != null) {
+				this.cancelButton = new JButton(this.registry.getString("cancel"));
+				this.cancelButton.setMnemonic(this.registry.getString("cancel.MNEMONIC").charAt(0));
+				this.cancelButton.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent param1ActionEvent) {
+						parent.disposeDialog();
+					}
+				});
+				this.cancelButton.setEnabled(true);
+				this.cancelButton.setVisible(true);
+				jPanel2.add(this.cancelButton);
+			}
+			this.oldComment = this.task.getProperty("comments");
+			this.commentsTextArea.setText(this.oldComment);
+			try {
+				this.is_secure_task = this.task.isSecureTask();
+				if (this.is_secure_task) {
+					this.userPassword = new JLabel(this.registry.getString("passwordLabel"));
+					this.passwordTextField = new JPasswordField(20) {
+						public void paint(Graphics param1Graphics) {
+							super.paint(param1Graphics);
+							Painter.paintIsRequired(this, param1Graphics);
+						}
+					};
+				}
+			} catch (TCException tCException) {
+				tCException.printStackTrace();
+			}
+			add("top.nobind.left", jLabel1);
+			add("top.bind", new Separator());
+			jPanel1.add("1.1.right.top.preferred.preferred", jLabel2);
+			jPanel1.add("1.2.center.center.resizable.preferred", new JScrollPane(this.taskName));
+			jPanel1.add("2.1.right.top.preferred.preferred", jLabel3);
+			jPanel1.add("2.2.center.center.resizable.resizable", new JScrollPane(this.taskInstructions));
+			jPanel1.add("3.1.right.top.preferred.preferred", jLabel4);
+			jPanel1.add("3.2.center.center.resizable.preferred", new JScrollPane(this.processDesc));
+			jPanel1.add("4.1.right.top.preferred.preferred", this.commentsLabel);
+			jPanel1.add("4.2.center.center.resizable.resizable", new JScrollPane(this.commentsTextArea));
+			jPanel1.add("5.1.right.top.preferred.preferred", jLabel5);
+			jPanel1.add("5.2.center.center.preferred.preferred", jPanel3);
+			if (this.is_secure_task) {
+				jPanel1.add("6.1.right.top.preferred.preferred", this.userPassword);
+				jPanel1.add("6.2.center.center.preferred.preferred", this.passwordTextField);
+			}
+			add("bottom.bind.center.top", jPanel2);
+			add("bottom.bind", new Separator());
+			add("unbound.bind.center.top", jPanel1);
+			TCSession tCSession = this.task.getSession();
+			TCPreferenceService tCPreferenceService = tCSession.getPreferenceService();
+			String str3 = tCPreferenceService.getStringValue("WRKFLW_task_complete");
+			if (Boolean.valueOf(str3).booleanValue() && this.task.isValidPerformer()) {
+				String str = this.task.getStringProperty("task_result");
+				if (str.equalsIgnoreCase(this.UnsetResult))
+					this.task.setStringProperty("task_result", "Completed");
+			}
+			setState();
+		} catch (Exception exception) {
+			displayEx(exception);
+			return;
+		}
+	}
+
+	public void displayEx(Exception paramException) {
+		MessageBox messageBox = null;
+		if (this.parent != null) {
+			messageBox = new MessageBox(this.parent, paramException);
+			messageBox.setModal(true);
+		} else {
+			messageBox = new MessageBox(Utilities.getCurrentFrame(), paramException);
+			messageBox.setModal(true);
+		}
+		messageBox.setVisible(true);
+	}
+
+	public void setFocus() {
+		if (this.completeRadioButton.isEnabled()) {
+			this.completeRadioButton.requestFocus();
+		} else if (this.unableToCompleteRadioButton.isEnabled()) {
+			this.unableToCompleteRadioButton.requestFocus();
+		} else if (this.parent != null) {
+			this.cancelButton.requestFocus();
+		}
+	}
+
+	public void setState() {
+		try {
+			TCTaskState tCTaskState = this.task.getState();
+			this.commentsTextArea.setEditable(false);
+			if (tCTaskState == TCTaskState.STARTED) {
+				this.completeButtonGroup.remove(this.completeRadioButton);
+				this.completeButtonGroup.remove(this.unableToCompleteRadioButton);
+				this.completeRadioButton.setSelected(false);
+				this.unableToCompleteRadioButton.setSelected(false);
+				this.completeButtonGroup.add(this.completeRadioButton);
+				this.completeButtonGroup.add(this.unableToCompleteRadioButton);
+				this.commentsTextArea.setEditable(true);
+				TCProperty tCProperty = this.task.getTCProperty("task_result");
+				String str = tCProperty.getStringValue();
+				if (str.equals("Completed")) {
+					this.completeRadioButton.setSelected(true);
+					this.completeRadioButton.setEnabled(true);
+					this.unableToCompleteRadioButton.setEnabled(true);
+					this.okButton.setEnabled(true);
+					this.okButton.setVisible(true);
+					if (this.task.isValidPerformer()) {
+						if (this.is_secure_task)
+							this.passwordTextField.setEnabled(true);
+					} else if (this.is_secure_task) {
+						this.passwordTextField.setEnabled(false);
+					}
+				} else if (str.equals("UnableToComplete")) {
+					this.completeRadioButton.setSelected(false);
+					this.completeRadioButton.setEnabled(true);
+					this.unableToCompleteRadioButton.setSelected(true);
+					this.unableToCompleteRadioButton.setEnabled(true);
+					this.okButton.setEnabled(true);
+					this.okButton.setVisible(true);
+					if (this.task.isValidPerformer()) {
+						if (this.is_secure_task)
+							this.passwordTextField.setEnabled(true);
+					} else if (this.is_secure_task) {
+						this.passwordTextField.setEnabled(false);
+					}
+				} else if (this.task.isValidPerformer()) {
+					if (this.is_secure_task)
+						this.passwordTextField.setEnabled(true);
+					this.completeRadioButton.setEnabled(true);
+					this.unableToCompleteRadioButton.setEnabled(true);
+					this.okButton.setEnabled(false);
+					this.okButton.setVisible(true);
+				} else {
+					if (this.is_secure_task)
+						this.passwordTextField.setEnabled(false);
+					this.completeRadioButton.setEnabled(false);
+					this.unableToCompleteRadioButton.setEnabled(false);
+					this.okButton.setVisible(false);
+				}
+			} else if (tCTaskState == TCTaskState.FAILED) {
+				this.completeRadioButton.setSelected(false);
+				this.unableToCompleteRadioButton.setSelected(true);
+				this.completeRadioButton.setSelected(false);
+				this.completeRadioButton.setEnabled(false);
+				this.unableToCompleteRadioButton.setEnabled(false);
+				this.unableToCompleteRadioButton.setSelected(true);
+				this.okButton.setEnabled(false);
+				this.okButton.setVisible(true);
+				if (this.is_secure_task)
+					this.passwordTextField.setEnabled(false);
+			} else if (tCTaskState == TCTaskState.COMPLETED) {
+				this.completeRadioButton.setEnabled(false);
+				this.unableToCompleteRadioButton.setEnabled(false);
+				this.okButton.setEnabled(false);
+				this.okButton.setVisible(true);
+			} else {
+				if (this.is_secure_task)
+					this.passwordTextField.setEnabled(false);
+				this.completeRadioButton.setEnabled(false);
+				this.unableToCompleteRadioButton.setEnabled(false);
+				this.okButton.setVisible(false);
+				if (tCTaskState == TCTaskState.COMPLETED) {
+					this.completeRadioButton.setSelected(true);
+				} else {
+					this.completeRadioButton.setSelected(false);
+				}
+			}
+			if (this.parent != null)
+				this.cancelButton.setEnabled(true);
+		} catch (Exception exception) {
+			displayEx(exception);
+			return;
+		}
+	}
+
+	public void startOperation(String paramString) {
+		if (this.parent != null)
+			this.cancelButton.setEnabled(false);
+		this.okButton.setEnabled(false);
+		this.commentsTextArea.setEditable(false);
+		revalidate();
+		repaint();
+	}
+
+	public void endOperation() {
+		boolean bool = true;
+		if (this.performTask != null) {
+			AbstractAIFOperation abstractAIFOperation = this.performTask.getOperation();
+			Object object = abstractAIFOperation.getOperationResult();
+			if (object != null)
+				bool = false;
+			abstractAIFOperation.removeOperationListener(this);
+			this.performTask = null;
+		}
+		if (this.parent != null && bool) {
+			this.parent.disposeDialog();
+		} else {
+			setState();
+			setFocus();
+			revalidate();
+			repaint();
+		}
+	}
+
+	private void startDoTaskOperation() {
+		Object abstractAIFDialog = desktop;
+		String str = null;
+		if (this.parent != null)
+			abstractAIFDialog = this.parent;
+		if (this.is_secure_task)
+			str = getPassword();
+		if (this.completeRadioButton.isSelected()) {
+			initiateOperation((AbstractAIFDialog)abstractAIFDialog, str, "Completed", "COMPLETE_OPERATION");
+		} else if (this.unableToCompleteRadioButton.isSelected()) {
+			initiateOperation((AbstractAIFDialog)abstractAIFDialog, str, "UnableToComplete", "FAILURE_OPERATION");
+		} else if (this.parent != null) {
+			this.parent.disposeDialog();
+		}
+	}
+
+	private void initiateOperation(Window paramWindow, String paramString1, String paramString2, String paramString3) {
+		this.performTask = new PerformTaskUtil(paramWindow, this.task, this.commentsTextArea.getText(), paramString1,
+				paramString2, this, paramString3);
+		this.performTask.executeOperation();
+	}
+
+	private boolean updateProcessDescription() {
+		try {
+			String str = this.processDesc.getText();
+			if (this.oldDesc == null) {
+				if (str != null)
+					this.task.getProcess().setStringProperty("object_desc", str);
+			} else if (!this.oldDesc.equals(str)) {
+				this.task.getProcess().setStringProperty("object_desc", str);
+			}
+		} catch (Exception exception) {
+			displayEx(exception);
+			return false;
+		}
+		return true;
+	}
+
+	public String getPassword() {
+		return new String(this.passwordTextField.getPassword());
+	}
+
+	public void processComponentEvents(final AIFComponentEvent[] componentEvents) {
+		String str = this.registry.getString("refreshDisplayMessage");
+		this.session.setReadyStatus();
+		this.session.queueOperation(new AbstractAIFOperation(str) {
+			public void executeOperation() {
+				processComponentEventsRequest(componentEvents);
+			}
+		});
+	}
+
+	private void processComponentEventsRequest(AIFComponentEvent[] paramArrayOfAIFComponentEvent) {
+		try {
+			if (this.task != null) {
+				AIFComponentEvent[] arrayOfAIFComponentEvent;
+				int i = (arrayOfAIFComponentEvent = paramArrayOfAIFComponentEvent).length;
+				for (int b = 0; b < i; b++) {
+					AIFComponentEvent aIFComponentEvent = arrayOfAIFComponentEvent[b];
+					InterfaceAIFComponent interfaceAIFComponent = aIFComponentEvent.getComponent();
+					if (interfaceAIFComponent instanceof TCComponentTask
+							&& aIFComponentEvent instanceof com.teamcenter.rac.aif.kernel.AIFComponentChangeEvent
+							&& interfaceAIFComponent.equals(this.task)) {
+						updateDoTaskPanel(this.task);
+						revalidate();
+						repaint();
+						break;
+					}
+				}
+			}
+		} catch (Exception exception) {
+			MessageBox.post(exception);
+		}
+	}
+
+	private void updateDoTaskPanel(TCComponentTask paramTCComponentTask) throws TCException {
+		String str1 = paramTCComponentTask.getName();
+		String str2 = paramTCComponentTask.getStringProperty("comments");
+		this.taskInstructions.setText(paramTCComponentTask.getInstructions());
+		this.taskName.setText(str1);
+		if (!this.oldComment.equals(str2)) {
+			this.oldComment = str2;
+			this.commentsTextArea.setText(this.oldComment);
+		}
+	}
+
+	public void closeSignaled() {
+		detachListeners();
+	}
+
+	protected void detachListeners() {
+		this.session.removeAIFComponentEventListener(this);
+	}
+
+	public boolean isFailurePathPresent() {
+		return this.failurePathPresent;
+	}
+
+	public void setFailurePathPresent(boolean paramBoolean) {
+		this.failurePathPresent = paramBoolean;
+	}
+
+	public void setResult(boolean paramBoolean) {
+		try {
+			String str = null;
+			if (paramBoolean) {
+				str = "Completed";
+			} else {
+				str = "UnableToComplete";
+			}
+			this.task.setStringProperty("task_result", str);
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+//			Logger.getLogger(DoTaskPanel.class).error(tCException.getLocalizedMessage(), tCException);
+		}
+	}
+	
+	// recompile 20220323143000 : START
+	private void sendMail() {
+		try {
+			if (task != null) {				
+				TCComponent[] tcCompArr = task.getAttachments(TCAttachmentScope.GLOBAL, 1);
+				for (TCComponent tcComponent : tcCompArr) {
+					TCComponentItemRevision itemRev = null;
+
+					if (tcComponent instanceof TCComponentItem) {
+						itemRev = ((TCComponentItem) tcComponent).getLatestItemRevision();
+					}
+					if (tcComponent instanceof TCComponentItemRevision) {
+						itemRev = (TCComponentItemRevision) tcComponent;
+					}
+					
+					if (null == itemRev) continue;
+					
+					TCComponentDataset tcDataset = TCUtil.findDataSet(itemRev, "IMAN_external_object_link", "publicMail.txt");
+					if (tcDataset != null) {
+						String fullFilePath = TCUtil.downloadFile(tcDataset, System.getenv("TEMP"), ".txt", "Text", "", false);
+//						List<String> contentLst = FileStreamUtil.getContent(new File(fullFilePath), "UTF-8");
+						List<String> contentLst = FileStreamUtil.getContent(new File(fullFilePath), "");
+						FileStreamUtil.deleteFile(fullFilePath);
+						Map<String, List<List<String>>> pubMailMapForMore = FileStreamUtil.parseLstToMap(contentLst);
+						
+						List<String> projectLst = null;
+						List<String> itemLst = null;
+						Map<String, List<String>> pubMailMapForSimple = new LinkedHashMap<String, List<String>>();
+						
+						for (Map.Entry<String, List<List<String>>> entry : pubMailMapForMore.entrySet()) {
+							List<List<String>> valueLst = entry.getValue();
+							if (3 == valueLst.size()) {
+								projectLst = valueLst.get(0);
+								itemLst = valueLst.get(1);
+								
+								pubMailMapForSimple.put(entry.getKey(), valueLst.get(2));
+							}
+						}
+											
+						// Test : START
+//						MessageBox.post(task.getProperty("predecessors")+"->"+task.getProperty("successors"), "���̹��c�YӍ", 2);
+						// Test : END
+						
+						String[] mailContentArr = new String[12];
+						mailContentArr[0] = registry.getString("mailConent1");
+						mailContentArr[1] = registry.getString("mailConent2");
+						mailContentArr[2] = registry.getString("mailConent3");
+						mailContentArr[3] = registry.getString("mailConent4");
+						mailContentArr[4] = registry.getString("mailConent5");
+						mailContentArr[5] = registry.getString("mailConent6");
+						mailContentArr[6] = registry.getString("mailConent7");
+						mailContentArr[7] = registry.getString("mailConent8");
+						mailContentArr[8] = registry.getString("mailConent9");
+						mailContentArr[9] = registry.getString("mailConent10");
+						mailContentArr[10] = registry.getString("mailConent11");
+						mailContentArr[11] = registry.getString("mailConent12");
+						
+						String[] notifyContentArr = new String[12];
+						notifyContentArr[0] = registry.getString("mailConent1.notify");
+						notifyContentArr[1] = registry.getString("mailConent2.notify");
+						notifyContentArr[2] = registry.getString("mailConent3.notify");
+						notifyContentArr[3] = registry.getString("mailConent4.notify");
+						notifyContentArr[4] = registry.getString("mailConent5.notify");
+						notifyContentArr[5] = registry.getString("mailConent6.notify");
+						notifyContentArr[6] = registry.getString("mailConent7.notify");
+						notifyContentArr[7] = registry.getString("mailConent8.notify");
+						notifyContentArr[8] = registry.getString("mailConent9.notify");
+						notifyContentArr[9] = registry.getString("mailConent10.notify");
+						notifyContentArr[10] = registry.getString("mailConent11.notify");
+						notifyContentArr[11] = registry.getString("mailConent12.notify");
+						
+						String[] finishContentArr = new String[9];
+						finishContentArr[0] = registry.getString("mailConent1.finish");
+						finishContentArr[1] = registry.getString("mailConent2.finish");
+						finishContentArr[2] = registry.getString("mailConent3.finish");
+						finishContentArr[3] = registry.getString("mailConent4.finish");
+						finishContentArr[4] = registry.getString("mailConent5.finish");
+						finishContentArr[5] = registry.getString("mailConent6.finish");
+						finishContentArr[6] = registry.getString("mailConent7.finish");
+						finishContentArr[7] = registry.getString("mailConent8.finish");
+						finishContentArr[8] = registry.getString("mailConent9.finish");
+						
+						Map<String, String> nodeMap = getTaskNode(task);
+						List<TCComponent> taskList = getTaskList(task);
+						
+						List<String> tempProjectLst = projectLst;
+						List<String> tempItemLst = itemLst;						
+						new Thread(new Runnable() {
+							public void run() {
+								try {
+									TCUtil.sendMailForApprove(
+											registry.getString("actionLog.title"), 
+											mailContentArr,
+											notifyContentArr,
+											finishContentArr,
+											nodeMap,
+											taskList,
+											tempProjectLst, 
+											tempItemLst, 
+											null, 
+											null, 
+											pubMailMapForSimple);	
+								} catch (Exception e) {
+									e.printStackTrace();
+								}						
+							}
+						}).start();												
+					}												
+				}
+			}	
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private Map<String, String> getTaskNode(TCComponentTask tcCompTask) {
+		Map<String, String> retMap = new LinkedHashMap<String, String>();
+		
+		try {
+			if (tcCompTask != null) {				
+				TCComponent[] tcComponentArr = tcCompTask.getReferenceListProperty("successors");
+				for (TCComponent tcComponentTask : tcComponentArr) {
+					if (tcComponentTask instanceof TCComponentTask) {
+						String taskType = tcComponentTask.getProperty("task_type");
+						if ("EPMOrTask".equals(taskType)) {
+							// find next task after OrTask
+							getNextNode(tcComponentTask.getReferenceListProperty("successors"), retMap);
+						} else {
+							retMap.put(tcComponentTask.getProperty("object_name"), taskType);
+						}
+					}
+				}								
+			}
+								
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return retMap;
+	}
+	
+	
+	
+	private void getNextNode(TCComponent[] tcComponentArr, Map<String, String> nextNodeMap) {		
+		try {
+			for (TCComponent tcComponentTask : tcComponentArr) {
+				String taskType = tcComponentTask.getProperty("task_type");
+				if ("EPMOrTask".equals(taskType)) {
+					getNextNode(tcComponentTask.getReferenceListProperty("successors"), nextNodeMap);
+				} else if (!"EPMOrTask".equals(taskType)) {
+					nextNodeMap.put(tcComponentTask.getProperty("object_name"), taskType);
+				}
+			}						
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	// 20220323143000 : END
+	
+	// 202309051659 : START
+	private List<TCComponent> getTaskList(TCComponentTask tcCompTask) {
+		List<TCComponent> list = new ArrayList<TCComponent>();
+		
+		try {
+			if (tcCompTask != null) {				
+				TCComponent[] tcComponentArr = tcCompTask.getReferenceListProperty("successors");
+				for (TCComponent tcComponentTask : tcComponentArr) {
+					if (tcComponentTask instanceof TCComponentTask) {
+						String taskType = tcComponentTask.getProperty("task_type");
+						if ("EPMOrTask".equals(taskType)) {
+							// find next task after OrTask
+							getNextTask(tcComponentTask.getReferenceListProperty("successors"), list);
+						} else {
+							list.add(tcComponentTask);
+						}
+					}
+				}								
+			}
+								
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return list;
+	}
+	
+	
+	
+	private void getNextTask(TCComponent[] tcComponentArr, List<TCComponent> list) {		
+		try {
+			for (TCComponent tcComponentTask : tcComponentArr) {
+				String taskType = tcComponentTask.getProperty("task_type");
+				if ("EPMOrTask".equals(taskType)) {
+					getNextTask(tcComponentTask.getReferenceListProperty("successors"), list);
+				} else if (!"EPMOrTask".equals(taskType)) {
+					list.add(tcComponentTask);
+//					nextNodeMap.put(tcComponentTask.getProperty("object_name"), taskType);
+				}
+			}						
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	// 202309051701 : END
+}

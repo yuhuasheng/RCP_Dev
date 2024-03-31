@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [<!ENTITY buildfile SYSTEM "file:./build-user.xml">]>
+	<project name="com.teamcenter.rac.issuemanager" default="compile" basedir="D:\dev\tc_14workplace\com.teamcenter.rac.issuemanager">
+	<property environment="env" />
+	<!-- ********************** 配置开始 ********************* -->
+
+	<!-- 设定RAC插件根目录-->
+	<property name="rac_plugins_pathnam" value="C:\Siemens\Teamcenter14\portal\plugins" />
+
+	<!-- 设定发布RAC插件的根目录-->
+	<property name="rac_plugins_des_path" value="C:\Siemens\Teamcenter14\portal\plugins" />
+
+	<!-- 设定源系统插件名称-->
+	<property name="ini_plugins_name" value="com.teamcenter.rac.issuemanager_14000.2.0.jar" />
+	<!-- 设定新版系统插件名称-->
+	<property name="des_plugins_name" value="com.teamcenter.rac.issuemanager_14000.2.1.jar" />
+
+	<!-- 设定系统Teacmenter缓存路径-->
+		<!-- <property name="tc_cache_dirname" value="C:\Users\Administrator\Teamcenter\RAC" /> -->
+		
+	<!-- ********************** 配置结束 ********************* -->
+	<property name="ini_plugins_pathname" value="${basedir}\${ini_plugins_name}" />
+	<property name="des_plugins_pathname" value="${rac_plugins_des_path}\${des_plugins_name}" />
+	<!-- 导入源系统插件到项目-->
+	<target name="ini_plugins" depends="copy_plugins">
+		<unzip src="${ini_plugins_pathname}" dest="${basedir}" overwrite="true">
+			<patternset>
+				<include name="META-INF\MANIFEST.MF" />
+				<include name="plugin.xml" />
+				<include name="plugin.properties" />
+				<include name="plugin_zh_CN.properties" />
+				<include name="build.properties" />
+				<include name="icons/**" />
+				<include name="schema/**" />
+				<include name="setting/**" />
+			</patternset>
+		</unzip>
+	</target>
+
+	<target name="copy_plugins">
+		<delete file="${des_plugins_pathname}" quiet="true" />
+		<copyfile src="${ini_plugins_pathname}" dest="${des_plugins_pathname}" forceoverwrite="true" />
+	</target>
+
+	<!-- 删除自定义代码的class-->
+	<target name="clean_bin">
+		<delete includeemptydirs="true">
+			<fileset dir="bin" includes="**/*" />
+		</delete>
+	</target>
+	<!-- 删除所有class包括系统源插件的class-->
+	<target name="clean_all_classes" depends="clean_bin">
+		<delete file="${des_plugins_pathname}" quiet="true" />
+	</target>
+
+	<!-- 删除Teamcenter系统缓存  -->
+	<target name="clean_tc_cache">
+		<delete includeemptydirs="true">
+			<fileset dir="${tc_cache_dirname}" includes="**/*" />
+		</delete>
+		<echo message="clean_tc_cache over!" />
+	</target>
+
+	<!-- 编译源代码  -->
+	<target name="compile" depends="clean_bin">
+		<ant antfile="build.xml" inheritAll="false" />
+		<echo message="compile over!" />
+	</target>
+	<!-- 生成新jar包  -->
+	<target name="make_jar" depends="compile,copy_plugins">
+		<jar destfile="${des_plugins_pathname}" whenempty="skip" manifest="META-INF\MANIFEST.MF" update="true">
+			<fileset dir="bin" casesensitive="yes">
+				<include name="**/*.*" />
+			</fileset>
+			<fileset dir="${basedir}">
+				<include name="icons\background.png" />
+				<include name="META-INF\MANIFEST.MF" />
+				<include name="plugin.xml" />
+				<include name="plugin.properties" />
+				<include name="plugin_zh_CN.properties" />
+				<include name="build.properties" />
+				<include name="${ini_plugins_pathname}" />
+			</fileset>
+		</jar>
+		<echo message="make_jar over!" />
+	</target>
+	<!-- 生成新版插件并清除系统缓存 -->
+	<target name="make_plugins" depends="make_jar,clean_tc_cache">
+		<echo message="****************make_plugins ${des_plugins_name} over!**********************" />
+	</target>
+</project>

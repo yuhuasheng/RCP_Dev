@@ -1,0 +1,2196 @@
+package com.foxconn.electronics.managementebom.secondsource.util;
+
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javax.management.RuntimeErrorException;
+
+import org.apache.commons.lang.StringUtils;
+
+import com.foxconn.electronics.managementebom.export.bom.mnt.domain.SourceConstant;
+import com.foxconn.electronics.managementebom.secondsource.constants.AlternativeConstant;
+import com.foxconn.electronics.managementebom.secondsource.constants.BuEnum;
+import com.foxconn.electronics.managementebom.secondsource.constants.Search2ndSourceConstant;
+import com.foxconn.electronics.managementebom.secondsource.constants.SyncFromConstant;
+import com.foxconn.electronics.managementebom.secondsource.constants.VerNoteConstant;
+import com.foxconn.electronics.managementebom.secondsource.domain.Sync2ndSourceInfo;
+import com.foxconn.electronics.managementebom.updatebom.service.UpdateEBOMService;
+import com.foxconn.electronics.managementebom.updatebom.service.UpdateEBOMService.BOMTYPE;
+import com.foxconn.electronics.util.CommonTools;
+import com.foxconn.electronics.util.StatusEnum;
+import com.foxconn.electronics.util.TCPropName;
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentRevisionRule;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+
+public class EBOMTreeTools {
+
+	 public enum BOMTYPE
+	    {
+	     MNT_L10, MNT_L6;
+	    }
+	 
+	private static Pattern pattern = Pattern.compile("^.+?_P\\d+$"); // 以_P+数字结尾
+	public static final String[] PART_ATTRI = { "description", "mfg", "mfgPn", "unit", "materialType", "materialGroup", "procurementType"};
+	private TCComponentItemRevision matGroupItemRev = null;
+	private String syncFrom = null;
+	private String projectID = null; // 当前用户参与的项目ID
+	private String currentProjectID = null; // 当前顶阶BOMLine关联的项目ID
+	private String level = null; //属于哪个产品线
+	private TCSession session = null;
+	private TCComponentBOMWindow EBOMWindow = null;
+	private String groupName;
+	private Map<String, TCComponentBOMLine> map = new ConcurrentHashMap<String, TCComponentBOMLine>();
+	private Map<String, TCComponentItemRevision> sourceBomMap = null;
+	
+	public EBOMTreeTools(TCSession session) {
+		this.session = session;
+		try {
+			groupName = getGroup();
+			sourceBomMap = new LinkedHashMap<String, TCComponentItemRevision>();
+			System.out.println(groupName);
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private String getGroup() throws TCException {
+		return session.getCurrentGroup().getLocalizedFullName();
+	}
+
+	/**
+	 *  获取(单阶)含有替代料的BOM结构
+	 *
+	 * @param topLine
+	 * @return
+	 * @throws TCException
+	 */
+	public Sync2ndSourceInfo getSingle2ndSourceStruct(TCComponentBOMLine topLine) throws TCException {
+		Sync2ndSourceInfo rootBean = new Sync2ndSourceInfo(topLine);
+		if (!topLine.hasChildren()) {
+			return rootBean;
+		}
+		
+//		AIFComponentContext[] componmentContext = topLine.getPreviousChildren();
+//		if (componmentContext == null) {
+//			componmentContext = topLine.getChildren();
+//		}
+
+		AIFComponentContext[] componmentContext = topLine.getChildren();
+		AtomicBoolean verCheckFlag = new AtomicBoolean(false);
+		String[] verCheckResult = { "" };
+		if (CommonTools.isNotEmpty(componmentContext)) {
+			Stream.of(componmentContext).forEach(e -> {
+				try {
+					TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+					if (!bomLine.isSubstitute()) {
+						Sync2ndSourceInfo bomBean = new Sync2ndSourceInfo(bomLine);
+						if (bomLine.hasSubstitutes()) {
+							if (CommonTools.isEmpty(verCheckResult[0])) {
+								TCComponentBOMLine parentBomLine = bomLine.parent();
+								if (CommonTools.isNotEmpty(parentBomLine)) {
+									checkVerCountByLock(parentBomLine.getItemRevision(), verCheckResult, verCheckFlag);
+								}
+							}
+
+							bomBean.setVerNote(verCheckResult[0]); //  判断此对象版本是否为初版
+							
+							String altGroup = getAltGroupByRule(bomBean.getFindNum());
+							if (CommonTools.isEmpty(altGroup)) {
+								throw new Exception("零组件ID为: " + bomBean.getItem() + ", 版本号为: " + bomBean.getVersion() + " findNum为: " + bomBean.getFindNum() + ", 获取替代料群组失败!");
+							}
+							
+							bomBean.setAlternativeGroupNew(altGroup);							
+							bomBean.setAlternativeCode(AlternativeConstant.PRI); // 含有替代料才显示主料字段
+							bomBean.setUsageProb(100); // 有替代料则填写
+
+							TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+							List<Sync2ndSourceInfo> subBeanList = new ArrayList<Sync2ndSourceInfo>();
+							String matGroupItemId = "";
+							for (TCComponentBOMLine subBomline : listSubstitutes) {
+								Sync2ndSourceInfo subBean = tcPropMapping(new Sync2ndSourceInfo(), subBomline);
+								if (CommonTools.isEmpty(matGroupItemId)) {
+									matGroupItemId = getMatGroupItemId(subBean); // 返回当前替代料所在专案群组ItemId
+								}
+								subBean.setMaterialGroupItemId(matGroupItemId);
+								subBean.setAlternativeGroupNew(bomBean.getAlternativeGroup());
+								subBean.setAlternativeCode(AlternativeConstant.ALT);
+								subBean.setLocation("");
+								subBean.setIsSub(true);
+								subBean.setCheckStates(true);
+								subBeanList.add(subBean);
+
+							}
+
+							bomBean.setSubstitutesList(subBeanList);
+							bomBean.setMaterialGroupItemId(matGroupItemId);
+						}
+
+						rootBean.addChild(bomBean);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+
+			if (rootBean.getChilds().size() > 0) {
+				rootBean.getChilds().sort(Comparator.comparing(Sync2ndSourceInfo::getFindNum));
+			}
+		}
+		return rootBean;
+	}
+
+	
+	public BOMTYPE getBOMType(TCComponentBOMLine bomLine) throws TCException {
+        TCComponentBOMLine topBomLine = bomLine.getCachedWindow().getTopBOMLine();
+        TCComponentItemRevision itemRev = topBomLine.getItemRevision();
+        String topId = itemRev.getProperty("item_id");
+        if (topId.startsWith("8"))
+        {
+            return BOMTYPE.MNT_L10;
+        }
+        return BOMTYPE.MNT_L6;
+    }
+	
+	
+	public boolean isExpandChilds(TCComponentBOMLine bomLine, Sync2ndSourceInfo bomBean) throws TCException {
+		String materialGroup = bomBean.getMaterialGroup();
+        if ("B8X80".equalsIgnoreCase(materialGroup)) {
+            BOMTYPE bomType = getBOMType(bomLine);
+            if (BOMTYPE.MNT_L10.equals(bomType)) {
+                return false;
+            }
+        }
+        return true;
+	}
+	
+	
+	/**
+	 * 获取含有替代料的BOM结构
+	 * 
+	 * @param topLine
+	 * @return enable 判断是否可以右键和选中复选框, true代表可以
+	 * @throws TCException
+	 */
+	public Sync2ndSourceInfo get2ndSourceStruct(TCComponentBOMLine topLine, boolean flag) throws TCException {
+//		topLine.unpack();
+		topLine.refresh();
+		boolean enable = flag; // 判断是否可以右键和选中复选框, true代表可以
+//		topLine.clearCache();
+		Sync2ndSourceInfo rootBean = new Sync2ndSourceInfo(topLine);
+//		if (CommonTools.isEmpty(topLine.parent())) {
+//			rootBean.setEnable(false);
+//		}
+		AIFComponentContext[] componmentContext = null;
+		boolean hasChildren = topLine.hasChildren();
+		if (hasChildren && isExpandChilds(topLine, rootBean)) {
+//			componmentContext = topLine.getPreviousChildren();
+//			if (componmentContext == null) {
+//				componmentContext = topLine.getChildren();
+//			}
+			componmentContext = topLine.getChildren();
+		}
+//		rootBean.setAlternativeCode(AlternativeConstant.PRI);
+		AtomicBoolean verCheckFlag = new AtomicBoolean(false);
+		String[] verCheckResult = { "" };
+		if (CommonTools.isNotEmpty(componmentContext)) {
+			for (AIFComponentContext e : componmentContext) {
+				try {
+					TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+					if (!bomLine.isSubstitute()) {
+						
+						// Add function 2023/12/11						
+						if (CommonTools.isNotEmpty(sourceBomMap)) { // 如果源机种BOM集合不为空, 并且此物料存在源机种BOM中
+							if (bomLine.hasChildren()) {
+								if (sourceBomMap.containsKey(bomLine.getItemRevision().getUid())) {
+									enable = false;
+								} else {
+									enable = true;
+								}
+							}							
+						}						
+						
+						Sync2ndSourceInfo bomBean = get2ndSourceStruct(bomLine, enable);					
+						bomBean.setEnable(enable);
+						bomBean.setParentItem(rootBean.getItem());
+						
+						if (bomLine.hasSubstitutes()) {							
+							if (CommonTools.isEmpty(verCheckResult[0])) {
+								TCComponentBOMLine parentBomLine = bomLine.parent();
+								if (CommonTools.isNotEmpty(parentBomLine)) {
+									checkVerCountByLock(parentBomLine.getItemRevision(), verCheckResult, verCheckFlag);
+								}
+							}
+							
+							bomBean.setVerNote(verCheckResult[0]); // 判断此对象版本是否为初版
+							
+//							TCComponentBOMLine parentBomLine = bomLine.parent();
+//							if (CommonTools.isNotEmpty(parentBomLine)) {
+//								bomBean.setVerNote(checkVerCount(parentBomLine.getItemRevision())); // 判断此对象版本是否为初版
+//							}
+							
+							if (CommonTools.isEmpty(bomBean.getAlternativeGroup())) {
+								String altGroup = getAltGroupByRule(bomBean.getFindNum());
+								if (CommonTools.isEmpty(altGroup)) {
+									throw new Exception("零组件ID为: " + bomBean.getItem() + ", 版本号为: " + bomBean.getVersion() + " findNum为: " + bomBean.getFindNum() + ", 获取替代料群组失败!");
+								}								
+								bomBean.setAlternativeGroupNew(altGroup);
+							}							
+														
+							bomBean.setAlternativeCode(AlternativeConstant.PRI); //含有替代料才显示主料字段
+							bomBean.setUsageProb(100); // 有替代料则填写
+							TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+							List<Sync2ndSourceInfo> subBeanList = new ArrayList<Sync2ndSourceInfo>();
+							String matGroupItemId = "";
+							for (TCComponentBOMLine subBomline : listSubstitutes) {
+								Sync2ndSourceInfo subBean = tcPropMapping(new Sync2ndSourceInfo(), subBomline);
+								subBean.setParentItem(rootBean.getItem());
+								if (CommonTools.isEmpty(matGroupItemId)) {
+									matGroupItemId = getMatGroupItemId(subBean); // 返回当前替代料所在专案群组ItemId
+								}
+								subBean.setMaterialGroupItemId(matGroupItemId);
+								subBean.setAlternativeGroupNew(bomBean.getAlternativeGroup());
+								subBean.setAlternativeCode(AlternativeConstant.ALT);
+								subBean.setLocation("");
+								subBean.setIsSub(true);
+								subBean.setCheckStates(true);
+								subBean.setEnable(enable);
+								subBeanList.add(subBean);
+								
+								// 2023_10_24_14:06 添加替代料BOM Start
+//								AIFComponentContext[] subComponmentContext = subBomline.getChildren();
+//								if (CommonTools.isNotEmpty(subComponmentContext)) {
+//									Sync2ndSourceInfo subChildBean = get2ndSourceStruct(subBomline);
+//									List<Sync2ndSourceInfo> subChilds = subChildBean.getChilds();
+//									subChilds.forEach(bean -> {
+//										subBean.addChild(bean);	
+//									});
+//								}
+								// 2023_10_24_14:15 添加替代料BOM End
+							}
+							bomBean.setSubstitutesList(subBeanList);
+							bomBean.setMaterialGroupItemId(matGroupItemId);
+						}
+						rootBean.addChild(bomBean);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			}
+//			Stream.of(componmentContext).forEach(e -> {
+//	
+//			});
+			if (rootBean.getChilds().size() > 0) {
+				rootBean.getChilds().sort(Comparator.comparing(Sync2ndSourceInfo::getFindNum));
+			}
+		}
+		return rootBean;
+	}
+
+	private ReentrantLock lock = new ReentrantLock(true); //设置公平锁
+
+	/**
+	 * 返回当前替代料所在专案群组ItemId
+	 * 
+	 * @param info
+	 * @return
+	 * @throws Exception
+	 */
+	public void getMatGroupItemIdByLock(Sync2ndSourceInfo info, String[] matGroupItemIds, AtomicBoolean getMatGroupflag)
+			throws Exception {
+		try {
+			lock.lock();
+			if (getMatGroupflag.get()) { //判断获取物料群主Id标识是否为true
+				return;
+			}
+			String matGroupItemId = "";
+			List<String> queryNames = new ArrayList<>();
+			List<String> queryValues = new ArrayList<>();
+			String item = info.getItem();
+			if (CommonTools.isEmpty(item)) {
+				return;
+			}
+			queryNames.add(Search2ndSourceConstant.CHILD_ID);
+			queryValues.add(item);
+			System.out.println("find parts param: " + item);
+			TCComponent[] results = TCUtil.executeQuery(session, Search2ndSourceConstant.FIND_MATERIALGROUP,
+					queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+			if (CommonTools.isEmpty(results)) {
+				return;
+			}
+
+			List<TCComponent> list = Stream.of(results).collect(Collectors.toList());
+			Optional<TCComponent> findAny = list.parallelStream().filter(e -> {
+				try {
+					TCComponentItemRevision itemRev = (TCComponentItemRevision) e;
+					String itemId = itemRev.getProperty("item_id");
+					return itemId.toUpperCase().contains(currentProjectID.toUpperCase());
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+				return false;
+
+			}).findAny();
+
+			if (findAny.isPresent()) {
+				TCComponent tcComponent = findAny.get();
+				TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+				matGroupItemId = itemRev.getProperty("item_id");
+			}
+
+			matGroupItemIds[0] = matGroupItemId;
+			getMatGroupflag.getAndSet(true); // 设置已经获取到替代料群主Id
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/**
+	 * 返回当前替代料所在专案群组ItemId
+	 * 
+	 * @param info
+	 * @return
+	 * @throws Exception
+	 */
+	public String getMatGroupItemId(Sync2ndSourceInfo info) throws Exception {
+		String matGroupItemId = "";
+		List<String> queryNames = new ArrayList<>();
+		List<String> queryValues = new ArrayList<>();
+		String item = info.getItem();
+		String parentItem = info.getParentItem();
+		if (CommonTools.isEmpty(item)) {
+			return "";
+		}
+		queryNames.add(Search2ndSourceConstant.CHILD_ID);
+		queryValues.add(item);
+		System.out.println("find parts param: " + item);
+		TCComponent[] results = TCUtil.executeQuery(session, Search2ndSourceConstant.FIND_MATERIALGROUP,
+				queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+		if (CommonTools.isEmpty(results)) {
+			return "";
+		}
+
+		List<TCComponent> list = Stream.of(results).collect(Collectors.toList());
+		Optional<TCComponent> findAny = list.stream().filter(e -> {
+			try {
+				TCComponentItemRevision itemRev = (TCComponentItemRevision) e;
+				String itemId = itemRev.getProperty("item_id");
+				if (itemId.toUpperCase().contains(getLevel() + "-" + currentProjectID.toUpperCase() + "-" + parentItem)) {
+					return true;
+				} else if (itemId.toUpperCase().contains(currentProjectID.toUpperCase())) {
+					return true;
+				}
+				return false;
+//				return itemId.toUpperCase().contains(currentProjectID.toUpperCase());
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			return false;
+
+		}).findAny();
+
+		if (findAny.isPresent()) {
+			TCComponent tcComponent = findAny.get();
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+			matGroupItemId = itemRev.getProperty("item_id");
+		}
+
+//		for (TCComponent tcComponent : results) {
+//			TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+//			String itemId = itemRev.getProperty("item_id");
+//			if (itemId.toUpperCase().contains(currentProjectID.toUpperCase())) {
+//				matGroupItemId = itemId;
+//				break;
+//			}
+//		}		
+		return matGroupItemId;
+	}
+
+	/**
+	 * 获取同步替代料群组的单阶BOM结构树
+	 * 
+	 * @param topLine
+	 * @return
+	 * @throws TCException
+	 */
+	public Sync2ndSourceInfo getSingleSync2ndSourceStruct(TCComponentBOMLine topLine) throws TCException {
+		Sync2ndSourceInfo rootBean = new Sync2ndSourceInfo(topLine);
+		AIFComponentContext[] componmentContext = topLine.getChildren();
+
+		AtomicBoolean verCheckFlag = new AtomicBoolean(false);
+		String[] verCheckResult = { "" };
+		if (CommonTools.isNotEmpty(componmentContext)) {
+			Stream.of(componmentContext).forEach(e -> {
+				try {
+					TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+					if (!bomLine.isSubstitute()) {
+						Sync2ndSourceInfo bomBean = new Sync2ndSourceInfo(bomLine);
+						bomBean.setParentItem(rootBean.getParentItem());
+						List<Sync2ndSourceInfo> subBeanList = getSingleTotal2ndSourceSubList(bomLine, bomBean);
+						if (CommonTools.isNotEmpty(subBeanList)) {
+							if (CommonTools.isEmpty(verCheckResult[0])) {
+								TCComponentBOMLine parentBomLine = bomLine.parent();
+								if (CommonTools.isNotEmpty(parentBomLine)) {
+									checkVerCountByLock(parentBomLine.getItemRevision(), verCheckResult, verCheckFlag);
+								}
+							}
+
+							String altGroup = getAltGroupByRule(bomBean.getFindNum());
+							if (CommonTools.isEmpty(altGroup)) {
+								throw new Exception("零组件ID为: " + bomBean.getItem() + ", 版本号为: " + bomBean.getVersion() + " findNum为: " + bomBean.getFindNum() + ", 获取替代料群组失败!");
+							}
+							
+							bomBean.setAlternativeGroupNew(altGroup);
+							subBeanList.forEach(bean -> {
+								bean.setAlternativeGroupNew(bomBean.getAlternativeGroup());
+							});
+							
+							bomBean.setVerNote(verCheckResult[0]); // 判断此对象版本是否为初版
+							bomBean.setAlternativeCode(AlternativeConstant.PRI); // 含有替代料才显示主料字段
+							bomBean.setUsageProb(100);
+							bomBean.setMaterialGroupItemId(subBeanList.get(0).getMaterialGroupItemId()); // 主料设置替代料群组ItemId
+						}
+						bomBean.setSubstitutesList(subBeanList);
+						rootBean.addChild(bomBean);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+
+			if (rootBean.getChilds().size() > 0) {
+				rootBean.getChilds().sort(Comparator.comparing(Sync2ndSourceInfo::getFindNum));
+			}
+		}
+		return rootBean;
+	}
+
+	/**
+	 * 获取同步替代料群组的BOM结构树
+	 * 
+	 * @param topLine
+	 * @param altGroup
+	 * @return
+	 * @throws TCException
+	 */
+	public Sync2ndSourceInfo getSync2ndSourceStruct(TCComponentBOMLine topLine, boolean flag, boolean flag1) throws TCException {
+//		topLine.unpack();
+		boolean syncFlag = flag; // 用作是否需要同步2nd Source标识, true代表需要同步
+		boolean enable = flag1; // 判断是否可以右键和选中复选框, true代表可以
+		topLine.refresh();
+//		topLine.clearCache();
+		Sync2ndSourceInfo rootBean = new Sync2ndSourceInfo(topLine);
+		
+		AIFComponentContext[] componmentContext = null;
+		boolean hasChildren = topLine.hasChildren();
+		if (hasChildren && isExpandChilds(topLine, rootBean)) {
+//			componmentContext = topLine.getPreviousChildren();
+//			if (componmentContext == null) {
+//				componmentContext = topLine.getChildren();
+//			}
+			componmentContext = topLine.getChildren();
+		}
+		
+//		rootBean.setAlternativeCode(AlternativeConstant.PRI);
+		
+		AtomicBoolean verCheckFlag = new AtomicBoolean(false);
+		String[] verCheckResult = { "" };
+		if (CommonTools.isNotEmpty(componmentContext)) {
+			for (AIFComponentContext e : componmentContext) {
+				try {
+					TCComponentBOMLine bomLine = (TCComponentBOMLine) e.getComponent();
+					if (!bomLine.isSubstitute()) {
+						
+						if (bomLine.getItemRevision().getProperty("item_id").equals("MMC0000595")) {
+							System.out.println(123);
+						}
+						// Add function 2023/12/11						
+						if (CommonTools.isNotEmpty(sourceBomMap)) { // 如果源机种BOM集合不为空, 并且此物料存在源机种BOM中
+							if (bomLine.hasChildren()) {
+								if (sourceBomMap.containsKey(bomLine.getItemRevision().getUid())) {
+									syncFlag = false;
+									enable = false;
+								} else {
+									syncFlag = true;
+									enable = true;
+								}
+							}							
+						}						
+						
+						Sync2ndSourceInfo bomBean = getSync2ndSourceStruct(bomLine, syncFlag, enable);
+						bomBean.setEnable(enable);
+						bomBean.setParentItem(rootBean.getItem());
+						
+						List<Sync2ndSourceInfo> subBeanList = getTotal2ndSourceSubList(bomLine, bomBean, syncFlag);
+						if (CommonTools.isNotEmpty(subBeanList)) {							
+							if (CommonTools.isEmpty(verCheckResult[0])) {
+								TCComponentBOMLine parentBomLine = bomLine.parent();
+								if (CommonTools.isNotEmpty(parentBomLine)) {
+									checkVerCountByLock(parentBomLine.getItemRevision(), verCheckResult, verCheckFlag);
+								}
+							}
+							
+							bomBean.setVerNote(verCheckResult[0]); // 判断此对象版本是否为初版
+							
+//							TCComponentBOMLine parentBomLine = bomLine.parent();
+//							if (CommonTools.isNotEmpty(parentBomLine)) {
+//								bomBean.setVerNote(checkVerCount(parentBomLine.getItemRevision())); // 判断此对象版本是否为初版
+//							}
+							
+							String altGroup = getAltGroupByRule(bomBean.getFindNum());
+							if (CommonTools.isEmpty(altGroup)) {
+								throw new Exception("零组件ID为: " + bomBean.getItem() + ", 版本号为: " + bomBean.getVersion() + " findNum为: " + bomBean.getFindNum() + ", 获取替代料群组失败!");
+							}
+							
+							bomBean.setAlternativeGroupNew(altGroup);
+							for (Sync2ndSourceInfo bean : subBeanList) {
+								bean.setAlternativeGroupNew(bomBean.getAlternativeGroup());	
+								bean.setEnable(enable);
+							}
+							
+//							subBeanList.forEach(bean -> {
+//								
+//							});		
+							
+							bomBean.setAlternativeCode(AlternativeConstant.PRI);
+							bomBean.setUsageProb(100);
+							bomBean.setMaterialGroupItemId(subBeanList.get(0).getMaterialGroupItemId()); // 主料设置替代料群组ItemId
+							
+							
+						}						
+						
+						// 2023_10_23_15:19 同步添加替代料BOM Start
+//						if (bomLine.hasSubstitutes()) {
+//							TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+//							for (TCComponentBOMLine subBomline : listSubstitutes) {
+//								AIFComponentContext[] subComponmentContext = subBomline.getChildren();
+//								if (CommonTools.isNotEmpty(subComponmentContext)) {
+//									Sync2ndSourceInfo subChildBean = getSync2ndSourceStruct(subBomline);
+//									List<Sync2ndSourceInfo> subChilds = subChildBean.getChilds();
+//									Optional<Sync2ndSourceInfo> findAny = subBeanList.stream().filter(bean -> {
+//										return bean.getItemRevUid().equals(subChildBean.getItemRevUid());
+//									}).findAny();
+//									
+//									if (findAny.isPresent()) {
+//										Sync2ndSourceInfo find = findAny.get();
+//										subChilds.forEach(bean -> {
+//											find.addChild(bean);	
+//										});
+//									}
+//								}
+//							}
+//						}
+						
+						// 2023_10_23_16:26 同步添加替代料BOM End
+						
+						bomBean.setSubstitutesList(subBeanList);
+						rootBean.addChild(bomBean);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			}
+			
+//			Stream.of(componmentContext).forEach(e -> {
+//
+//			});
+			if (rootBean.getChilds().size() > 0) {
+				rootBean.getChilds().sort(Comparator.comparing(Sync2ndSourceInfo::getFindNum));
+			}
+		}
+		return rootBean;
+	}
+
+	/**
+	 * 判断此对象版本是否为初版
+	 * 
+	 * @param itemRev
+	 * @return
+	 * @throws TCException
+	 */
+	private String checkVerCount(TCComponentItemRevision itemRev) throws TCException {
+		String result = VerNoteConstant.FIRSTVERNOTE;
+		String currentVer = itemRev.getProperty("item_revision_id");
+		TCComponent[] tcComponents = itemRev.getItem().getTCProperty("revision_list").getReferenceValueArray();
+		List<Integer> numberList = new ArrayList<Integer>();
+		List<String> strList = new ArrayList<String>();
+		for (TCComponent component : tcComponents) {
+			String ver = ((TCComponentItemRevision) component).getProperty("item_revision_id");
+			if (ver.matches("[0-9]+")) { // 判断是否为数字版
+				numberList.add(Integer.parseInt(ver));
+			} else if (ver.matches("[a-zA-Z]+")) { // 判断对象版本是否为字母版
+				strList.add(ver);
+			}
+		}
+		if (numberList.size() > 1) { // 代表最低有两个版本
+			if (Integer.parseInt(currentVer) == Collections.max(numberList)) { //判断是否为最最大版本
+				result = VerNoteConstant.NOTFIRSTVERNOTE;
+			}
+		} else if (strList.size() > 1) {
+			if (currentVer.equals(Collections.max(strList))) { //判断是否为最最大版本
+				result = VerNoteConstant.NOTFIRSTVERNOTE;
+			}
+		}
+
+		return result;
+	}
+
+	private ReentrantLock checkVerLock = new ReentrantLock();
+
+	/**
+	 * 判断此对象版本是否为初版
+	 * 
+	 * @param itemRev
+	 * @return
+	 * @throws TCException
+	 */ 
+	public void checkVerCountByLock(TCComponentItemRevision itemRev, String[] verCheckResult,
+			AtomicBoolean verCheckFlag) throws TCException {
+		try {
+			checkVerLock.lock();
+			if (verCheckFlag.get()) {
+				return;
+			}
+
+			System.out.println("==>> 开始执行 checkVerCountByLock 方法");
+			String result = VerNoteConstant.FIRSTVERNOTE;
+			String currentVer = itemRev.getProperty("item_revision_id");
+			TCComponent[] tcComponents = itemRev.getItem().getTCProperty("revision_list").getReferenceValueArray();
+			List<Integer> numberList = new CopyOnWriteArrayList<Integer>();
+			List<String> strList = new CopyOnWriteArrayList<String>();
+			Stream.of(tcComponents).forEach(e -> {
+				try {
+					String ver = ((TCComponentItemRevision) e).getProperty("item_revision_id");
+					if (ver.matches("[0-9]+")) { // 判断是否为数字版
+						numberList.add(Integer.parseInt(ver));
+					} else if (ver.matches("[a-zA-Z]+")) { //判断对象版本是否为字母版
+						strList.add(ver);
+					}
+				} catch (TCException e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+
+			if (numberList.size() > 1) { //代表最低有两个版本
+				if (Integer.parseInt(currentVer) == Collections.max(numberList)) { // 判断是否为最最大版本
+					result = VerNoteConstant.NOTFIRSTVERNOTE;
+				} else if (Integer.parseInt(currentVer) != Collections.min(numberList)) { // 判断是否是最小版本
+					result = VerNoteConstant.NOTFIRSTVERNOTE;
+				}
+			} else if (strList.size() > 1) {
+				if (currentVer.equals(Collections.max(strList))) { // 判断是否为最最大版本
+					result = VerNoteConstant.NOTFIRSTVERNOTE;
+				} else if (!currentVer.equals(Collections.min(strList))) { //判断是否是最小版本
+					result = VerNoteConstant.NOTFIRSTVERNOTE;
+				}
+			}
+
+			System.out.println("==>> 结束执行 checkVerCountByLock 方法");
+			verCheckResult[0] = result;
+			verCheckFlag.getAndSet(true); // 设置标识位true
+		} finally {
+			checkVerLock.unlock();
+		}
+
+	}
+
+	/**
+	 * 设置单阶替代料群组groupId
+	 */
+	public void setSingleAltGroup(Sync2ndSourceInfo topBomInfo, boolean checkStates) {
+		List<Sync2ndSourceInfo> childs = topBomInfo.getChilds();
+		if (CommonTools.isEmpty(childs)) {
+			return;
+		}
+
+		int group = 0;
+		List<Integer> groupList = getAltGroupListNew(childs, checkStates);
+		if (CommonTools.isNotEmpty(groupList)) {
+			group = Collections.max(groupList);
+		}
+
+		for (Sync2ndSourceInfo info : childs) {
+			if (CommonTools.isEmpty(info.getAlternativeGroup())) {
+				List<Sync2ndSourceInfo> substitutesList = info.getSubstitutesList();
+				if (CommonTools.isNotEmpty(substitutesList)) {
+					info.setAlternativeGroup(++group);
+					for (Sync2ndSourceInfo subInfo : substitutesList) {
+						subInfo.setAlternativeGroup(group);
+					}
+				}
+			}
+
+		}
+	}
+
+	/**
+	 * 设置替代料群组编号
+	 * 
+	 * @param topBomInfo
+	 * @param checkStates true代表保存接口调用此方法的情形，false代表同步替代料群组调用此接口的情形
+	 * @param flag
+	 */
+	public void setAltGroupNew(Sync2ndSourceInfo topBomInfo, boolean checkStates) {
+		List<Sync2ndSourceInfo> childs = topBomInfo.getChilds();
+		if (CommonTools.isEmpty(childs)) {
+			return;
+		}
+		int group = 0;
+		List<Integer> groupList = getAltGroupListNew(childs, checkStates);
+		if (CommonTools.isNotEmpty(groupList)) {
+			group = Collections.max(groupList);
+		}
+
+		for (Sync2ndSourceInfo info : childs) {
+			if (CommonTools.isEmpty(info.getAlternativeGroup())) {
+				List<Sync2ndSourceInfo> substitutesList = info.getSubstitutesList();
+				if (CommonTools.isNotEmpty(substitutesList)) {
+					info.setAlternativeGroup(++group);
+					for (Sync2ndSourceInfo subInfo : substitutesList) {
+						subInfo.setAlternativeGroup(group);
+					}
+				}
+			}
+
+			List<Sync2ndSourceInfo> childs2 = info.getChilds();
+			if (CommonTools.isNotEmpty(childs2)) {
+				setAltGroupNew(info, checkStates);
+			}
+		}
+	}
+
+	/**
+	 * 返回一阶的最大替代料群组编号
+	 * 
+	 * @param childs
+	 * @param checkStates true代表保存接口调用此方法的情形，false代表同步替代料群组调用此接口的情形
+	 * @return
+	 */
+	public List<Integer> getAltGroupListNew(List<Sync2ndSourceInfo> childs, boolean checkStates) {
+		List<Integer> altGroupList = new ArrayList<Integer>();
+		childs.forEach(info -> {
+			if (CommonTools.isNotEmpty(info.getAlternativeGroup())) {
+				List<Sync2ndSourceInfo> subList = info.getSubstitutesList();
+				if (CommonTools.isNotEmpty(subList)) {
+					if (checkStates) {
+						boolean check = false;
+						for (Sync2ndSourceInfo subInfo : subList) {
+							if (subInfo.getCheckStates()) {
+								check = true;
+								break;
+							}
+						}
+						if (check) { // 假如替代料有被选中的，才将此替代料群组编号加入到集合中)
+							altGroupList.add(Integer.parseInt(info.getAlternativeGroup()));
+						}
+					} else {
+						altGroupList.add(Integer.parseInt(info.getAlternativeGroup()));
+					}
+				}
+			}
+		});
+		return altGroupList;
+	}
+
+	
+	public void setAltGroup(Sync2ndSourceInfo topBomInfo) {
+		List<Sync2ndSourceInfo> childs = topBomInfo.getChilds();
+		if (CommonTools.isEmpty(childs)) {
+			return;
+		}
+		
+		for (Sync2ndSourceInfo info : childs) {
+			if (CommonTools.isEmpty(info.getAlternativeGroup())) {
+				List<Sync2ndSourceInfo> substitutesList = info.getSubstitutesList();
+				if (CommonTools.isNotEmpty(substitutesList)) {
+					String altGroup = getAltGroupByRule(info.getFindNum());
+					info.setAlternativeGroupNew(altGroup);
+					for (Sync2ndSourceInfo subInfo : substitutesList) {
+						subInfo.setAlternativeGroupNew(altGroup);
+					}
+				}
+			}
+			
+			List<Sync2ndSourceInfo> childs2 = info.getChilds();
+			if (CommonTools.isNotEmpty(childs2)) {
+				setAltGroup(info);
+			}
+		}
+	}
+	
+	
+	private List<Sync2ndSourceInfo> getSingleTotal2ndSourceSubList(TCComponentBOMLine bomLine, Sync2ndSourceInfo bomBean) throws Exception {
+		List<Sync2ndSourceInfo> totalSubList = new CopyOnWriteArrayList<Sync2ndSourceInfo>();
+		if (bomLine.hasSubstitutes()) { // 如果BOMLine含有替代料
+			TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();			
+			Stream.of(listSubstitutes).forEach(subLine -> {
+				Sync2ndSourceInfo subBean = new Sync2ndSourceInfo(subLine);
+				subBean.setAlternativeCode(AlternativeConstant.ALT);
+				subBean.setIsSub(true);
+				subBean.setCheckStates(true);
+				subBean.setLocation("");
+				totalSubList.add(subBean);
+			});
+		}
+
+		List<Sync2ndSourceInfo> sourceGroupList = null;
+		TCComponentItemRevision childItemRev = bomLine.getItemRevision();
+		List<TCComponentItemRevision> searchList = new CopyOnWriteArrayList<TCComponentItemRevision>();
+		List<String> matGroupList = new CopyOnWriteArrayList<String>();
+		getMatGroupItemRevByCur(bomBean, searchList, matGroupList);
+
+		if (CommonTools.isNotEmpty(searchList)) {
+			boolean allCheckStates = true;
+			if (CommonTools.isNotEmpty(totalSubList)) { // 代表BOM中已經存在替代料
+				allCheckStates = false;
+			}
+
+			sourceGroupList = get2ndSourceGroupByConcur(searchList, allCheckStates);
+			sourceGroupList.removeIf(info -> info.getItemRevUid().equals(childItemRev.getUid())); // 移除和物料对象相同的替代料群组中的料对象
+			totalSubList.addAll(sourceGroupList);
+		}
+
+		List<Sync2ndSourceInfo> resultList = new CopyOnWriteArrayList<Sync2ndSourceInfo>();
+		if (CommonTools.isNotEmpty(totalSubList)) {
+			resultList = totalSubList.stream()
+					.filter(CommonTools.distinctByKey(
+							info -> info.getItem() + info.getDescription() + info.getMfg() + info.getMfgPn()))
+					.collect(Collectors.toList()); //去除所有替代料的重复项
+			if (CommonTools.isNotEmpty(matGroupList)) {
+				resultList.forEach(info -> {
+					info.setMaterialGroupItemId(matGroupList.get(0)); // 设置替代料群组ItemId
+				});
+			}
+		}
+		return resultList;
+	}
+
+	/**
+	 * 获取替代料群组集合
+	 * 
+	 * @param bomLine
+	 * @return
+	 * @throws Exception
+	 */
+	public List<Sync2ndSourceInfo> getTotal2ndSourceSubList(TCComponentBOMLine bomLine, Sync2ndSourceInfo bean, boolean syncFlag) throws Exception {
+		List<Sync2ndSourceInfo> totalSubList = new CopyOnWriteArrayList<Sync2ndSourceInfo>();
+		String alternativeGroup = null;
+		if (bomLine.hasSubstitutes()) { // 如果BOMLine含有替代料
+			TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+			for (TCComponentBOMLine bom : listSubstitutes) {
+				Sync2ndSourceInfo subBean = new Sync2ndSourceInfo(bom);
+				subBean.setAlternativeCode(AlternativeConstant.ALT);
+//				if (CommonTools.isNotEmpty(subBean.getAlternativeGroup())) {
+//					alternativeGroup = subBean.getAlternativeGroup();
+//				}
+				subBean.setIsSub(true);
+				subBean.setCheckStates(true);
+				subBean.setLocation("");
+				totalSubList.add(subBean);				
+			}
+		}		
+		
+		List<Sync2ndSourceInfo> sourceGroupList = null;
+		TCComponentItemRevision childItemRev = bomLine.getItemRevision();
+		
+		
+		List<TCComponentItemRevision> searchList = new CopyOnWriteArrayList<TCComponentItemRevision>();
+		List<String> matGroupList = new CopyOnWriteArrayList<String>();
+		
+		getMatGroupItemRevByCur(bean, searchList, matGroupList);		
+		
+		if (CommonTools.isNotEmpty(searchList) && syncFlag) { // 查找到物料群组并且是需要进行同步
+			boolean allCheckStates = true;
+			if (CommonTools.isNotEmpty(totalSubList)) { // 代表BOM中已經存在替代料
+				allCheckStates = false;
+			}
+			
+			sourceGroupList = get2ndSourceGroupByConcur(searchList, allCheckStates);
+			sourceGroupList.removeIf(info -> info.getItemRevUid().equals(childItemRev.getUid())); // 移除和物料对象相同的替代料群组中的料对象
+			totalSubList.addAll(sourceGroupList);
+		}
+
+		List<Sync2ndSourceInfo> resultList = new CopyOnWriteArrayList<Sync2ndSourceInfo>();		
+		if (CommonTools.isNotEmpty(totalSubList)) {
+			resultList = totalSubList.stream()
+					.filter(CommonTools.distinctByKey(
+							info -> info.getItem() + info.getDescription() + info.getMfg() + info.getMfgPn()))
+					.collect(Collectors.toList()); // 去除所有替代料的重复项
+			if (CommonTools.isNotEmpty(matGroupList)) {
+				resultList.forEach(info -> {
+					info.setMaterialGroupItemId(matGroupList.get(0)); // 设置替代料群组ItemId
+				});
+			}
+		}
+		return resultList;
+	}
+
+	/**
+	 * get 2nd Source by Concurrent
+	 * 
+	 * @param searchList
+	 * @param alternativeGroup
+	 * @param allCheckStates
+	 * @return
+	 */
+	private List<Sync2ndSourceInfo> get2ndSourceGroupByConcur(List<TCComponentItemRevision> searchList, boolean allCheckStates) {
+		List<Sync2ndSourceInfo> list = new CopyOnWriteArrayList<Sync2ndSourceInfo>();
+		searchList.forEach(itemRev -> {
+			TCComponentBOMWindow subWindow = null;
+			try {
+				subWindow = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine bomLine = subWindow.setWindowTopLine(itemRev.getItem(), itemRev, null, null);
+				AIFComponentContext[] childBomlineList = bomLine.getChildren();
+				if (CommonTools.isNotEmpty(childBomlineList)) {
+					Stream.of(childBomlineList).forEach(e -> {
+						try {
+							TCComponentBOMLine childBomline = (TCComponentBOMLine) e.getComponent();
+							String bl_indented_title = childBomline.getProperty("bl_indented_title");
+							System.out.println("==>> 替代料群组BOM标题: " + bl_indented_title);
+
+							Sync2ndSourceInfo groupBean = new Sync2ndSourceInfo(childBomline);
+							groupBean.setAlternativeCode(AlternativeConstant.ALT);							
+							groupBean.setIsSub(true);
+							if (allCheckStates) { // 代表需要全部設置為全選
+								groupBean.setCheckStates(true); // 替代料默认全选	
+								groupBean.setSyncCheckFlag(true); // 代表需要将背景颜色设置为红色
+							}
+							groupBean.setSubExistBom(false); // 代表还没有将替代料添加到BOMLine中
+							groupBean.setLocation("");
+							list.add(groupBean);
+
+						} catch (Exception e2) {
+							throw new RuntimeException(e2);
+						}
+					});
+				}
+			} catch (Exception e1) {
+				throw new RuntimeException(e1);
+			} finally {
+				if (CommonTools.isNotEmpty(subWindow)) {
+					try {
+						subWindow.save();
+						subWindow.close();
+					} catch (TCException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		});
+
+		return list;
+	}
+
+	/**
+	 * 获取替代料群组的料对象
+	 * 
+	 * @param whereUsed
+	 * @param altGroup
+	 * @param allCheckStates 是否需要設置全選， true代表需要，false代表不需要
+	 * @return
+	 * @throws TCException
+	 */
+	private List<Sync2ndSourceInfo> get2ndSourceGroup(List<TCComponentItemRevision> whereUsed, String alternativeGroup,
+			boolean allCheckStates) throws TCException {
+		List<Sync2ndSourceInfo> list = new ArrayList<Sync2ndSourceInfo>();
+		for (TCComponentItemRevision itemRev : whereUsed) {
+			TCComponentBOMWindow subWindow = null;
+			try {
+				subWindow = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine bomLine = subWindow.setWindowTopLine(itemRev.getItem(), itemRev, null, null);
+				AIFComponentContext[] childBomlineList = bomLine.getChildren();
+				if (CommonTools.isNotEmpty(childBomlineList)) {
+					for (AIFComponentContext aifComponentContext : childBomlineList) {
+						TCComponentBOMLine childBomline = (TCComponentBOMLine) aifComponentContext.getComponent();
+						String bl_indented_title = childBomline.getProperty("bl_indented_title");
+						System.out.println("==>> 替代料群组BOM标题: " + bl_indented_title);
+						Sync2ndSourceInfo groupBean = new Sync2ndSourceInfo(childBomline);
+						groupBean.setAlternativeCode(AlternativeConstant.ALT);
+						if (CommonTools.isNotEmpty(alternativeGroup)) {
+							groupBean.setAlternativeGroup(Integer.parseInt(alternativeGroup));
+						}
+						groupBean.setIsSub(true);
+						if (allCheckStates) { // 代表需要全部設置為全選
+							groupBean.setCheckStates(true); // 替代料默认全选
+						}
+						groupBean.setSubExistBom(false); // 代表还没有将替代料添加到BOMLine中
+						groupBean.setLocation("");
+						list.add(groupBean);
+					}
+				}
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			} finally {
+				if (CommonTools.isNotEmpty(subWindow)) {
+					try {
+						subWindow.save();
+						subWindow.close();
+					} catch (TCException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+		return list;
+	}
+
+	private void getMatGroupItemRevByCur(Sync2ndSourceInfo bean, List<TCComponentItemRevision> list, List<String> matGroupList) throws Exception {
+//		String item = itemRevision.getProperty("item_id");
+		String item = bean.getItem();
+		String parentItem = bean.getParentItem();
+		List<String> queryNames = new ArrayList<>();
+		List<String> queryValues = new ArrayList<>();
+		queryNames.add(Search2ndSourceConstant.CHILD_ID);
+		queryValues.add(item);
+		System.out.println("find parts param: " + item);
+
+		if ("610107B00-820-H".equals(item)) {
+			System.out.println(123);
+		}
+		TCComponent[] results = TCUtil.executeQuery(session, Search2ndSourceConstant.FIND_MATERIALGROUP,
+				queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+		if (CommonTools.isNotEmpty(results)) {
+			Stream.of(results).forEach(e -> {
+				try {
+					if (!(e instanceof TCComponentItemRevision)) {
+						return;
+					}
+
+					TCComponentItemRevision itemRev = (TCComponentItemRevision) e;
+					String objectType = itemRev.getTypeObject().getName();
+					String itemId = itemRev.getProperty("item_id");
+					Matcher matcher = pattern.matcher(itemId.toUpperCase()); // 判断itemID是否以是"_P+数字结尾"
+					if (matcher.matches()) { // 判断替代料群组是否含有项目ID
+						return;
+					}					
+					
+					if ("D9_MaterialGroupRevision".equals(objectType)) {
+						if (SyncFromConstant.GLOBAL2NDSOURCE.equals(syncFrom)) {
+							itemRev.refresh();
+							String bu = itemRev.getTCProperty("d9_BU").getStringValue();
+							if (groupName.toLowerCase().contains(BuEnum.MNT.groupName())) {
+								if (bu.toLowerCase().contains(BuEnum.MNT.buName())) {
+									list.add(itemRev);
+									matGroupList.add(itemId);
+								}
+							} else if (groupName.toLowerCase().contains(BuEnum.PRT.groupName())) {
+								if (bu.toLowerCase().contains(BuEnum.PRT.buName())) {
+									list.add(itemRev);
+									matGroupList.add(itemId);
+								}
+							}
+						} else if (SyncFromConstant.PROJECT2NDSOURCE.equals(syncFrom)) {
+							if (itemId.indexOf("-P") != -1) {
+								return;
+							}
+							String searchItemId = itemId + "-" + getLevel() + "-" + projectID.toUpperCase() + "-" + parentItem;
+							TCComponentItem findItem = TCUtil.findItem(searchItemId);
+							if (CommonTools.isEmpty(findItem)) {
+								searchItemId = itemId + "-" + projectID.toUpperCase();
+								findItem = TCUtil.findItem(itemId + "-" + projectID.toUpperCase());
+							}
+//							TCComponentItem findItem = TCUtil.findItem(itemId + "-" + projectID.toUpperCase());
+							if (CommonTools.isNotEmpty(findItem)) {
+								list.add(findItem.getLatestItemRevision());
+								matGroupList.add(itemId);
+							}
+						}
+					}
+				} catch (Exception e1) {
+					e1.printStackTrace();
+					throw new RuntimeException(e1);
+				}
+
+			});
+		}
+
+	}
+
+	/**
+	 * 通过查询框__D9_Find_MaterialGroup来返回返回符合条件的替代料
+	 * 
+	 * @param itemRevision
+	 * @param list
+	 * @param matGroupList
+	 * @throws Exception
+	 */
+	private void getMatGroupItemRev(TCComponentItemRevision itemRevision, List<TCComponentItemRevision> list,
+			List<String> matGroupList) throws Exception {
+		String item = itemRevision.getProperty("item_id");
+		List<String> queryNames = new ArrayList<>();
+		List<String> queryValues = new ArrayList<>();
+		queryNames.add(Search2ndSourceConstant.CHILD_ID);
+		queryValues.add(item);
+		System.out.println("find parts param: " + item);
+		TCComponent[] results = TCUtil.executeQuery(session, Search2ndSourceConstant.FIND_MATERIALGROUP,
+				queryNames.toArray(new String[0]), queryValues.toArray(new String[0]));
+		for (TCComponent tcComponent : results) {
+			if (!(tcComponent instanceof TCComponentItemRevision)) {
+				continue;
+			}
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+			String objectType = itemRev.getTypeObject().getName();
+			String itemId = itemRev.getProperty("item_id");
+			Matcher matcher = pattern.matcher(itemId.toUpperCase()); // 判断itemID是否以是"_P+数字结尾"
+			if (matcher.matches()) { // 判断替代料群组是否含有项目ID
+				continue;
+			}
+			if ("D9_MaterialGroupRevision".equals(objectType)) {
+				if (SyncFromConstant.GLOBAL2NDSOURCE.equals(syncFrom)) {
+					itemRev.refresh();
+					itemRev.clearCache();
+					String bu = itemRev.getTCProperty("d9_BU").getStringValue();
+					if (groupName.toLowerCase().contains(BuEnum.MNT.groupName())) {
+						if (bu.toLowerCase().contains(BuEnum.MNT.buName())) {
+							list.add(itemRev);
+							matGroupList.add(itemId);
+						}
+					} else if (groupName.toLowerCase().contains(BuEnum.PRT.groupName())) {
+						if (bu.toLowerCase().contains(BuEnum.PRT.buName())) {
+							list.add(itemRev);
+							matGroupList.add(itemId);
+						}
+					}
+				} else if (SyncFromConstant.PROJECT2NDSOURCE.equals(syncFrom)) {
+					TCComponentItem findItem = TCUtil.findItem(itemId + "-" + projectID.toUpperCase());
+					if (CommonTools.isNotEmpty(findItem)) {
+						list.add(findItem.getLatestItemRevision());
+						matGroupList.add(itemId);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * 通过影响分析的使用获取替代料群组
+	 * 
+	 * @param itemRevision
+	 * @return
+	 * @throws TCException
+	 */
+	private void getWhereUsed(TCComponentItemRevision itemRevision, List<TCComponentItemRevision> whereUsed,
+			List<String> matGroupList) throws TCException {
+//		List<TCComponentItemRevision> list = new ArrayList<TCComponentItemRevision>();
+		TCComponent[] whereused = itemRevision.whereUsed(itemRevision.WHERE_USED_ALL);
+		for (TCComponent component : whereused) {
+			if (!(component instanceof TCComponentItemRevision)) {
+				continue;
+			}
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) component;
+			String objectType = itemRev.getTypeObject().getName();
+			String itemId = itemRev.getProperty("item_id");
+			if ("D9_MaterialGroupRevision".equals(objectType)) {
+//				System.out.println("==>> 替代料群组ID: " + itemId);
+				if (SyncFromConstant.GLOBAL2NDSOURCE.equals(syncFrom)) {
+					Matcher matcher = pattern.matcher(itemId.toUpperCase()); //判断itemID是否以是"_P+数字结尾"
+					if (matcher.matches()) { // 判断替代料群组是否含有项目ID
+						continue;
+					} else {
+//						list.add(itemRev);
+						itemRev.refresh();
+						itemRev.clearCache();
+						String bu = itemRev.getTCProperty("d9_BU").getStringValue();
+						if (groupName.toLowerCase().contains(BuEnum.MNT.groupName())) {
+							if (bu.toLowerCase().contains(BuEnum.MNT.buName())) {
+								whereUsed.add(itemRev);
+								matGroupList.add(itemId);
+							}
+						} else if (groupName.toLowerCase().contains(BuEnum.PRT.groupName())) {
+							if (bu.toLowerCase().contains(BuEnum.PRT.buName())) {
+								whereUsed.add(itemRev);
+								matGroupList.add(itemId);
+							}
+						}
+					}
+				} else if (SyncFromConstant.PROJECT2NDSOURCE.equals(syncFrom)) {
+					if (itemId.toUpperCase().contains(projectID.toUpperCase())) {
+//						matGroupItemRev = itemRev;
+						whereUsed.add(itemRev);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * 判断顶阶BOMLine是否需要升版
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+	public TCComponentBOMLine checkTopLineRevise(Sync2ndSourceInfo topBomInfo) throws Exception {
+		TCComponentBOMLine rootBomLine = null;
+		if (checkTopLineStatus(topBomInfo)) { // 判断顶层BOMLine的子阶是否发布，假如发布，判断子阶是否发生变化
+			TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager()
+					.getTCComponent(topBomInfo.getBomLineUid());
+			String versionRule = getVersionRule(topBomLine.getItemRevision()); //返回版本规则
+			String newRevId = com.foxconn.mechanism.util.TCUtil.reviseVersion(session, versionRule,
+					topBomLine.getItemRevision().getTypeObject().getName(), topBomLine.getItemRevision().getUid()); // 返回指定版本规则的版本号
+			TCComponentItemRevision itemRev = TCUtil.doRevise(topBomLine.getItemRevision(),
+					newRevId); // 对象版本升版
+			EBOMWindow = topBomLine.getCachedWindow();
+//			 TCUtil.createBOMWindow(session);
+			rootBomLine = EBOMWindow.setWindowTopLine(itemRev.getItem(), itemRev, null, null);
+			getBOMMap(rootBomLine, map);
+		}
+		return rootBomLine;
+	}
+
+	/**
+	 * 判断顶层BOMLine的子阶是否发布，假如发布，判断子阶是否发生变化
+	 * 
+	 * @param topBomInfo
+	 * @return true代表需要升版, false代表不需要升版
+	 * @throws TCException
+	 */
+	private boolean checkTopLineStatus(Sync2ndSourceInfo topBomInfo) throws TCException {
+		TCComponentBOMLine topBomLine = (TCComponentBOMLine) session.getComponentManager()
+				.getTCComponent(topBomInfo.getBomLineUid());
+		if (!com.foxconn.mechanism.util.TCUtil.isReleased(topBomLine.getItemRevision(), new String[] {
+				StatusEnum.D9_FastRelease.name(), StatusEnum.D9_Release.name(), StatusEnum.TCMReleased.name() })) { // //
+																													// 判断BOMLine对应的对象版本是否属于快速发布和发布状态״̬
+			return false; // 代表此顶层BOMLine不是属于发布状态，无需进一步判断
+		}
+		List<Sync2ndSourceInfo> childs = topBomInfo.getChilds();
+		if (CommonTools.isNotEmpty(childs)) {
+			for (Sync2ndSourceInfo bomInfo : childs) {
+				List<Sync2ndSourceInfo> substitutesList = bomInfo.getSubstitutesList();
+				if (CommonTools.isEmpty(substitutesList)) {
+					continue;
+				}
+				Iterator<Sync2ndSourceInfo> iterator = substitutesList.iterator();
+				while (iterator.hasNext()) {
+					Sync2ndSourceInfo info = iterator.next();
+					if (CommonTools.isEmpty(info.getItemRevUid())) { //将从PNMS系统查询到的记录排除
+						continue;
+					}
+					TCComponentBOMLine bomLine = (TCComponentBOMLine) session.getComponentManager()
+							.getTCComponent(bomInfo.getBomLineUid());
+					if (checkChange(bomLine, info, iterator)) { //判断替代料是否发生改变
+						return true;
+					}
+				}
+
+				if (CommonTools.isNotEmpty(substitutesList)) {
+					Iterator<Sync2ndSourceInfo> it = substitutesList.iterator();
+					while (it.hasNext()) {
+						Sync2ndSourceInfo sync2ndSourceInfo = it.next();
+						Boolean checkStates = sync2ndSourceInfo.getCheckStates();
+						if (checkStates) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 判断位置,用量是否需要合并
+	 * @param bomInfo
+	 */
+	public void checkMerge(Sync2ndSourceInfo bomInfo) {
+		List<Sync2ndSourceInfo> children = bomInfo.getChilds();
+		if (CommonTools.isEmpty(children)) {
+			return;
+		}		
+		
+		for (Sync2ndSourceInfo childInfo : children) {
+			if (childInfo.getIsDelete()) { // 如果当前主料是设置为需要删除，则无需进行判断是否需要合并
+				continue;
+			}
+			if (CommonTools.isNotEmpty(childInfo.getSubstitutesList())) {
+				setExist(childInfo, children);
+			}
+			
+			checkMerge(childInfo);
+		}	
+	}
+	
+	
+	private void setExist(Sync2ndSourceInfo baseInfo, List<Sync2ndSourceInfo> list) {
+		List<String> sourceList = getItems(baseInfo);
+		for (Sync2ndSourceInfo bomInfo : list) {
+			List<Sync2ndSourceInfo> substitutesList = bomInfo.getSubstitutesList();
+			if (CommonTools.isNotEmpty(substitutesList)) {
+				boolean anyMatch = substitutesList.stream().anyMatch(bean -> bean.getItem().equals(baseInfo.getItem()));
+				if (anyMatch) {
+					List<String> destList = getItems(bomInfo);
+					if (areListsEqualIgnoringOrder(sourceList, destList)) { // 判断内容是否一致
+						String baseQty = baseInfo.getQty();
+						String destQty = bomInfo.getQty();
+						BigDecimal quantity = new BigDecimal(baseQty).add(new BigDecimal(destQty));
+						baseInfo.setLocation(baseInfo.getLocation() + "," + bomInfo.getLocation());
+						baseInfo.setQty(quantity.toPlainString());
+						bomInfo.setIsDelete(true);
+					}
+				}
+			}
+		}
+	}
+	
+	
+	private List<String> getItems(Sync2ndSourceInfo bomInfo) {
+		List<String> list = new ArrayList<String>();
+		list.add(bomInfo.getItem());
+		list.addAll(bomInfo.getSubstitutesList().stream().map(e -> e.getItem()).collect(Collectors.toList()));
+		return list;
+	}
+	
+	/**
+	 * list集合先进行排序，然后比较内容是否一致
+	 * @param list1
+	 * @param list2
+	 * @return
+	 */
+	 public static boolean areListsEqualIgnoringOrder(List<String> list1, List<String> list2) {
+        return list1.stream().sorted().collect(Collectors.toList()).equals(list2.stream().sorted().collect(Collectors.toList()));
+	 }
+	 
+	 
+	/**
+	 * 保存BOM结构树
+	 * 
+	 * @param bomInfo
+	 * @throws Exception
+	 */
+
+	public void saveBOMTree(Sync2ndSourceInfo bomInfo, String parentId) throws Exception {
+		String bomLineUid = bomInfo.getBomLineUid();
+		Boolean addSubFlag = false; // 用作是否添加了替代料的标识
+		TCComponentBOMLine bomLine = map.get(parentId + "$" + bomInfo.getItem());
+		if (bomLine == null) {
+			bomLine = (TCComponentBOMLine) session.getComponentManager().getTCComponent(bomLineUid);
+		}
+		
+		
+		// 2024-01-15 Start
+		if (bomInfo.getIsDelete()) { // 代表需要将此主料从BOM中移除
+			bomLine.cut();
+			return;
+		}
+		// 2024-01-15 End
+		
+		
+		List<Sync2ndSourceInfo> substitutesList = bomInfo.getSubstitutesList();
+		resetSubsProp(substitutesList, bomInfo); // 重新设置替代料属性
+		if (CommonTools.isNotEmpty(substitutesList)) {
+			Map<String, Object> resultMap = checkExist2ndSourceChange(substitutesList, bomLine, bomInfo);
+			addSubFlag = (Boolean) resultMap.get("flag");
+			if (CommonTools.isNotEmpty(resultMap.get("bomLine"))) {
+				bomLine = (TCComponentBOMLine) resultMap.get("bomLine");
+			}
+		}
+
+		if (CommonTools.isNotEmpty(substitutesList)) {
+			addSubFlag = addNew2ndSource(substitutesList, bomLine, bomInfo, addSubFlag);
+		}
+
+		if (CommonTools.isEmpty(substitutesList) && !addSubFlag
+				&& AlternativeConstant.PRI.equals(bomInfo.getAlternativeCode())) { // 如果已經沒有了替代料需要設置，则将属性bl_occ_d9_AltGroup数值设为空
+			bomLine.setProperty("bl_occ_d9_AltGroup", "");
+		}
+
+		if (!checkSubListStates(substitutesList) && !addSubFlag
+				&& AlternativeConstant.PRI.equals(bomInfo.getAlternativeCode())) { // 假如有替代料，但是一条记录都没有选中的记录，也需要将属性bl_occ_d9_AltGroup数值设为空
+			bomLine.setProperty("bl_occ_d9_AltGroup", "");
+		}
+
+		// 2023_10_23_16:45 保存替代料BOM Start
+		if (CommonTools.isNotEmpty(substitutesList)) {
+			List<Sync2ndSourceInfo> collect = substitutesList.stream().filter(subBean -> CommonTools.isNotEmpty(subBean.getChilds())).collect(Collectors.toList());
+			if (CommonTools.isNotEmpty(collect)) {
+				for (Sync2ndSourceInfo subInfo : collect) {
+					List<Sync2ndSourceInfo> childs = subInfo.getChilds();					
+					for (Sync2ndSourceInfo child : childs) {
+						saveBOMTree(child, bomLine.getProperty("bl_item_item_id"));
+					}
+				}
+			}
+			
+		}
+		// 2023_10_23_16:55 保存替代料BOM End
+		
+		List<Sync2ndSourceInfo> children = bomInfo.getChilds();
+		if (CommonTools.isEmpty(children)) {
+			return;
+		}
+
+		for (Sync2ndSourceInfo childInfo : children) {
+			saveBOMTree(childInfo, bomLine.getProperty("bl_item_item_id"));
+		}
+	}
+
+	
+	/**
+	 * 重新设置替代料属性
+	 * @param substitutesList
+	 * @param bomInfo
+	 */
+	private void resetSubsProp(List<Sync2ndSourceInfo> substitutesList, Sync2ndSourceInfo bomInfo) {
+		for (Sync2ndSourceInfo subInfo : substitutesList) {
+			subInfo.setLocation(bomInfo.getLocation());
+			subInfo.setQty(bomInfo.getQty());
+		}
+	}
+	
+	
+	/**
+	 * 判断已存在的替代料是否发生改变
+	 * 
+	 * @param substitutesList
+	 * @param bomLine
+	 * @param bomInfo
+	 * @param addSubFlag
+	 * @throws Exception
+	 */
+	private Map<String, Object> checkExist2ndSourceChange(List<Sync2ndSourceInfo> substitutesList,
+			TCComponentBOMLine bomLine, Sync2ndSourceInfo bomInfo) throws Exception {
+		TCComponentBOMLine parent = bomLine.parent();
+		parent.refresh();
+		Map<String, Object> resultMap = new HashMap<String, Object>();
+		Boolean flag = false;
+		
+		TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+		Iterator<Sync2ndSourceInfo> iterator = substitutesList.iterator();
+		while (iterator.hasNext()) {
+			Sync2ndSourceInfo info = iterator.next();
+			String alternativeCode = info.getAlternativeCode();
+			Boolean subExistBom = info.getSubExistBom();
+			Boolean checkStates = info.getCheckStates();
+			if (!subExistBom && !checkStates) { // 对于替代料本身没有存在BOMLine中，但是为未选中，则直接将此记录从集合中移除
+				iterator.remove();
+				continue;
+			}
+			if (!subExistBom) { //如果替代料本身没存在BOMLine中，但是为选中状态，则直接返回
+				continue;
+			}
+
+			if (CommonTools.isEmpty(info.getItemRevUid()) && !checkStates) { //来源于PNMS系统查询的记录，并且是未选中状态，则直接将此记录从集合中移除
+				iterator.remove();
+				continue;
+			}
+
+			if (CommonTools.isEmpty(info.getItemRevUid())) { //将从PNMS系统查询到的记录排除
+				continue;
+			}
+			TCComponentItemRevision itemRevision = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(info.getItemRevUid());
+			bomLine.refresh();
+			if (bomLine.isSubstitute()) { // 判断是否为替代料
+				continue;
+			}
+
+			if (checkChange(bomLine, info, listSubstitutes)) { // 判断已存在的替代料是否发生改变
+				checkParentBOMLineStatus(bomLine);
+//				System.out.println("===== 初始的BOMUid: " + bomLine.getUid());
+				TCComponentBOMLine nbomLine = map.get(bomLine.parent().getProperty("bl_item_item_id") + "$" + bomInfo.getItem());
+//				System.out.println("==== 升版之后的BOM uid: " + bomLine.getUid());
+				if (nbomLine != null) {
+					bomLine = nbomLine;
+				}
+			}
+			
+			listSubstitutes = bomLine.listSubstitutes();
+			for (TCComponentBOMLine subBomLine : listSubstitutes) {
+				if (itemRevision.getUid().equals(subBomLine.getItemRevision().getUid())) {
+					if (!checkStates) {
+//						subBomLine.refresh();						
+						subBomLine.cut(); // 对于已经在BOMLine中存在的替代料，当未选中时，需要将其移除						
+						TCComponentItemRevision curProjectMatGroupItemRev = createCurProjectMatGroupItemRev(bomInfo); // 创建/或查找当前替代料专案群组对象
+						if (CommonTools.isNotEmpty(curProjectMatGroupItemRev)) {
+							addOrDelCurProjectMatGroup(curProjectMatGroupItemRev, itemRevision, false); // 为当前替代料群组新增或者删除子料
+						}
+						iterator.remove();
+					} else {
+						if (AlternativeConstant.PRI.equals(alternativeCode)) { // 判断当前替代料是否需要设置为主料
+							subBomLine.preferSubstitute(); //将替代料设置为主料
+							bomLine = subBomLine;
+							bomLine.setProperties(getProps(info));
+							resultMap.put("bomLine", bomLine);
+						} else {
+							bomLine.setProperties(getProps(info));
+						}
+//						addSubFlag = true;
+						flag = true;
+						iterator.remove(); //对于已经存在的替代料，需要从集合中移除
+					}
+				}
+			}
+			bomLine.save();
+		}
+		resultMap.put("flag", flag);
+		return resultMap;
+	}
+
+	/**
+	 *添加新的替代料群组
+	 * 
+	 * @param substitutesList
+	 * @param bomLine
+	 * @param bomInfo
+	 * @param addSubFlag
+	 * @throws Exception
+	 */
+	private Boolean addNew2ndSource(List<Sync2ndSourceInfo> substitutesList, TCComponentBOMLine bomLine,
+			Sync2ndSourceInfo bomInfo, Boolean check) throws Exception {
+		Boolean flag = check;
+		Iterator<Sync2ndSourceInfo> it = substitutesList.iterator();
+		while (it.hasNext()) {
+			TCComponentItemRevision itemRevision = null;
+			Sync2ndSourceInfo sync2ndSourceInfo = it.next();
+			String itemId = sync2ndSourceInfo.getItem();
+			Boolean checkStates = sync2ndSourceInfo.getCheckStates();
+			Boolean subExistBom = sync2ndSourceInfo.getSubExistBom();
+			if (subExistBom) { //一旦替代料已经存在BOMLine中，无需进行后面的操作
+				it.remove();
+				continue;
+			}
+			if (SourceConstant.PNMS.equals(sync2ndSourceInfo.getSourceSystem().toUpperCase()) && checkStates == true) { // 物料来源于PNMS系统，并且已经勾选
+				TCComponentItem findItem = com.foxconn.mechanism.util.TCUtil.findItem(itemId);
+				if (CommonTools.isNotEmpty(findItem)) {
+					itemRevision = findItem.getLatestItemRevision();
+					sync2ndSourceInfo.setItemRevUid(itemRevision.getUid());
+				} else {
+//					TCComponentItem createItem = com.foxconn.mechanism.util.TCUtil.createItem(itemId,"EDAComPart", itemId, "@", "EDAComPart Revision");
+//					itemRevision = createItem.getLatestItemRevision();
+					findItem = UpdateEBOMService.createEEPartItem(itemId, PART_ATTRI, sync2ndSourceInfo);
+					itemRevision = findItem.getLatestItemRevision();
+					sync2ndSourceInfo.setItemRevUid(itemRevision.getUid());
+				}
+			} else if (SourceConstant.TC.equals(sync2ndSourceInfo.getSourceSystem().toUpperCase())
+					&& checkStates == true) { // 物料来源于TC，并且已经存在于TC
+				itemRevision = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(sync2ndSourceInfo.getItemRevUid());
+			}
+			if (checkStates) {
+				try {
+					checkParentBOMLineStatus(bomLine);
+//					System.out.println("===== 初始的BOMUid: " + bomLine.getUid());
+					TCComponentBOMLine nbomLine = map
+							.get(bomLine.parent().getProperty("bl_item_item_id") + "$" + bomInfo.getItem());
+//					System.out.println("==== 升版之后的BOM uid: " + bomLine.getUid());
+					if (nbomLine != null) {
+						bomLine = nbomLine;
+					}
+					bomLine.add(itemRevision.getItem(), itemRevision, null, true); // 为当前BOMLine添加替代料
+//					if (CommonTools.isNotEmpty(matGroupItemRev)) {
+//						add2ndSourceGroup(itemRevision); // 替代料群主添加主料
+//					}
+				} catch (TCException e) {
+					e.printStackTrace();
+					throw new TCException("添加替代料失败");
+				}
+
+				bomLine.setProperties(getProps(bomInfo));
+				if (bomLine.hasSubstitutes()) {
+					bomLine.refresh();
+					TCComponentBOMLine[] substitutes = bomLine.listSubstitutes();
+					setPrimaryMaterial(substitutes, sync2ndSourceInfo, bomLine); // 设置替代料为主料
+				}
+
+				TCComponentItemRevision curProjectMatGroupItemRev = createCurProjectMatGroupItemRev(bomInfo); // 创建/或查找当前替代料专案群组对象
+				if (CommonTools.isNotEmpty(curProjectMatGroupItemRev)) {
+					addOrDelCurProjectMatGroup(curProjectMatGroupItemRev, itemRevision, true); // 为当前替代料群组新增或者删除子料
+				}
+				flag = true;
+				it.remove();
+			}
+			bomLine.save();
+		}
+		return flag;
+	}
+
+	/**
+	 *  创建当前替代料专案群组对象
+	 * 
+	 * @param bomInfo
+	 * @return
+	 * @throws TCException
+	 */
+	private TCComponentItemRevision createCurProjectMatGroupItemRev(Sync2ndSourceInfo bomInfo) throws TCException {
+		TCComponentItemRevision itemRev = null;
+		String matGroupItemId = bomInfo.getMaterialGroupItemId();
+		if (CommonTools.isEmpty(matGroupItemId)) {
+			return null;
+		}
+		if (!matGroupItemId.contains(currentProjectID.toUpperCase())) {
+//			matGroupItemId += "-" + getLevel() + "-" + currentProjectID.toUpperCase();
+			matGroupItemId += "-" + getLevel() + "-" + currentProjectID.toUpperCase() + "-" + bomInfo.getParentItem();
+//			matGroupItemId += "-" + currentProjectID.toUpperCase();
+		}
+
+		TCComponentItem findItem = com.foxconn.mechanism.util.TCUtil.findItem(matGroupItemId);
+		if (CommonTools.isNotEmpty(findItem)) {
+			itemRev = findItem.getLatestItemRevision();
+		} else {
+			TCComponentItem createItem = com.foxconn.mechanism.util.TCUtil.createItem(matGroupItemId,
+					"D9_MaterialGroup", matGroupItemId, "@", "D9_MaterialGroupRevision");
+			itemRev = createItem.getLatestItemRevision();
+		}
+		return itemRev;
+	}
+
+	/**
+	 * 为当前替代料群组新增或者删除子料(true代表新增, false代表删除)
+	 * 
+	 * @param curProjectMatGroupItemRev
+	 * @param itemRev
+	 * @param operation
+	 */
+	private void addOrDelCurProjectMatGroup(TCComponentItemRevision curProjectMatGroupItemRev,
+			TCComponentItemRevision itemRev, boolean operation) {
+		TCComponentBOMWindow window = null;
+		try {
+			window = TCUtil.createBOMWindow(session);
+			TCComponentBOMLine bomLine = window.setWindowTopLine(curProjectMatGroupItemRev.getItem(),
+					curProjectMatGroupItemRev, null, null);
+			bomLine.refresh();
+			AIFComponentContext[] childBomlineList = bomLine.getChildren();
+			if (operation) { // true代表是新增操作
+				boolean flag = false;
+				if (CommonTools.isEmpty(childBomlineList)) {
+					bomLine.add(itemRev.getItem(), itemRev, null, false); // 为当前替代料群组添加物料
+				} else {
+					for (AIFComponentContext aifComponentContext : childBomlineList) {
+						TCComponentBOMLine childBomline = (TCComponentBOMLine) aifComponentContext.getComponent();
+						TCComponentItemRevision childItemRev = childBomline.getItemRevision();
+						if (childItemRev.getUid().equals(itemRev.getUid())) { // 判断一下此料是否已经在替代料群组中
+							flag = true;
+							break;
+						}
+					}
+					if (!flag) {
+						bomLine.add(itemRev.getItem(), itemRev, null, false); // 为当前替代料群组添加物料
+					}
+				}
+			} else { // false代表是修改
+				if (CommonTools.isEmpty(childBomlineList)) {
+					return;
+				} else {
+					for (AIFComponentContext aifComponentContext : childBomlineList) {
+						TCComponentBOMLine childBomline = (TCComponentBOMLine) aifComponentContext.getComponent();
+						TCComponentItemRevision childItemRev = childBomline.getItemRevision();
+						if (childItemRev.getUid().equals(itemRev.getUid())) { // 判断一下此料是否已经在替代料群组中
+							childBomline.cut();
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (CommonTools.isNotEmpty(window)) {
+				try {
+					window.save();
+					window.close();
+				} catch (TCException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 判断当前替代料的父BOMLine是否已经发行
+	 * 
+	 * @param bomLine
+	 * @throws Exception
+	 */
+	private void checkParentBOMLineStatus(TCComponentBOMLine bomLine) throws Exception {
+		TCComponentBOMLine parentBomLine = bomLine.parent();
+		if (com.foxconn.mechanism.util.TCUtil.isReleased(parentBomLine.getItemRevision(),
+				new String[] { StatusEnum.D9_FastRelease.name(), StatusEnum.D9_Release.name() })) { //  判断BOMLine对应的对象版本是否属于快速发布和发布状态״̬
+			String versionRule = getVersionRule(parentBomLine.getItemRevision()); // 返回版本规则
+			String newRevId = com.foxconn.mechanism.util.TCUtil.reviseVersion(session, versionRule,
+					parentBomLine.getItemRevision().getTypeObject().getName(),
+					parentBomLine.getItemRevision().getUid()); // 返回指定版本规则的版本号
+			TCComponentItemRevision itemRev = TCUtil
+					.doRevise(parentBomLine.getItemRevision(), newRevId); //升版对象版本
+			parentBomLine.getCachedWindow().refresh();
+			parentBomLine.window().clearCache();
+
+			TCComponentBOMLine rootbomLine = null;
+			if (CommonTools.isNotEmpty(parentBomLine.parent())) {
+				rootbomLine = findBOMLine(parentBomLine.parent(), itemRev);
+			} else {
+//				rootbomLine = parentBomLine;
+			}
+			getBOMMap(rootbomLine, map);
+		}
+	}
+
+	/**
+	 * 判断替代料是否发生改变
+	 * 
+	 * @param bomLine
+	 * @param info
+	 * @return
+	 * @throws TCException
+	 */
+	private Boolean checkChange(TCComponentBOMLine bomLine, Sync2ndSourceInfo info,
+			TCComponentBOMLine[] listSubstitutes) throws TCException {
+		Boolean checkStates = info.getCheckStates();
+		boolean flag = false;
+//		TCComponentItemRevision itemRevision = (TCComponentItemRevision) session.getComponentManager().getTCComponent(info.getItemRevUid());
+//		TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+		for (TCComponentBOMLine subBomLine : listSubstitutes) {
+			if (info.getItemRevUid().equals(subBomLine.getItemRevision().getUid())) {
+				if (!checkStates) { // 假如存在，但是未被选中
+					flag = true;
+					break;
+				} else {
+					if (AlternativeConstant.PRI.equals(info.getAlternativeCode())) { // 假如存在，但是需要将其设置为主料
+						flag = true;
+						break;
+					}
+				}
+			}
+		}
+		return flag;
+	}
+
+	private Boolean checkChange(TCComponentBOMLine bomLine, Sync2ndSourceInfo info,
+			Iterator<Sync2ndSourceInfo> iterator) throws TCException {
+		Boolean checkStates = info.getCheckStates();
+		boolean flag = false;
+//		TCComponentItemRevision itemRevision = (TCComponentItemRevision) session.getComponentManager().getTCComponent(info.getItemRevUid());
+		TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+		for (TCComponentBOMLine subBomLine : listSubstitutes) {
+			if (info.getItemRevUid().equals(subBomLine.getItemRevision().getUid())) {
+				if (!checkStates) { // 假如存在，但是未被选中
+					flag = true;
+					break;
+				} else {
+					if (AlternativeConstant.PRI.equals(info.getAlternativeCode())) { // 假如存在，但是需要将其设置为主料
+						flag = true;
+						break;
+					}
+				}
+				iterator.remove();
+			}
+		}
+		return flag;
+	}
+
+	/**
+	 * 获取BOMLine uidmap集合
+	 * 
+	 * @param bomLine
+	 * @param map
+	 * @throws TCException
+	 */
+	public void getBOMMap(TCComponentBOMLine bomLine, Map<String, TCComponentBOMLine> map) throws TCException {
+		AIFComponentContext[] componmentContexts = bomLine.getChildren();
+		if (componmentContexts != null) {
+			String parentItemId = bomLine.getProperty("bl_item_item_id");
+			map.put("" + "$" + parentItemId, bomLine);
+			Stream.of(componmentContexts).forEach(e -> {
+				TCComponentBOMLine childBomline = (TCComponentBOMLine) e.getComponent();
+				try {
+					String itemId = childBomline.getProperty("bl_item_item_id");
+					map.put(parentItemId + "$" + itemId, childBomline);
+					if (childBomline.hasChildren()) {
+						getBOMMap(childBomline, map);
+					}
+				} catch (TCException e1) {
+					e1.printStackTrace();
+				}
+			});
+		}
+	}
+
+	public TCComponentBOMLine findBOMLine(TCComponentBOMLine pLine, TCComponentItemRevision newItemRev)
+			throws TCException {
+		pLine.refresh();
+		AIFComponentContext[] componmentContexts = pLine.getChildren();
+		if (componmentContexts != null) {
+			for (AIFComponentContext ac : componmentContexts) {
+				TCComponentBOMLine bomLine = (TCComponentBOMLine) ac.getComponent();
+				if (bomLine.getItemRevision().equals(newItemRev)) {
+					return bomLine;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 替代料群组添加主料
+	 * 
+	 * @param itemRev
+	 */
+	private void add2ndSourceGroup(TCComponentItemRevision itemRev) {
+		TCComponentBOMWindow window = null;
+		try {
+			window = TCUtil.createBOMWindow(session);
+			TCComponentBOMLine bomLine = window.setWindowTopLine(matGroupItemRev.getItem(), matGroupItemRev, null,
+					null);
+			AIFComponentContext[] childBomlineList = bomLine.getChildren();
+			boolean flag = false;
+			if (CommonTools.isNotEmpty(childBomlineList)) {
+				for (AIFComponentContext aifComponentContext : childBomlineList) {
+					TCComponentBOMLine childBomline = (TCComponentBOMLine) aifComponentContext.getComponent();
+					TCComponentItemRevision childItemRev = childBomline.getItemRevision();
+					if (childItemRev.getUid().equals(itemRev.getUid())) { //判断一下此料是否已经在替代料群组中
+						flag = true;
+						break;
+					}
+				}
+			}
+			if (!flag) {
+				bomLine.add(itemRev.getItem(), itemRev, null, false); // 为当前替代料群组添加物料
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (CommonTools.isNotEmpty(window)) {
+				try {
+					window.save();
+					window.close();
+				} catch (TCException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 *校验替代料集合中是否有被选中的记录
+	 * 
+	 * @param substitutesList
+	 * @return
+	 */
+	private boolean checkSubListStates(List<Sync2ndSourceInfo> substitutesList) {
+		boolean flag = false;
+		for (Sync2ndSourceInfo info : substitutesList) {
+			Boolean checkStates = info.getCheckStates();
+			if (checkStates) {
+				flag = true;
+				break;
+			}
+		}
+		return flag;
+	}
+
+	/**
+	 * 获取属性值ֵ
+	 * 
+	 * @param info
+	 * @return
+	 */
+	private Map<String, String> getProps(Sync2ndSourceInfo info) {
+		Map<String, String> map = new HashMap<String, String>();
+		if (CommonTools.isNotEmpty(info.getAlternativeGroup())) {
+			map.put("bl_occ_d9_AltGroup", info.getAlternativeGroup());
+			map.put("bl_quantity", info.getQty());
+			map.put("bl_occ_d9_Location", info.getLocation());
+		}
+		return map;
+	}
+
+	/**
+	 * 设置替代料为主料
+	 * 
+	 * @param substitutes
+	 * @param info
+	 * @param bomLine
+	 * @throws TCException
+	 */
+	private void setPrimaryMaterial(TCComponentBOMLine[] substitutes, Sync2ndSourceInfo info,
+			TCComponentBOMLine bomLine) throws TCException {
+		String alternativeCode = info.getAlternativeCode();
+		for (TCComponentBOMLine subBomLine : substitutes) {
+			if (subBomLine.getItemRevision().getUid().equals(info.getItemRevUid())) {
+				if (AlternativeConstant.PRI.equals(alternativeCode)) {
+					subBomLine.preferSubstitute(); //将替代料设置为主料
+					bomLine = subBomLine;
+					bomLine.setProperties(getProps(info)); //重新设置一下主料群组信息
+				}
+			}
+		}
+	}
+
+	/**
+	 * 返回升版规则
+	 * 
+	 * @param itemRev
+	 * @return
+	 * @throws TCException
+	 */
+	private String getVersionRule(TCComponentItemRevision itemRev) throws TCException {
+		String version = itemRev.getProperty("item_revision_id");
+		String versionRule = "";
+		if (version.matches("[0-9]+")) { // 判断对象版本是否为数字版
+			versionRule = "NN";
+		} else if (version.matches("[a-zA-Z]+")) { // 判断对象版本是否为字母版
+			versionRule = "@";
+		}
+		return versionRule;
+	}
+
+	public String getSyncFrom() {
+		return syncFrom;
+	}
+
+	public void setSyncFrom(String syncFrom) {
+		this.syncFrom = syncFrom;
+	}
+
+	public String getProjectID() {
+		return projectID;
+	}
+
+	public void setProjectID(String projectID) {
+		this.projectID = projectID;
+	}
+
+	public String getCurrentProjectID() {
+		return currentProjectID;
+	}
+
+	public void setCurrentProjectID(String currentProjectID) {
+		this.currentProjectID = currentProjectID;
+	}
+
+	
+	public String getLevel() {
+		return level;
+	}
+
+	public void setLevel(String level) {
+		this.level = level;
+	}
+
+	public TCComponentBOMWindow getEBOMWindow() {
+		return EBOMWindow;
+	}
+
+	public void setEBOMWindow(TCComponentBOMWindow eBOMWindow) {
+		EBOMWindow = eBOMWindow;
+	}
+
+	
+	public Map<String, TCComponentItemRevision> getSourceBomMap() {
+		return sourceBomMap;
+	}
+
+	public void setSourceBomMap(Map<String, TCComponentItemRevision> sourceBomMap) {
+		this.sourceBomMap = sourceBomMap;
+	}
+
+	public static Sync2ndSourceInfo tcPropMapping(Sync2ndSourceInfo bean, TCComponentBOMLine tcbomLine)
+			throws IllegalArgumentException, IllegalAccessException, TCException {
+		if (bean != null && tcbomLine != null) {
+			TCComponentItemRevision itemRev = tcbomLine.getItemRevision();
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++) {
+				fields[i].setAccessible(true);
+				TCPropName tcPropName = fields[i].getAnnotation(TCPropName.class);
+				if (tcPropName != null) {
+					String tcAttrName = tcPropName.value();
+					if (!tcAttrName.isEmpty()) {
+						Object value = "";
+						if (tcAttrName.startsWith("bl")) {
+							value = tcbomLine.getProperty(tcAttrName);
+						} else {
+							value = itemRev.getProperty(tcAttrName);
+						}
+						if (fields[i].getType() == Integer.class) {
+							if (value.equals("") || value == null) {
+								value = null;
+							} else {
+								value = Integer.parseInt((String) value);
+							}
+						}
+						fields[i].set(bean, value);
+					}
+				}
+			}
+			bean.setBomLineUid(tcbomLine.getUid());
+			bean.setItemRevUid(itemRev.getUid());
+		}
+		return bean;
+	}
+
+	public static <T> T tcPropMapping(T bean, TCComponentItemRevision itemRev)
+			throws IllegalArgumentException, IllegalAccessException, TCException {
+		if (bean != null && itemRev != null) {
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++) {
+				fields[i].setAccessible(true);
+				TCPropName tcPropName = fields[i].getAnnotation(TCPropName.class);
+				if (tcPropName != null) {
+					String tcAttrName = tcPropName.value();
+					if (!tcAttrName.isEmpty()) {
+						if (!tcAttrName.startsWith("bl_")) {
+							fields[i].set(bean, itemRev.getProperty(tcAttrName));
+						}
+					}
+				}
+			}
+		}
+		return bean;
+	}
+
+	
+	/**
+	 * 获取所有的源机种BOM集合
+	 * @param session
+	 * @param relatedComponents
+	 * @return
+	 */
+	public static Map<String, TCComponentItemRevision> getTotalSourceBomMap(TCSession session, TCComponent[] relatedComponents) {
+		if (CommonTools.isEmpty(relatedComponents)) {
+			return null;
+		}
+		TCComponentBOMWindow window = null;
+		Map<String, TCComponentItemRevision> retMap = new LinkedHashMap<String, TCComponentItemRevision>();
+		for (TCComponent tcComponent : relatedComponents) {
+			if (!(tcComponent instanceof TCComponentItemRevision)) {
+				continue;
+			}
+			
+			try {
+				TCComponentItemRevision itemRev = (TCComponentItemRevision) tcComponent;
+				window = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine topLine = window.setWindowTopLine(itemRev.getItem(), itemRev, null, null);
+				getSourceBOMMaps(topLine, retMap);
+			} catch (Exception e) {
+				e.printStackTrace();
+			} finally {
+				if (window != null) {
+					try {
+						window.close();
+					} catch (TCException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+		
+		return retMap;
+	}
+	
+	
+	/**
+	 * 获取单个源机种BOM所有含有子对象集合
+	 * @param topLine
+	 * @param map
+	 * @throws TCException
+	 */
+	public static void getSourceBOMMaps(TCComponentBOMLine topLine, Map<String, TCComponentItemRevision> map) throws TCException {
+		topLine.refresh();
+		AIFComponentContext[] componmentContext = null;
+		boolean hasChildren = topLine.hasChildren();
+		if (hasChildren) {
+			componmentContext = topLine.getChildren();
+		}
+		
+		if (CommonTools.isNotEmpty(componmentContext)) {
+			Stream.of(componmentContext).forEach(e -> {
+				TCComponentBOMLine childBomLine = (TCComponentBOMLine) e.getComponent();
+				try {
+					TCComponentItemRevision childItemRev = childBomLine.getItemRevision();					
+					if (childBomLine.hasChildren()) {
+						map.put(childItemRev.getUid(), childItemRev); // 将含有子BOM的方式map集合中
+						getSourceBOMMaps(childBomLine, map);
+					}
+				} catch (TCException e1) {
+					e1.printStackTrace();
+				}
+				
+			});
+		}
+	}
+	
+	
+	public static String getAltGroupByRule(Integer findNum) {
+		String altGroup = "";
+		if (CommonTools.isEmpty(findNum)) {
+			return "";
+		} else if (findNum >= 10 && findNum < 1000) {
+			altGroup  = StringUtils.chop(String.valueOf(findNum)); // �Ƴ����һλ
+		} else if (findNum >= 1000 && findNum <= 3599) {
+			Integer first = Integer.parseInt(String.valueOf(findNum).substring(0, 2));
+			first += 55;
+			String letter = CommonTools.asciiToString(String.valueOf(first));
+			if ("I".equals(letter) || "O".equals(letter)) {
+				first ++;
+				letter = CommonTools.asciiToString(String.valueOf(first));
+			}
+			
+//			Integer last = Integer.parseInt(String.valueOf(findNum).substring(2));
+//			altGroup = letter + StringUtils.chop(String.valueOf(last));
+			altGroup = letter + StringUtils.chop(String.valueOf(findNum).substring(2));
+		}
+
+		return altGroup;
+	}
+
+	public static void main(String[] args) {
+//		System.out.println("100".substring(0, 2));
+//		String substring = String.valueOf("1000").substring(2);
+//		System.out.println(StringUtils.chop(substring));
+//		System.out.println(String.valueOf("1000").substring(2));
+//		System.out.println(getAltGroupByRule(10));
+//		System.out.println(getAltGroupByRule(100));
+//		System.out.println(getAltGroupByRule(990));
+		System.out.println(getAltGroupByRule(1000));
+		System.out.println(getAltGroupByRule(1010));
+		System.out.println(getAltGroupByRule(1020));
+		System.out.println(getAltGroupByRule(1030));
+		System.out.println(getAltGroupByRule(2000));
+		System.out.println(getAltGroupByRule(2010));
+		System.out.println(getAltGroupByRule(3000));
+		System.out.println(getAltGroupByRule(3590));
+//		System.out.println(getAltGroupByRule(10));
+//		System.out.println(getAltGroupByRule(10));
+//		int asciiValue = 65;
+//		System.out.println(Character.toString((char) asciiValue));
+
+		System.out.println("K=" + CommonTools.stringToAscii("K"));
+//		System.out.println("Z=" + CommonTools.stringToAscii("Z"));
+//		System.out.println("I=" + CommonTools.stringToAscii("I"));
+//		System.out.println("O=" + CommonTools.stringToAscii("O"));		
+//		System.out.println("a=" + CommonTools.stringToAscii("a"));		
+//		System.out.println("65=" + CommonTools.asciiToString("65"));
+//		System.out.println("90=" + CommonTools.asciiToString("90"));
+		
+//		String firstStr = String.valueOf("2056").substring(0, 2);
+//		System.out.println(firstStr);
+//		String secondStr = String.valueOf("2056").substring(2);
+//		System.out.println(secondStr);
+		
+//		System.out.println(StringUtils.chop(String.valueOf("20")));
+//		System.out.println(getAltGroupByRule(3599));
+	}	
+
+}

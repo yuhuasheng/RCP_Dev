@@ -1,0 +1,78 @@
+package com.foxconn.electronics.login;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.services.IOpenService;
+
+import cn.hutool.core.util.ObjectUtil;
+
+public class MyHomeHandler extends AbstractHandler{
+
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		AbstractAIFUIApplication  app = AIFUtility.getCurrentApplication();
+		TCSession session = (TCSession) app.getSession();
+		TCComponentUser user = session.getUser();
+		try {
+			
+			TCComponentFolder homeFolder = user.getHomeFolder();
+			// 断开所有二级账号的关联关系
+			homeFolder.refresh();
+			TCComponent[] relatedComponents = homeFolder.getRelatedComponents("contents");
+			
+			for (int i = 0; i < relatedComponents.length; i++) {
+				TCComponent tcComponent = relatedComponents[i];
+				// 将所有不是文件夹类型的全部过滤
+				if(!(tcComponent instanceof TCComponentFolder)) {
+					continue;
+				}
+				// 过滤掉二级账号的文件夹类型
+				TCComponentFolder folder = (TCComponentFolder) tcComponent;
+				String type = folder.getTypeObject().getName();
+				if("D9_UserFolder".equals(type)) {
+					homeFolder.remove("contents", folder);
+				}
+			}
+			// 添加當前二級賬號的home文件夾
+			OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+			// 加載二級賬號的uid獲取二級賬號的home文件夾名稱
+			String item_id = userPojo.getEmp_no();
+			// 查询二级账号
+			TCComponent userComponent = null;
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+					new String[] {item_id});
+			if (executeQuery != null && executeQuery.length > 0) {
+				userComponent = executeQuery[0];
+			}
+			if(ObjectUtil.isNotNull(userComponent)) {
+				String itemId = userComponent.getProperty("item_id");
+				String name = userComponent.getProperty("object_name");
+				executeQuery = TCUtil.executeQuery(session, "常规...",
+						new String[] {"object_type","object_name"}, new String[] {"D9_UserFolder" ,name + "(" + itemId + ")"});
+				if (executeQuery != null && executeQuery.length > 0) {
+					for (int i = 0; i < executeQuery.length; i++) {
+						homeFolder.add("contents", executeQuery[i]);
+					}
+				}
+			}
+			
+			IOpenService currentOpenService = AIFUtility.getCurrentOpenService();
+			boolean open = currentOpenService.open(homeFolder);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return null;
+	}
+
+}

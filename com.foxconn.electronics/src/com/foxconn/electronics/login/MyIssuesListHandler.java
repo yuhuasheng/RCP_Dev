@@ -1,0 +1,280 @@
+package com.foxconn.electronics.login;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.commands.common.NotDefinedException;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentForm;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.services.IOpenService;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.schemas.soa._2006_03.exceptions.ServiceException;
+import com.teamcenter.services.rac.core.DataManagementService;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.CreateOrUpdateFormsResponse;
+import com.teamcenter.soa.client.model.ErrorStack;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.FormInfo;
+
+public class MyIssuesListHandler extends AbstractHandler {
+	public AbstractAIFUIApplication app;
+	public static TCSession session = null;
+	public String userID = null;
+	
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		app = AIFUtility.getCurrentApplication();
+		session = (TCSession) app.getSession();
+		OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+		String emp_no = null;
+		String nickname = null;
+		String name_no = null;
+		
+		try {
+			if(userPojo!=null) {
+				emp_no = userPojo.getEmp_no();
+				if(emp_no!=null && !"".equals(emp_no)) {
+					TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+						new String[] {emp_no});
+					if(executeQuery!=null && executeQuery.length >0) {
+						nickname = executeQuery[0].getProperty("object_name");
+					}
+				}
+				//nickname  = S2TTransferUtil.toTraditionnalString(userPojo.getNickname());
+				
+				name_no = nickname+"("+emp_no+")"+" IssueHome";
+				
+				System.out.println("name_no = "+name_no);
+				
+			} else {
+//				emp_no = "N0006207";
+//				nickname = "董曄";
+//				name_no = nickname+"("+emp_no+")"+" IssueHome";
+				
+//				emp_no = "N0003016";
+//				nickname = "汪蕾";
+//				name_no = nickname+"("+emp_no+")"+" IssueHome";
+				
+				MessageBox.post("未檢測到，登錄的二級賬號，請退出重新登錄！","提示",MessageBox.INFORMATION);
+				return null;
+			}
+			
+			TCUtil.setBypass(session);
+			userID = session.getUser().getUserId();
+			
+			//獲取IOpenService
+			IOpenService currentOpenService = AIFUtility.getCurrentOpenService();
+			if(currentOpenService==null) {
+				return null;
+			}
+			
+			TCComponent IssueHome = getMyIssuesbox(name_no,"D9_IssueHome");
+			
+			TCComponent myIssuesFolder = null;
+			TCComponent DraftFolder = null;
+			TCComponent InProgressFolder = null;
+			TCComponent CanceledFolder = null;
+			TCComponent ClosedFolder = null;
+			
+			TCComponent executeIssuesFolder = null;
+			TCComponent trackingIssuesFolder = null;
+			TCComponent ExternalTrackingIssuesFolder = null;
+			TCComponent InteriorTrackingIssuesFolder = null;
+			TCComponent ClosedTrackingIssuesFolder = null;
+			if(IssueHome == null) {
+				IssueHome = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueHome",name_no);
+				
+				myIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.MyIssues);
+				DraftFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Draft);
+				InProgressFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.InProgress);
+				CanceledFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Canceled);
+				ClosedFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Closed);
+				
+				executeIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ExecuteIssues);
+				
+				trackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.TrackingIssues);
+				ExternalTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ExternalTrackingIssues);
+				InteriorTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.InteriorTrackingIssues);
+				ClosedTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ClosedTrackingIssues);
+				
+			} else {
+				AIFComponentContext[] children = IssueHome.getChildren();
+				for (AIFComponentContext aif :children) {
+					TCComponent folder = (TCComponent) aif.getComponent();
+					String object_name = folder.getProperty("object_name");
+					if(MyIssuesListRefresh.MyIssues.equals(object_name)) {
+						myIssuesFolder = folder;
+						AIFComponentContext[] children_1 = myIssuesFolder.getChildren();
+						for (AIFComponentContext aif_1 :children_1) {
+							TCComponent folder_1 = (TCComponent) aif_1.getComponent();
+							String object_name_1 = folder_1.getProperty("object_name");
+							if(MyIssuesListRefresh.Draft.equals(object_name_1)) {
+								DraftFolder = folder_1;
+							} else if(MyIssuesListRefresh.InProgress.equals(object_name_1)) {
+								InProgressFolder = folder_1;
+							} else if(MyIssuesListRefresh.Canceled.equals(object_name_1)) {
+								CanceledFolder = folder_1;
+							} else if(MyIssuesListRefresh.Closed.equals(object_name_1)) {
+								ClosedFolder = folder_1;
+							}
+						}
+						
+					} else if(MyIssuesListRefresh.ExecuteIssues.equals(object_name)) {
+						executeIssuesFolder = folder;
+					} else if(MyIssuesListRefresh.TrackingIssues.equals(object_name)) {
+
+						trackingIssuesFolder = folder;
+						AIFComponentContext[] children_1 = trackingIssuesFolder.getChildren();
+						for (AIFComponentContext aif_1 :children_1) {
+							TCComponent folder_1 = (TCComponent) aif_1.getComponent();
+							String object_name_1 = folder_1.getProperty("object_name");
+							if(MyIssuesListRefresh.ExternalTrackingIssues.equals(object_name_1)) {
+								ExternalTrackingIssuesFolder = folder_1;
+							} else if(MyIssuesListRefresh.InteriorTrackingIssues.equals(object_name_1)) {
+								InteriorTrackingIssuesFolder = folder_1;
+							} else if(MyIssuesListRefresh.ClosedTrackingIssues.equals(object_name_1)) {
+								ClosedTrackingIssuesFolder = folder_1;
+							}
+						}
+					}
+				}
+				
+				if(myIssuesFolder == null) 
+					myIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.MyIssues);
+				myIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(DraftFolder == null) 
+					DraftFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Draft);
+				DraftFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(InProgressFolder == null) 
+					InProgressFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.InProgress);
+				InProgressFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(CanceledFolder == null) 
+					CanceledFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Canceled);
+				CanceledFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(ClosedFolder == null) 
+					ClosedFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.Closed);
+				ClosedFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(executeIssuesFolder == null) 
+					executeIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ExecuteIssues);
+				executeIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(trackingIssuesFolder == null) 
+					trackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.TrackingIssues);
+				trackingIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+			
+				if(ExternalTrackingIssuesFolder == null) 
+					ExternalTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ExternalTrackingIssues);
+				ExternalTrackingIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(InteriorTrackingIssuesFolder == null) 
+					InteriorTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.InteriorTrackingIssues);
+				InteriorTrackingIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+				
+				if(ClosedTrackingIssuesFolder == null) 
+					ClosedTrackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssuesListRefresh.ClosedTrackingIssues);
+				ClosedTrackingIssuesFolder.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+			
+			}
+			
+			
+			if(IssueHome!=null) {
+				IssueHome.setRelated("contents", new TCComponent[] {});
+				IssueHome.setProperties(new String[] {"d9_IssueFolderOwner", "d9_IssueFolderActualUser"},new String[] {userID, emp_no});
+			}
+			
+			
+			//打開
+			boolean open = currentOpenService.open(IssueHome);
+			if(open) {
+				IssueHome.add("contents", myIssuesFolder);
+				IssueHome.add("contents", executeIssuesFolder);
+				IssueHome.add("contents", trackingIssuesFolder);
+				
+				MyIssuesListRefresh.getMyIssues(session, myIssuesFolder,DraftFolder,InProgressFolder,CanceledFolder,ClosedFolder, userID,emp_no );
+				MyIssuesListRefresh.getExecuteIssues(session, executeIssuesFolder, userID, emp_no);
+				MyIssuesListRefresh.getTrackingIssues(session, trackingIssuesFolder,ExternalTrackingIssuesFolder,InteriorTrackingIssuesFolder,ClosedTrackingIssuesFolder, userID, emp_no);
+			}
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			TCUtil.closeBypass(session);
+		}
+		
+		return null;
+	}
+	
+    
+    public TCComponent getMyIssuesbox(String name,String object_type) throws Exception {
+    	TCComponent folderComponent = null;
+    	
+    	TCComponent[] executeQuery = TCUtil.executeQuery(session, "常规...",
+				new String[] { "object_name","object_type","owning_user.user_id" }, new String[] { name,object_type,"$USERID" });
+		if (executeQuery != null && executeQuery.length > 0) {
+			folderComponent = executeQuery[0];
+		}
+		return folderComponent;
+    }
+    
+    
+    public static ModelObject getPublicMailForm(DataManagementService dmService, String IMFormName, String IMFormType, String rel, TCComponent parent, boolean saveDB) throws Exception {
+    	AIFComponentContext[] related = parent.getRelated(rel);
+    	if(related !=null && related.length > 0) {
+    		for (int i = 0; i < related.length; i++) {
+    			InterfaceAIFComponent component = related[i].getComponent();
+    			if(component instanceof TCComponentForm) {
+    				String object_name = component.getProperty("object_name");
+    				if(object_name.equals(IMFormName)) {
+    					return (ModelObject)component;
+    				}
+    			}
+    		}
+    	}
+    	
+    	
+    	Map<String, String[]> propMap = new HashMap<String, String[]>();
+
+		FormInfo[] inputs = new FormInfo[1];
+		inputs[0] = new FormInfo();
+		inputs[0].clientId = "FormInfo";
+		inputs[0].description = "";
+		inputs[0].name = IMFormName;
+		inputs[0].formType = IMFormType;
+		inputs[0].saveDB = saveDB;
+		inputs[0].parentObject = parent;
+		inputs[0].relationName = rel;
+		inputs[0].attributesMap = propMap;
+		CreateOrUpdateFormsResponse response = dmService.createOrUpdateForms(inputs);
+		if (response.serviceData.sizeOfPartialErrors() > 0) {
+			System.out.println("create form error size:" + response.serviceData.sizeOfPartialErrors());
+			System.out.println(response.serviceData.getPartialError(0).toString());
+
+			for (int i = 0; i < response.serviceData.sizeOfPartialErrors(); i++) {
+				ErrorStack temp = response.serviceData.getPartialError(i);
+				for (int j = 0; j < temp.getErrorValues().length; j++) {
+					System.out.println("===>partial error:" + temp.getCodes()[j] + "   " + temp.getErrorValues()[j] + "  " + temp.getErrorValues()[j].getMessage());
+
+				}
+			}
+
+			throw new ServiceException("DataManagementService.createForms returned a partial error.");
+		}
+
+		return response.outputs[0].form;
+	}
+}

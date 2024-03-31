@@ -1,0 +1,155 @@
+package com.foxconn.electronics.managementebom.dcnChange.mnt;
+
+import java.awt.Frame;
+import java.io.File;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Stream;
+
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
+import org.eclipse.swt.widgets.Display;
+
+import com.foxconn.electronics.managementebom.export.changelist.mnt.MntChangeHandle;
+import com.foxconn.electronics.managementebom.export.changelist.mnt.MntDCNChange;
+import com.foxconn.electronics.util.CommonTools;
+import com.foxconn.electronics.util.ProgressBarThread;
+import com.foxconn.electronics.util.TCUtil;
+import com.foxconn.tcutils.constant.DatasetEnum;
+import com.teamcenter.rac.aif.AIFDesktop;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.common.actions.AbstractAIFAction;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.services.rac.workflow.WorkflowService;
+import com.teamcenter.soa.client.model.Property;
+
+public class ChangeAction
+{
+    private AbstractAIFUIApplication app     = null;
+    private TCSession                session = null;
+    private Registry                 reg     = null;
+
+    public ChangeAction(AbstractAIFUIApplication arg0)
+    {
+        this.app = arg0;
+        this.session = (TCSession) app.getSession();
+        reg = Registry.getRegistry("com.foxconn.electronics.managementebom.managementebom");
+        run();
+    }
+
+    public void run()
+    {
+        try
+        {
+            InterfaceAIFComponent targetComponent = app.getTargetComponent(); // 获取选中的目标对象
+            if (!(targetComponent instanceof TCComponentItemRevision))
+            {
+                TCUtil.warningMsgBox(reg.getString("selectErr2.MSG"), reg.getString("WARNING.MSG"));
+                return;
+            }
+            TCComponentItemRevision dcn = (TCComponentItemRevision) targetComponent;
+            String fileName = dcn.getProperty("item_id") + ".xlsx";
+            File createTempFile = File.createTempFile("temp", "");
+            createTempFile.delete();
+            String absolutePath = createTempFile.getParent()+"\\"+fileName;
+			System.out.println(absolutePath); 
+			File file = new File(absolutePath);
+            if (judgeME(dcn))
+            {
+                MntDCNChange.exportMNTDCNChange_L5(dcn, file);
+            }
+            else
+            {
+                MntDCNChange.exportMNTDCNChange(dcn, file);
+            }
+            // 挂载到规范
+            String dsName = fileName;
+			System.out.println("==>> dsName: " + dsName);
+            if (!checkDataset(dcn,dsName)) {
+				TCComponentDataset createDataSet = TCUtil.createDataSet(session, absolutePath, DatasetEnum.MSExcelX.type(), dsName, DatasetEnum.MSExcelX.refName());				
+				dcn.add("IMAN_specification", createDataSet);
+			} else {
+				com.foxconn.tcutils.util.TCUtil.updateDataset(session, dcn, "IMAN_specification", absolutePath);
+			}
+            MessageBox.post("導出成功","提示",MessageBox.INFORMATION);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            MessageBox.post(e.toString(),"錯誤",MessageBox.ERROR);
+        }
+    }
+
+    public boolean judgeME(TCComponentItemRevision dcn)
+    {
+        try
+        {
+            Property userProp = dcn.getTCProperty("Requestor");
+            TCComponentGroupMember user = (TCComponentGroupMember) userProp.getModelObjectValue();
+            TCComponentGroup group = user.getGroup();
+            if (group.getFullName().contains("ME.R&D.Monitor.D_Group"))
+            {
+                return true;
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public File openFileChooser(String fileName)
+    {
+        JFileChooser jFileChooser = new JFileChooser();
+        FileNameExtensionFilter filter = new FileNameExtensionFilter("Excel", "xlsx");
+        jFileChooser.setFileFilter(filter);
+        jFileChooser.setSelectedFile(new File(fileName));
+        int openDialog = jFileChooser.showSaveDialog(null);
+        if (openDialog == JFileChooser.APPROVE_OPTION)
+        {
+            File file = jFileChooser.getSelectedFile();
+            String fname = jFileChooser.getName(file);
+            if (fname.indexOf(".xlsx") == -1)
+            {
+                file = new File(jFileChooser.getCurrentDirectory(), fname);
+            }
+            return file;
+        }
+        return null;
+    }
+    
+	/**
+	 * 校验数据集是否存在
+	 * @param dsName
+	 * @return
+	 * @throws TCException
+	 */
+	private boolean checkDataset(TCComponentItemRevision itemRev,String dsName) throws TCException {
+		itemRev.refresh();
+		TCComponent[] relatedComponents = itemRev.getRelatedComponents("IMAN_specification");
+		boolean anyMatch = Stream.of(relatedComponents).anyMatch(e -> {
+			try {
+				System.out.println(e.getProperty("object_name"));
+				return e.getProperty("object_name").equals(dsName);
+			} catch (TCException e1) {
+				e1.printStackTrace();
+			}
+			return false;
+		});
+		return anyMatch;
+	}
+}

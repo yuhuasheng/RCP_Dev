@@ -1,0 +1,215 @@
+package com.foxconn.electronics.login;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentForm;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.services.IOpenService;
+import com.teamcenter.schemas.soa._2006_03.exceptions.ServiceException;
+import com.teamcenter.services.rac.core.DataManagementService;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.CreateOrUpdateFormsResponse;
+import com.teamcenter.soa.client.model.ErrorStack;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.services.rac.core._2007_01.DataManagement.FormInfo;
+
+public class MyIssuesListHandler extends AbstractHandler {
+	public AbstractAIFUIApplication app;
+	public static TCSession session = null;
+	
+	public String MyIssues = "我創建的 Issues";
+	public String ExecuteIssues = "我執行的 Issues";
+	public String TrackingIssues = "我跟蹤的 Issues";
+	
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {
+		System.out.println("11111111111111");
+		
+		app = AIFUtility.getCurrentApplication();
+		session = (TCSession) app.getSession();
+		
+		OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+		String nickname = null;
+		String emp_no = null;
+		String name_no = null;
+		if(userPojo!=null) {
+			nickname  = S2TTransferUtil.toTraditionnalString(userPojo.getNickname());
+			emp_no = userPojo.getEmp_no();
+			name_no = nickname+"("+emp_no+")"+" IssueHome";
+			System.out.println("nickname = "+nickname);
+			System.out.println("emp_no = "+emp_no);
+			
+		} else {
+			//創建表單
+//			InterfaceAIFComponent[] targetComponent = app.getTargetComponents();
+//			if (targetComponent != null && targetComponent.length == 1) {
+//				DataManagementService dmService = DataManagementService.getService(session);
+//				if(targetComponent[0] instanceof TCComponentItemRevision) {
+//					TCComponentItemRevision revision = (TCComponentItemRevision)targetComponent[0];
+//					try {
+//						ModelObject createForm = getPublicMailForm(dmService, "publicMail", "Form", "IMAN_external_object_link", revision, Boolean.TRUE);
+//						System.out.println("1231321");
+//						
+//					} catch (ServiceException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					} catch (Exception e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//				}
+//				
+//			}
+			
+			return null;
+		}
+		
+		try {
+			TCUtil.setBypass(session);
+			
+			//獲取IOpenService
+			//IMOpenService currentOpenService = AIFUtility.getCurrentOpenService();
+			
+			IOpenService currentOpenService = AIFUtility.getCurrentOpenService();
+			if(currentOpenService!=null) {
+				System.out.println("11111currentOpenService");
+			} else {
+				System.out.println("22222currentOpenService");
+				return null;
+			}
+			
+			TCComponent IssueHome = getMyIssuesbox(name_no,"D9_IssueHome");
+			TCComponent myIssuesFolder = null;
+			TCComponent executeIssuesFolder = null;
+			TCComponent trackingIssuesFolder = null;
+			if(IssueHome == null) {
+				IssueHome = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueHome",name_no);
+				myIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssues);
+				executeIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",ExecuteIssues);
+				trackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",TrackingIssues);
+			} else {
+				AIFComponentContext[] children = IssueHome.getChildren();
+				for (AIFComponentContext aif :children) {
+					TCComponent folder = (TCComponent) aif.getComponent();
+					String object_name = folder.getProperty("object_name");
+					if(MyIssues.equals(object_name)) {
+						myIssuesFolder = folder;
+					} else if(ExecuteIssues.equals(object_name)) {
+						executeIssuesFolder = folder;
+					} else if(TrackingIssues.equals(object_name)) {
+						trackingIssuesFolder = folder;
+					}
+				}
+			}
+			
+			if(myIssuesFolder!=null) {
+				myIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				myIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",MyIssues);
+			}
+			if(executeIssuesFolder!=null) {
+				executeIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				executeIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",ExecuteIssues);
+			}
+			if(trackingIssuesFolder!=null) {
+				trackingIssuesFolder.setRelated("contents", new TCComponent[] {});
+			} else {
+				trackingIssuesFolder = MyIssuesListRefresh.createIssueFolder(session , "D9_IssueSearch",TrackingIssues);
+			}
+			
+			if(IssueHome!=null) {
+				IssueHome.setRelated("contents", new TCComponent[] {});
+			}
+			
+			
+			//打開
+			boolean open = currentOpenService.open(IssueHome);
+			if(open) {
+				IssueHome.add("contents", myIssuesFolder);
+				IssueHome.add("contents", executeIssuesFolder);
+				IssueHome.add("contents", trackingIssuesFolder);
+				
+				MyIssuesListRefresh.getMyIssues(session, myIssuesFolder,  nickname+"("+emp_no+")" );
+				MyIssuesListRefresh.getExecuteIssues(session, executeIssuesFolder, emp_no);
+				MyIssuesListRefresh.getTrackingIssues(session, trackingIssuesFolder, emp_no);
+			}
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			TCUtil.closeBypass(session);
+		}
+		
+		return null;
+	}
+	
+    
+    public TCComponent getMyIssuesbox(String name,String object_type) throws Exception {
+    	TCComponent folderComponent = null;
+    	
+    	TCComponent[] executeQuery = TCUtil.executeQuery(session, "常规...",
+				new String[] { "object_name","object_type","owning_user.user_id" }, new String[] { name,object_type,"$USERID" });
+		if (executeQuery != null && executeQuery.length > 0) {
+			folderComponent = executeQuery[0];
+		}
+		return folderComponent;
+    }
+    
+    
+    public static ModelObject getPublicMailForm(DataManagementService dmService, String IMFormName, String IMFormType, String rel, TCComponent parent, boolean saveDB) throws Exception {
+    	AIFComponentContext[] related = parent.getRelated(rel);
+    	if(related !=null && related.length > 0) {
+    		for (int i = 0; i < related.length; i++) {
+    			InterfaceAIFComponent component = related[i].getComponent();
+    			if(component instanceof TCComponentForm) {
+    				String object_name = component.getProperty("object_name");
+    				if(object_name.equals(IMFormName)) {
+    					return (ModelObject)component;
+    				}
+    			}
+    		}
+    	}
+    	
+    	
+    	Map<String, String[]> propMap = new HashMap<String, String[]>();
+
+		FormInfo[] inputs = new FormInfo[1];
+		inputs[0] = new FormInfo();
+		inputs[0].clientId = "FormInfo";
+		inputs[0].description = "";
+		inputs[0].name = IMFormName;
+		inputs[0].formType = IMFormType;
+		inputs[0].saveDB = saveDB;
+		inputs[0].parentObject = parent;
+		inputs[0].relationName = rel;
+		inputs[0].attributesMap = propMap;
+		CreateOrUpdateFormsResponse response = dmService.createOrUpdateForms(inputs);
+		if (response.serviceData.sizeOfPartialErrors() > 0) {
+			System.out.println("create form error size:" + response.serviceData.sizeOfPartialErrors());
+			System.out.println(response.serviceData.getPartialError(0).toString());
+
+			for (int i = 0; i < response.serviceData.sizeOfPartialErrors(); i++) {
+				ErrorStack temp = response.serviceData.getPartialError(i);
+				for (int j = 0; j < temp.getErrorValues().length; j++) {
+					System.out.println("===>partial error:" + temp.getCodes()[j] + "   " + temp.getErrorValues()[j] + "  " + temp.getErrorValues()[j].getMessage());
+
+				}
+			}
+
+			throw new ServiceException("DataManagementService.createForms returned a partial error.");
+		}
+
+		return response.outputs[0].form;
+	}
+}

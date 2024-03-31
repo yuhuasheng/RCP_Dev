@@ -1,0 +1,2 @@
+newProcessDialog=com.teamcenter.rac.workflow.commands.newprocess.UserNewProcessDialog
+#newProcessOperation=com.teamcenter.rac.workflow.commands.newprocess.UserNewProcessOperation

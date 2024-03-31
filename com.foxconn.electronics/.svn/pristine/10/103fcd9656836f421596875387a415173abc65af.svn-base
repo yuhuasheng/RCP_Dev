@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry excluding="src/|OSGI-INF/" kind="src" path=""/>
+	<classpathentry exported="true" kind="lib" path="lib/jsch-0.1.55.jar"/>
+	<classpathentry kind="lib" path="lib/D9SoaCustRac_14000.2.0.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="lib/poi-4.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/poi-ooxml-4.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/poi-ooxml-schemas-4.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/httpmime-4.5.2.jar"/>
+	<classpathentry kind="lib" path="lib/fastjson-1.2.78.jar"/>
+	<classpathentry kind="lib" path="lib/jxbrowser-7.21.jar"/>
+	<classpathentry kind="lib" path="lib/jxbrowser-swing-7.21.jar"/>
+	<classpathentry kind="lib" path="lib/jxbrowser-win64-7.21.jar"/>
+	<classpathentry kind="lib" path="lib/commons-collections4-4.1.jar"/>
+	<classpathentry kind="lib" path="lib/hutool-all-5.8.10.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaAdministrationStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCadLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaClient_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCommon_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCoreLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCoreStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaQueryLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaQueryStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaStrongModel_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaWorkflowStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/commons-io-2.11.0.jar"/>
+	<classpathentry kind="lib" path="lib/commons-math3-3.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaWorkflowRac_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/plmnow_zh_transfer.jar"/>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry kind="lib" path="lib/httpService.jar"/>
+	<classpathentry kind="lib" path="lib/com.google.gson.jar"/>
+	<classpathentry kind="lib" path="lib/commons-compress-1.18.jar"/>
+	<classpathentry kind="lib" path="lib/xmlbeans-3.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/commons-logging.jar"/>
+	<classpathentry kind="lib" path="lib/httpclient-4.5.2.jar"/>
+	<classpathentry kind="lib" path="lib/httpcore-4.4.4.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.7.32.jar"/>
+	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
+	<classpathentry kind="lib" path="lib/xml-apis.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   	<extension point="org.eclipse.ui.commands">
+		<command name="%BatchEditorEbom.LABEL" id="com.foxconn.sdebom.commands.BatchEditorEbomCommand"/> 
+		<command name="%HPEbomExport.LABEL" id="com.foxconn.sdebom.commands.HPEBomCommand"/> 
+		<command name="%DELLEbomExport.LABEL" id="com.foxconn.sdebom.commands.DELLEBomCommand"/> 
+		<command id="com.foxconn.sdebom.commands.MEBomCommand" name="%MEbomExport.LABEL"/>
+		<command id="com.foxconn.sdebom.commands.PABomCommand" name="%PAbomExport.LABEL"/>
+		
+		<!-- 删除的菜单-->
+		<command name="%DtL5Ebom.LABEL" id="com.foxconn.sdebom.commands.DtL5EbomCommand"/>
+
+	</extension>
+	
+	<extension point="org.eclipse.ui.handlers">
+      <handler commandId="com.foxconn.sdebom.commands.BatchEditorEbomCommand" class="com.foxconn.sdebom.batcheditorebom.handler.BatchEditorEbomHandler" />
+      <handler commandId="com.foxconn.sdebom.commands.HPEBomCommand" class="com.foxconn.sdebom.export.HPEBOMExportHandler" />  
+      <handler commandId="com.foxconn.sdebom.commands.DELLEBomCommand" class="com.foxconn.sdebom.export.dellebom.DELLEBOMExportHandler" />  
+   	  <handler class="com.foxconn.sdebom.commands.mebom.MEBomHandler" commandId="com.foxconn.sdebom.commands.MEBomCommand" />
+   	  <handler class="com.foxconn.sdebom.commands.pabom.PABomHandler" commandId="com.foxconn.sdebom.commands.PABomCommand" />
+   		
+   	 <!-- 删除的菜单-->
+   	 <handler commandId="com.foxconn.sdebom.commands.DtL5EbomCommand" class="com.foxconn.sdebom.dtl5ebom.handler.DtL5EbomHandler" />
+   	</extension>
+   
+   
+   	<extension point="org.eclipse.ui.menus">
+   		<menuContribution locationURI="menu:com.foxconn.menus.BOM">	     	
+	     	<command
+                	commandId="com.foxconn.sdebom.commands.BatchEditorEbomCommand"
+                	id="com.foxconn.sdebom.commands.BatchEditorEbomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Desktop"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.BatchEditorEbomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>
+    	  
+    		<command
+                	commandId="com.foxconn.sdebom.commands.HPEBomCommand"
+                	id="com.foxconn.sdebom.commands.HPEBomCommand">
+               		<visibleWhen>
+                        <and>
+                        	<or>
+                            	<reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            </or>
+                            
+                             <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Desktop_RD_HPD"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.HPEBomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>
+    		<command
+                	commandId="com.foxconn.sdebom.commands.DELLEBomCommand"
+                	id="com.foxconn.sdebom.commands.DELLEBomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Desktop_RD_DPD"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.DELLEBomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>
+      		
+      	<command
+            commandId="com.foxconn.sdebom.commands.MEBomCommand"
+            id="com.foxconn.sdebom.commands.MEBomCommand">
+         <visibleWhen>
+            <and>
+               <reference
+                     definitionId="com.teamcenter.rac.pse.inMainView">
+               </reference>
+               <iterate
+                     ifEmpty="false">
+                  <adapt
+                        type="com.teamcenter.rac.kernel.TCComponent">
+                     <and>
+                        <test
+                              forcePluginActivation="true"
+                              property="ghy.Monitor_RD_ME">
+                        </test>
+                     </and>
+                  </adapt>
+               </iterate>
+               <with
+                     variable="rac_command_suppression">
+                  <not>
+                     <iterate
+                           operator="or">
+                        <equals
+                              value="com.foxconn.sdebom.commands.MEBomCommand">
+                        </equals>
+                     </iterate>
+                  </not>
+               </with>
+            </and>
+         </visibleWhen>
+      </command>
+      
+      
+      <command
+            commandId="com.foxconn.sdebom.commands.PABomCommand"
+            id="com.foxconn.sdebom.commands.PABomCommand">
+         <visibleWhen>
+            <and>
+               	<or>
+	            	<reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                </or>
+               <iterate
+                     ifEmpty="false">
+                  <adapt
+                        type="com.teamcenter.rac.kernel.TCComponent">
+                     <and>
+                        <test
+                              forcePluginActivation="true"
+                              property="ghy.Monitor_RD_ME">
+                        </test>
+                     </and>
+                  </adapt>
+               </iterate>
+               <with
+                     variable="rac_command_suppression">
+                  <not>
+                     <iterate
+                           operator="or">
+                        <equals
+                              value="com.foxconn.sdebom.commands.PABomCommand">
+                        </equals>
+                     </iterate>
+                  </not>
+               </with>
+            </and>
+         </visibleWhen>
+      </command>
+      
+	</menuContribution>
+		
+		
+		
+		
+		<!-- 删除的菜单-->
+		<menuContribution locationURI="menu:plmdeletemenu?after=additions">	
+			<command
+            	commandId="com.foxconn.sdebom.commands.DtL5EbomCommand" id="com.foxconn.sdebom.commands.DtL5EbomCommand">
+           		<visibleWhen>
+                    <and>
+                        <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                        <with variable="rac_command_suppression">
+                            <not>
+                                <iterate operator="or">
+                                    <equals value="com.foxconn.sdebom.commands.DtL5EbomCommand"/>
+                                </iterate>
+                            </not>
+                        </with>
+                    </and>
+                </visibleWhen>
+    		</command>
+		</menuContribution>
+		
+		
+   	</extension>
+   	
+   	
+   	<extension point="org.eclipse.core.expressions.propertyTesters">
+		<propertyTester 
+			id="Desktop" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop"
+			class="com.foxconn.sdebom.Tester.Desktop">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_RD_HPD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_HPD"
+			class="com.foxconn.sdebom.Tester.Desktop_RD_HPD">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_RD_DPD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_DPD"
+			class="com.foxconn.sdebom.Tester.Desktop_RD_DPD">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor_RD_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_ME"
+			class="com.foxconn.sdebom.Tester.Monitor_RD_ME">
+		</propertyTester>
+	
+	</extension>
+</plugin>

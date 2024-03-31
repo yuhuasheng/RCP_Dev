@@ -1,0 +1,4 @@
+aNoteAction=com.teamcenter.rac.pse.actions.MyANoteAction
+aNoteAction.COMMAND=aNoteCommand
+
+

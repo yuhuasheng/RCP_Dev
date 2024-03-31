@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.foxconn.dp.plm.syncdoc.mapper.PDMDocMapper">
+
+    <select id="queryTcProject" resultType="com.foxconn.dp.plm.syncdoc.domain.PDMDocSyncInfo" flushCache="true">
+        SELECT
+               pf.PUID as "uid" ,
+               wso.POBJECT_NAME as name,
+               pf.PD9_SPAS_ID as spasId
+        FROM INFODBA.PD9_PROJECTFOLDER pf,INFODBA.PWORKSPACEOBJECT wso WHERE pf.PD9_SPAS_ID = #{1} AND pf.PUID = wso.PUID
+    </select>
+
+    <select id="queryTcProjectContent" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.PDMDocSyncInfo" flushCache="true">
+        SELECT c.PUID as puid,c.PVALU_0 as "uid",wso.pobject_name as name,wso.pobject_type as "type",
+        item.PITEM_ID AS itemId ,u.PUSER_NAME AS creatorName,u.PUSER_ID AS creator,ao.PCREATION_DATE+8/24 AS created
+        FROM INFODBA.PCONTENTS c,INFODBA.PWORKSPACEOBJECT wso,INFODBA.PITEM item,INFODBA.PPOM_APPLICATION_OBJECT ao,INFODBA.PPOM_USER u
+        where c.PVALU_0=wso.puid AND item.PUID(+) = c.PVALU_0 AND ao.PUID = c.PUID AND u.PUID = ao.ROWNING_USERU
+        START WITH c.PUID = #{puid} CONNECT BY PRIOR c.PVALU_0 = c.PUID
+    </select>
+
+    <select id="queryItemRevision" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.PDMDocSyncInfo" flushCache="true">
+        select
+            r.puid as "uid",
+            'D9_TECHRevision' as "type",
+            r.pitem_revision_id as "version",
+            (CASE WHEN INSTR(rs.Pname,'Released') > 0 THEN 0 ELSE 1 END) AS status,
+            ao.PCREATION_DATE+8/24 AS created
+        from infodba.PITEMREVISION r,(
+            select  rev.pitem_revision_id ,max(rev.psequence_id) as psequence_id,max(rev.ritems_tagu) as ritems_tagu
+            from infodba.PITEMREVISION rev where rev.ritems_tagu = #{itemId} group by rev.pitem_revision_id
+        ) t,INFODBA.PRELEASE_STATUS_LIST s,INFODBA.PRELEASESTATUS rs,INFODBA.PWORKSPACEOBJECT wso,INFODBA.PPOM_APPLICATION_OBJECT ao
+        where t.ritems_tagu = r.ritems_tagu
+          and r.pitem_revision_id = t.pitem_revision_id
+          and r.psequence_id = t.psequence_id
+          AND s.PUID(+) = r.PUID AND rs.PUID(+) = s.PVALU_0
+          AND wso.PUID = r.PUID
+          AND ao.PUID  = wso.PUID
+    </select>
+
+    <select id="queryFSProject" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.PDMDocSyncInfo" flushCache="true">
+        select
+               PROJ_SPAS_ID as spasId,
+               PROJ_NAME as name,
+               FOLDER_ID as fsSn,
+               'Project' as type
+        from OBJ_PROJECT p where p.PROJ_SPAS_ID = #{1} and DEL_FLAG = 0
+    </select>
+
+    <select id="queryFSProjectContent" parameterType="java.lang.Long" resultType="com.foxconn.dp.plm.syncdoc.domain.FSInfo" flushCache="true">
+
+        SELECT
+            -- T.PROJLEVEL as "level",
+            F.PID as PFId,
+            F.PREFID AS PFRefId,
+            F.PARENTNAME as PFName,
+            F.CID as FId,
+            F.REFID AS FRefId,
+            F.CHILDNAME as FName,
+            F.PFOLDERPATH as "PATH",
+            doc.doc_sn as docId,
+            doc.REF_ID AS docRefId,
+            doc.doc_name as docName,
+            rev.rev_sn AS revId,
+            rev.ref_id AS revRefId,
+            rev.rev_name as revName,
+            rev.rev_num as revNum
+
+        FROM
+            (
+            SELECT T.PROJLEVEL, T.FLD_ID AS PID,T.REF_ID AS PREFID, T.FLD_NAME AS PARENTNAME, T.FLD_CHILD_ID CID, F.FLD_NAME AS CHILDNAME, LTRIM(T.FOLDERPATH,'->') PFOLDERPATH,F.REF_ID AS REFID FROM
+                (
+                    SELECT LEVEL AS PROJLEVEL, FS.FLD_ID,F.REF_ID ,FS.FLD_CHILD_ID, F.FLD_NAME, SYS_CONNECT_BY_PATH (F.FLD_NAME, '->') AS FOLDERPATH
+                    FROM FOLDER_STRUCTURE FS, OBJ_FOLDER F WHERE FS.FLD_ID = F.FLD_SN and F.DEL_FLAG = 0 START WITH FS.FLD_ID = #{folderId}
+                    CONNECT BY PRIOR FS.FLD_CHILD_ID = FS.FLD_ID
+                ) T, OBJ_FOLDER F WHERE T.FLD_CHILD_ID = F.FLD_SN AND F.DEL_FLAG = 0 ORDER BY T.PROJLEVEL, T.FLD_NAME, F.FLD_NAME
+            ) F ,obj_document_rev rev,obj_document doc WHERE rev.fld_id(+) = F.cid AND doc.DOC_SN(+) = rev.doc_id
+            and (rev.DEL_FLAG = 0 OR rev.del_flag IS NULL)
+            and (doc.DEL_FLAG = 0 OR doc.del_flag IS NULL)
+
+    </select>
+
+    <select id="queryDataset" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.PDMDocSyncInfo" flushCache="true">
+        select t1.puid as puid,
+               t2.puid as "uid",
+               'Dataset' as "type",
+               t4.pobject_name as name
+        from INFODBA.pD9_TECHRevision    t1,
+             INFODBA.pDataset            t2,
+             INFODBA.pimanrelation       t3,
+             INFODBA.pworkspaceobject    t4
+        where t3.rprimary_objectu = t1.puid
+          and t3.rsecondary_objectu = t2.puid
+          and t1.puid = #{revId}
+          and t4.puid = t2.puid
+    </select>
+
+    <select id="queryProjectTopFolderId" resultType="java.lang.Long" flushCache="true">
+        SELECT FOLDER_ID from OBJ_PROJECT where PROJ_SPAS_ID = #{1} and DEL_FLAG = 0
+    </select>
+
+    <select id="queryFSDocument" resultType="java.lang.Long" flushCache="true">
+        SELECT DOC_SN from OBJ_DOCUMENT where DOC_NUM = #{1} and DEL_FLAG = 0
+    </select>
+
+    <insert id="insertProject">
+        insert into OBJ_PROJECT (PROJ_NAME,PROJ_SPAS_ID,FOLDER_ID,CREATED,DEL_FLAG) values (#{projName},#{projSpasId},#{folderId, jdbcType=INTEGER},#{created},0)
+        <selectKey keyProperty="proSn" resultType="java.lang.Long" order="AFTER">
+            select OBJ_PROJECT_SEQ.currval from dual
+        </selectKey>
+    </insert>
+
+    <insert id="insertFolder">
+        insert into OBJ_FOLDER (FLD_NAME,CREATOR,REF_ID,DEL_FLAG,CREATED) values (#{fldName},#{creator},#{refId},0,#{created})
+        <selectKey keyProperty="fldSn" resultType="java.lang.Long" order="AFTER">
+            select OBJ_FOLDER_SEQ.currval from dual
+        </selectKey>
+    </insert>
+
+    <insert id="insertFolderStructure">
+        insert into FOLDER_STRUCTURE (FLD_ID,FLD_CHILD_ID,CREATOR,CREATED) values (#{fldId},#{fldChildId},#{creator},#{created})
+    </insert>
+
+    <insert id="insertDocument">
+        insert into OBJ_DOCUMENT (DOC_NUM,DOC_ORIGIN,CREATOR,CREATOR_NAME,CREATED,REF_ID,DOC_NAME,DEL_FLAG) values (#{docNum},#{docOrigin},#{creator},#{creatorName},#{created},#{refId},#{docName},0)
+        <selectKey keyProperty="docSn" resultType="java.lang.Long" order="AFTER">
+            select OBJ_DOCUMENT_SEQ.currval from dual
+        </selectKey>
+    </insert>
+
+    <insert id="insertDocumentRev">
+        insert into OBJ_DOCUMENT_REV (DOC_ID,FLD_ID,REV_NAME,REV_NUM,REF_ID,CREATOR,CREATOR_NAME,CREATED,LIFECYCLE_PHASE,DEL_FLAG) values (#{docId},#{fldId},#{revName},#{revNum},#{refId},#{creator},#{creatorName},#{created},#{status},0)
+        <selectKey keyProperty="revSn" resultType="java.lang.Long" order="AFTER">
+            select OBJ_DOCUMENT_REV_SEQ.currval from dual
+        </selectKey>
+    </insert>
+
+    <update id="updateFolder">
+        update OBJ_FOLDER set FLD_NAME = #{name} where FLD_SN = #{id}
+    </update>
+    <update id="updateDocument">
+        update OBJ_DOCUMENT set DOC_NAME = #{name} where DOC_SN = #{id}
+    </update>
+
+    <update id="deleteFolder">
+        update OBJ_FOLDER set DEL_FLAG = 1 where FLD_SN = #{1}
+    </update>
+    <update id="deleteDocument">
+        update OBJ_DOCUMENT set DEL_FLAG = 1 where DOC_SN = #{1}
+    </update>
+    <update id="deleteDocumentRev">
+        update OBJ_DOCUMENT_REV set DEL_FLAG = 1 where REV_SN = #{1}
+    </update>
+    
+</mapper>

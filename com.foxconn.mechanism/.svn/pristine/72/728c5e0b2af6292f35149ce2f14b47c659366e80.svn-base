@@ -1,0 +1,886 @@
+package com.foxconn.mechanism.custommaterial.custommaterialbatchimport;
+
+import java.awt.Color;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.commons.collections4.map.HashedMap;
+import org.apache.poi.ss.usermodel.Workbook;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.foxconn.mechanism.util.CommonTools;
+import com.foxconn.mechanism.util.ExcelUtils;
+import com.foxconn.mechanism.util.FileStreamUtil;
+import com.foxconn.mechanism.util.HttpUtil;
+import com.foxconn.mechanism.util.TCUtil;
+import com.teamcenter.rac.kernel.ITypeName;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentItemType;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.soaictstubs.booleanSeq_tHolder;
+
+import cn.hutool.core.util.StrUtil;
+
+
+public class CustomMaterialBatchImportAction {
+	private static final String ITEM_ID_FOR_CONFIG = "D9_Part_Config_Template";
+	
+	private static boolean _blnErrFlag = false;
+	private static CustomMateriaBatchImportType _customMateriaBatchImportType = null;
+	private static ICustomMaterialBatchImportLog _log = null;
+	private static TCComponent _tcTargetComp = null;
+	private String _fileName = "";
+	static String actualUser="";
+	
+	public CustomMaterialBatchImportAction() {}
+	
+	public CustomMaterialBatchImportAction(CustomMateriaBatchImportType customMateriaBatchImportType, TCComponent tcTargetComp, String fileName, ICustomMaterialBatchImportLog log,String actualUser) {
+		_blnErrFlag = false;
+		this._customMateriaBatchImportType = customMateriaBatchImportType;
+		this._log = log;
+		this._tcTargetComp = tcTargetComp;
+		this._fileName = fileName;
+		this.actualUser=actualUser;
+	}
+	
+	@SuppressWarnings("static-access")
+	public void execute() {
+		try {						
+			if (CommonTools.isEmpty(_fileName)) {
+				_log.onLog("文件【" + _fileName + "】不存在", Color.red);				
+				return;
+			}
+												
+			//自编料号配置表
+			Map<String, Map<String, Map<String, String>>> configMap = getCustomMaterialConfig();
+			if (null == configMap || 0 == configMap.size()) {
+				_log.onLog("配置对象不存在", Color.red);
+				return;
+			}
+			
+			Map<String, CustomMaterialProperty> cmPropertyMap = getFieldMap(new CustomMaterialDataEntity());
+			Map<String, List<Map<String, Map<String, String>>>> allCMPropertyMap = new LinkedHashMap<String, List<Map<String, Map<String, String>>>>();
+						
+			ExcelUtils excelUtils = new ExcelUtils();
+			Workbook wb = excelUtils.getLocalWorkbook(_fileName);			
+			
+			int sheetCount = excelUtils.getSheetCount(wb);
+			for (int i = 0; i < sheetCount; i++) {				
+				String sheetName = excelUtils.getSheetName(wb, i);
+				if (wb.isSheetHidden(i))
+					continue;
+				
+				int rowCount = excelUtils.getNotBlankRowCount(wb, i);
+				if (rowCount <= 1) 
+					continue;
+			
+				List<String> columnNameLst = excelUtils.getRowValue(wb, i, 0);
+				
+				// 检查Excel
+				if (!checkExcel(sheetName, columnNameLst)) {
+					_log.onLog("表 "+sheetName+" 检查未通过,請點擊右上角“下載範本”，下載最新模版", Color.red);
+					_blnErrFlag = true;
+					
+					continue;
+				}
+									
+				List<List<String>> allRowInfoLst = excelUtils.read(wb, i, 1, rowCount-1);
+								
+				processSheet(excelUtils, cmPropertyMap, sheetName, columnNameLst, allRowInfoLst, allCMPropertyMap, configMap);
+			}
+			
+			createItemByExcelData(configMap, allCMPropertyMap);							
+			wb.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+	
+	/**
+     * 获取自编料号配置表
+     */
+	public static Map<String, Map<String, Map<String, String>>> getCustomMaterialConfig() {
+		Map<String, Map<String, Map<String, String>>> retConfigMap = new LinkedHashMap<String, Map<String,Map<String,String>>>();
+			
+		String fullFilePath = "";
+		try {
+			ExcelUtils excelUtils = new ExcelUtils();
+			
+			//下载数据集
+			String configItemId = TCUtil.getPreference(TCUtil.getTCSession(), TCPreferenceService.TC_preference_site, ITEM_ID_FOR_CONFIG);
+			TCComponentItemType itemType = (TCComponentItemType) TCUtil.getTCSession().getTypeComponent(ITypeName.Item);
+			TCComponentItem item = itemType.find(configItemId);
+			if (null == item)
+				return retConfigMap;
+			TCComponentItemRevision itemRev = item.getLatestItemRevision();
+			if (null == itemRev)
+				return retConfigMap;			
+			
+			TCComponentDataset tcDataset = TCUtil.findDataSet(itemRev, "自编料号配置表.xlsx");
+			if (tcDataset != null) {
+				fullFilePath = TCUtil.downloadFile(tcDataset, System.getenv("TEMP"), ".xlsx", "excel", "", false);
+			}
+			
+			if (TCUtil.isNull(fullFilePath)) {				
+				return retConfigMap;
+			}
+			
+			Workbook wb = excelUtils.getLocalWorkbook(fullFilePath);								
+			
+			int sheetCount = excelUtils.getSheetCount(wb);
+			for (int i = 0; i < sheetCount; i++) {
+				String sheetName = excelUtils.getSheetName(wb, i);
+				
+				int rowCount = excelUtils.getNotBlankRowCount(wb, i);
+				if (rowCount <= 2) 
+					continue;
+					
+				Map<String, Map<String, String>> configPropNVMap = new LinkedHashMap<String, Map<String, String>>();
+				List<List<String>> allRowInfoLst = excelUtils.read(wb, i, 2, rowCount-1);				
+				for (List<String> rowInfoLst : allRowInfoLst) {
+					if (rowInfoLst.size() >= 4) {
+						String propertyName = rowInfoLst.get(1);
+						String propertyValue = rowInfoLst.get(2);
+						String propertyValueCode = rowInfoLst.get(3);
+						
+						if (configPropNVMap.containsKey(propertyName)) {
+							Map<String, String> configPropVCMap = configPropNVMap.get(propertyName);
+							configPropVCMap.put(propertyValue, propertyValueCode);
+							
+							configPropNVMap.put(propertyName, configPropVCMap);
+						} else {
+							Map<String, String> configPropVCMap = new LinkedHashMap<String,String>();
+							configPropVCMap.put(propertyValue, propertyValueCode);
+							
+							configPropNVMap.put(propertyName, configPropVCMap);
+						}
+						
+					}
+				}
+								
+				retConfigMap.put(sheetName, configPropNVMap);				
+			}
+			wb.close();			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			boolean ft = FileStreamUtil.deleteFile(fullFilePath);
+			if(!ft) {
+				MessageBox.post("文件刪除失敗："+fullFilePath,"自編料號", MessageBox.WARNING);
+			}
+			
+		}
+		return retConfigMap;
+	}
+	
+	private <T> Map<String, CustomMaterialProperty> getFieldMap(T bean) {
+		Map<String, CustomMaterialProperty> cmPropertyMap = new LinkedHashMap<String, CustomMaterialProperty>();
+		
+		try {
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++)
+            {
+                fields[i].setAccessible(true);
+                CustomMaterialProperty cmProperty = fields[i].getAnnotation(CustomMaterialProperty.class);
+                String key = cmProperty.exceltype() + cmProperty.excelproperty();
+                cmPropertyMap.put(key, cmProperty);
+            }						
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return cmPropertyMap;
+	}
+	
+	public static <T> List<CustomMaterialProperty> getFieldMap(T bean, String excelType) {
+		List<CustomMaterialProperty> cmPropertyLst = new ArrayList<CustomMaterialProperty>();
+		
+		try {
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++)
+            {
+                fields[i].setAccessible(true);
+                CustomMaterialProperty cmProperty = fields[i].getAnnotation(CustomMaterialProperty.class);
+                if (excelType.equals(cmProperty.exceltype())) {
+                	cmPropertyLst.add(cmProperty);
+                }
+            }						
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return cmPropertyLst;
+	}
+	
+	public static CustomMaterialProperty findCMProperty(List<CustomMaterialProperty> cmPropertyLst, int cmPropIndex) {
+		CustomMaterialProperty retProp = null;
+		
+		for (CustomMaterialProperty cmProperty : cmPropertyLst) {
+			if (cmPropIndex == cmProperty.configorder()) {
+				return cmProperty;
+			}
+		}
+		
+		return retProp;
+	}
+	
+	private void processSheet(ExcelUtils excelUtils, Map<String, CustomMaterialProperty> cmPropertyMap, String sheetName, List<String> columnNameLst, List<List<String>> allRowInfoLst, Map<String, List<Map<String, Map<String, String>>>> allCMPropertyMap, Map<String, Map<String, Map<String, String>>> configMap) {
+		try {
+			String type = "";
+			
+			List<CustomMaterialProperty> cmPropertyLst = new ArrayList<CustomMaterialProperty>();
+			for (String columnName : columnNameLst) {	
+				String key = sheetName + columnName;
+                if (cmPropertyMap.containsKey(key)) {
+                	cmPropertyLst.add(cmPropertyMap.get(key));
+                }	                	            
+			}
+			
+			if (cmPropertyLst.size() > 0) {
+				List<Map<String, Map<String, String>>> entityLst = new ArrayList<Map<String,Map<String, String>>>();
+				for (int i = 0; i < allRowInfoLst.size(); i++) {
+					Map<String, Map<String, String>> entityContentMap = new LinkedHashMap<String, Map<String, String>>();
+					for (CustomMaterialProperty cmProperty : cmPropertyLst) {												
+						if (TCUtil.isNull(type))
+							type = cmProperty.exceltype();
+						
+						String exceltype = cmProperty.exceltype();
+						String excelproperty = cmProperty.excelproperty();
+						String excelreference = cmProperty.excelreference();
+						String tctype = cmProperty.tctype();
+						String value = cmProperty.value();
+						String tcpropertytype = cmProperty.tcpropertytype();
+						String excelValue = allRowInfoLst.get(i).get(excelUtils.getColumIntByString(cmProperty.excelreference()));
+											
+						Map<String, String> entityContentValueMap = new LinkedHashMap<String, String>();
+						entityContentValueMap.put("rownum", (i+2)+"");
+						entityContentValueMap.put("exceltype", exceltype);
+						entityContentValueMap.put("excelproperty", excelproperty);
+						entityContentValueMap.put("excelreference", excelreference);
+						entityContentValueMap.put("tctype", tctype);
+						entityContentValueMap.put("tcproperty", value);
+						entityContentValueMap.put("tcpropertytype", tcpropertytype);
+						entityContentValueMap.put("value", excelValue);
+						
+						if ("d9_ProcurementMethods".equals(value) || "d9_Un".equals(value)) {
+							if (configMap.containsKey(exceltype)) {
+								Map<String, Map<String, String>> map1 = configMap.get(exceltype);
+								if (map1.containsKey(excelproperty)) {
+									Map<String, String> map2 = map1.get(excelproperty);
+									if (map2.containsKey(excelValue)) {
+										entityContentValueMap.put("value", map2.get(excelValue));
+									}
+								}
+							}
+						}
+						
+//						if ("d9_MaterialGroup".equals(value)) {
+//							String[] tempArr = excelValue.split(":");
+//							entityContentValueMap.put("value", tempArr[0]);
+//						}												
+						
+						entityContentMap.put(cmProperty.excelproperty(), entityContentValueMap);													
+					}
+					entityLst.add(entityContentMap);
+				}
+				
+				if (!TCUtil.isNull(type))
+					allCMPropertyMap.put(type, entityLst);
+			}
+									
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+	
+	public static void createItemByExcelData(Map<String, Map<String, Map<String, String>>> ConfigMap, Map<String, List<Map<String, Map<String, String>>>> allCMPropertyMap) {
+		try {
+			allCMPropertyMap.forEach((key, value)->{
+				String excelType = "";
+				if (value.size() > 0) {
+					Map<String, Map<String, String>> entityContentMap = value.get(0);
+					Map<String, String> entityContentValueMap = entityContentMap.values().stream().findFirst().orElse(null);
+					if (entityContentValueMap != null)
+						excelType = entityContentValueMap.get("exceltype");
+				}
+				
+				if (!TCUtil.isNull(excelType)) {
+					List<CustomMaterialProperty> cmPropertyLst = getFieldMap(new CustomMaterialConfigEntity(), excelType);
+					
+					for (Map<String, Map<String, String>> entityContentMap : value) {
+						boolean blnIsPass = true;
+						Map<String, String> errorMap = null;						
+						StringBuilder cmCode = new StringBuilder();
+						
+						Map<String, String> d9MakePatternMap = entityContentMap.getOrDefault("自製方式", null);
+						if (null == d9MakePatternMap) {																					
+							blnIsPass = false;
+							
+							errorMap = new HashMap<String, String>();
+							errorMap.put("exceltype", key);
+							errorMap.put("rownum", "-1");
+							errorMap.put("excelproperty", "自製方式");
+							errorMap.put("error", "沒有自製方式欄柆");
+						} else {
+							String d9MakePatternStr = d9MakePatternMap.get("value");
+							if (TCUtil.isNull(d9MakePatternStr)) {
+								blnIsPass = false;
+								
+								errorMap = entityContentMap.get("自製方式");
+								errorMap.put("error", "自製方式欄柆的属性值為空,請檢查");
+							}
+						}
+						
+						if ("79-PCB ASS'Y".equals(key)) {														
+							Map<String, String> d9ProductTypeL6Map = entityContentMap.getOrDefault("PRODUCTION TYPE", null);
+							String d9ProductTypeL6Str = d9ProductTypeL6Map.getOrDefault("value", "");
+							if (!"INCLUDE (SMD/AI/OTHER/PRE-FORMING)".equals(d9ProductTypeL6Str) && !"IC+FW".equals(d9ProductTypeL6Str)) {
+								Map<String, String> d9SupplementInfoMap = entityContentMap.getOrDefault("PCBA料号", null);
+								String d9SupplementInfoStr = d9SupplementInfoMap.getOrDefault("value", "");
+								if (TCUtil.isNull(d9SupplementInfoStr)) {
+									blnIsPass = false;
+									errorMap = entityContentMap.get("PCBA料号");
+									errorMap.put("error", "PCBA料号欄柆的属性值為空,請檢查");
+								} else {
+									try {
+										TCComponent[]tcCompArr = TCUtil.executeQuery(TCUtil.getTCSession(), "__D9_Find_79PCB", new String[] {"D9_PCA_Part:items_tag.item_id", "d9_ModelName"}, new String[]{d9SupplementInfoStr, "*"});
+										if (null == tcCompArr || 0 == tcCompArr.length) {
+											blnIsPass = false;
+											errorMap = entityContentMap.get("PCBA料号");
+											errorMap.put("error", "PCBA料号欄柆对应的料号信息不存在,請檢查");
+										}
+									} catch (Exception e) {
+										e.printStackTrace();
+									}									
+								}
+							}else {
+								Map<String, String> d9DerivativeDifferentialCodeMap = entityContentMap.getOrDefault("衍生機種區別碼", null);
+								String d9DerivativeDifferentialCodeStr = d9DerivativeDifferentialCodeMap.getOrDefault("value", "");
+								if (TCUtil.isNull(d9DerivativeDifferentialCodeStr)) {
+//									blnIsPass = false;
+//									errorMap = entityContentMap.get("衍生機種區別碼");
+//									errorMap.put("error", "欄柆的属性值為空,請檢查");
+								}else {
+									Map<String, String> d9SupplementInfoMap = entityContentMap.getOrDefault("PCBA料号", null);
+									String d9SupplementInfoStr = d9SupplementInfoMap.getOrDefault("value", "");
+									if(TCUtil.isNull(d9SupplementInfoStr)) {
+										blnIsPass = false;
+										errorMap = entityContentMap.get("PCBA料号");
+										errorMap.put("error", "欄柆的属性值為空,請檢查");
+									}
+								}
+							}
+						}
+						if ("8-FINISH GOOD".equals(key)) {
+							Map<String, String> map = entityContentMap.get("成品Model Name");
+							String rownum = map.get("rownum");
+							String finishModelName = map.get("value");
+							if(StrUtil.isEmpty(finishModelName) || finishModelName.length() < 6) {
+								blnIsPass = false;								
+								errorMap = new HashMap<String, String>();
+								errorMap.put("exceltype", key);
+								errorMap.put("rownum", rownum);
+								errorMap.put("excelproperty", "成品Model Name");
+								errorMap.put("error", "請填寫成品Model Name料号欄柆且長度>=6");
+							} 
+						}
+						if ("7351-HEATSINK ASS'Y(MONITOR)".equals(key) || "629-ACCESSORIES（SOFTWARE）".equals(key)) {																					
+							Map<String, String> d9SupplementInfoMap = entityContentMap.getOrDefault("PCBA料号", null);
+							if (null == d9SupplementInfoMap) {																					
+								blnIsPass = false;
+								
+								errorMap = new HashMap<String, String>();
+								errorMap.put("exceltype", key);
+								errorMap.put("rownum", "-1");
+								errorMap.put("excelproperty", "PCBA料号");
+								errorMap.put("error", "沒有PCBA料号欄柆");
+							} else {
+								String d9SupplementInfoStr = d9SupplementInfoMap.get("value");
+								if (TCUtil.isNull(d9SupplementInfoStr)) {
+									blnIsPass = false;
+									
+									errorMap = entityContentMap.get("PCBA料号");
+									errorMap.put("error", "PCBA料号欄柆的属性值為空,請檢查");
+								} else {
+									try {
+										TCComponent[]tcCompArr = TCUtil.executeQuery(TCUtil.getTCSession(), "__D9_Find_79PCB", new String[] {"D9_PCA_Part:items_tag.item_id", "d9_ModelName"}, new String[]{d9SupplementInfoStr, "*"});
+										if (null == tcCompArr || 0 == tcCompArr.length) {
+											blnIsPass = false;
+											
+											errorMap = entityContentMap.get("PCBA料号");
+											errorMap.put("error", "PCBA料号欄柆对应的料号信息不存在,請檢查");
+										}
+									} catch (Exception e) {
+										e.printStackTrace();
+									}									
+								}
+							}
+						}
+						
+						if (blnIsPass) {
+							for (int i = 1; i <= cmPropertyLst.size(); i++) {
+								String configPropValueCode = "";
+								CustomMaterialProperty cmProp = findCMProperty(cmPropertyLst, i);
+								if (cmProp != null) {
+									if ("A".equals(cmProp.configtype())) {
+										String excelProperty = cmProp.configproperty();
+										if (entityContentMap.containsKey(excelProperty)) {
+											Map<String, String> entityContentValueMap = entityContentMap.get(excelProperty);
+											if (entityContentValueMap.containsKey("value")) {
+												String excelPropValue = entityContentValueMap.get("value");																						
+												if (ConfigMap.containsKey(excelType)) {
+													 Map<String, Map<String, String>> configPropNVMap = ConfigMap.get(excelType);
+													 if (configPropNVMap.containsKey(excelProperty)) {
+														 Map<String, String> configPropVCMap = configPropNVMap.get(excelProperty);
+														 if (configPropVCMap.containsKey(excelPropValue)) {
+															 configPropValueCode = configPropVCMap.get(excelPropValue);
+														 } else {
+															 blnIsPass = false;												
+															 errorMap = entityContentValueMap;
+															 errorMap.put("error", "没有选择正确的属性值");
+															
+															 break;
+														 }
+													 }
+												}
+											}
+										}
+									} else if ("F".equals(cmProp.configtype())) {
+										configPropValueCode = cmProp.value();
+									} else if ("I".equals(cmProp.configtype()) || "M".equals(cmProp.configtype())) {
+										String excelProperty = cmProp.configproperty();
+										int configSize = cmProp.configsize();
+										if (entityContentMap.containsKey(excelProperty)) {
+											Map<String, String> entityContentValueMap = entityContentMap.get(excelProperty);
+											if (entityContentValueMap.containsKey("value")) {
+												configPropValueCode = entityContentValueMap.get("value");
+												
+												if ("I".equals(cmProp.configtype())) {
+													int valueLength = cmProp.configposition()+cmProp.configsize();
+													if (configPropValueCode.length() < valueLength) {
+														blnIsPass = false;												
+														errorMap = entityContentValueMap;
+														errorMap.put("error", "长度小于"+valueLength+"位");
+														
+														break;
+													} else {
+														configPropValueCode = configPropValueCode.substring(cmProp.configposition()-1, valueLength-1);
+													}
+												} else if ("M".equals(cmProp.configtype())) {
+													if (configPropValueCode.length() != cmProp.configsize()) {
+														blnIsPass = false;												
+														errorMap = entityContentValueMap;
+														errorMap.put("error", "长度不等于"+cmProp.configsize()+"位");
+														
+														break;
+													}
+												}																						
+											}
+										}																		
+									} else if ("C".equals(cmProp.configtype())) {
+										String excelProperty = cmProp.configproperty();
+										if (entityContentMap.containsKey(excelProperty)) {
+											Map<String, String> entityContentValueMap = entityContentMap.get(excelProperty);
+											if (entityContentValueMap.containsKey("value")) {
+												configPropValueCode = entityContentValueMap.get("value");
+												int valueLength = cmProp.configposition()+cmProp.configsize()-1;
+												if (configPropValueCode.length() < valueLength) {
+													blnIsPass = false;												
+													errorMap = entityContentValueMap;
+													errorMap.put("error", excelProperty+"长度小于"+valueLength+"位");
+													break;
+												}else {
+													configPropValueCode = configPropValueCode.substring(cmProp.configposition(),cmProp.configsize());
+												}
+											}
+										}
+										if ("79-PCB ASS'Y".equals(excelType)) {
+											if (entityContentMap.containsKey(excelProperty)) {
+												Map<String, String> entityContentValueMap = entityContentMap.get(excelProperty);
+												if (entityContentValueMap.containsKey("value")) {
+													configPropValueCode = entityContentValueMap.get("value");
+													int valueLength = cmProp.configposition()+cmProp.configsize();
+													configPropValueCode = configPropValueCode.substring(cmProp.configposition()-1, valueLength-1);
+													try {
+														TCComponent[] tcCompArr = TCUtil.executeQuery(TCUtil.getTCSession(), "__D9_Find_79PCB", new String[] {"D9_PCA_Part:items_tag.item_id", "d9_ModelName"}, new String[]{"79*", configPropValueCode+"*"});
+														if (tcCompArr != null && tcCompArr.length > 0) {
+															TCComponent tcComp = tcCompArr[0];
+															if (tcComp instanceof TCComponentItemRevision) {
+																TCComponentItemRevision itemRev = (TCComponentItemRevision)tcCompArr[0];																
+																if (itemRev != null) {
+																	String itemId = itemRev.getProperty("item_id");
+																	if (itemId.length() < 5)
+																		configPropValueCode = cmProp.value();
+																	else
+																		configPropValueCode = itemRev.getProperty("item_id").substring(2,5);	
+																}
+															}
+														} else
+															configPropValueCode = cmProp.value();																											
+													} catch (Exception e) {
+														e.printStackTrace();
+													}
+												}
+											}									
+										}
+									}
+								}
+								if(!"F".equals(cmProp.configtype())) {
+									configPropValueCode = configPropValueCode.toUpperCase(Locale.ROOT);
+								}
+								cmCode.append(configPropValueCode);
+							}
+						}
+						
+						if (!blnIsPass) {
+							StringBuilder errorInfo = new StringBuilder();
+							if (errorMap != null) {
+								errorInfo.append("Sheet【")
+								.append(errorMap.get("exceltype"))
+								.append("】第【")
+								.append(errorMap.get("rownum"))
+								.append("】行，字段【")
+								.append(errorMap.get("excelproperty"))
+								.append("】出错，")
+								.append(errorMap.get("error"));								
+							}
+							_log.onLog(errorInfo.toString(), Color.red);
+							_blnErrFlag = true;
+							
+							continue;
+						} else {
+//							Map<String, String> entityContentValueMap = entityContentMap.values().stream().findFirst().orElse(null);
+//							if (entityContentValueMap != null) {
+//								StringBuilder okInfo = new StringBuilder();
+//								okInfo.append("Sheet【")
+//								.append(entityContentValueMap.get("exceltype"))
+//								.append("】第【")
+//								.append(entityContentValueMap.get("rownum"))
+//								.append("】行成功导入, 自编料号【")
+//								.append(cmCode.toString())
+//								.append("】");								
+//								
+//								_log.onLog(okInfo.toString(), null);								
+//							}														
+						}
+						
+						if (_customMateriaBatchImportType.equals(CustomMateriaBatchImportType.IMPORT)) {
+							Map<String, Object> tcPropValueMap = new LinkedHashMap<String, Object>();
+							List<String> itemIdLst = new ArrayList<String>();
+							
+							String tcType = "";
+							Map<String, String> tempMap = entityContentMap.values().stream().findFirst().orElse(null);
+							if (tempMap != null) {
+								tcType = tempMap.get("tctype");
+							}						
+							
+							entityContentMap.forEach((tempProperty, tempValueMap)->{
+								String exceltype = tempValueMap.get("exceltype");
+								String tcProperty = tempValueMap.get("tcproperty");
+								String tcPropertyType = tempValueMap.get("tcpropertytype");
+								String tcPropertyValue = tempValueMap.get("value");
+								
+	//							if ("STRING".equals(tcPropertyType)) {
+	//								if ("item_id".equals(tcProperty)) {
+	//									itemIdLst.add(tcPropertyValue);
+	//								} else {
+										tcPropValueMap.put(tcProperty, tcPropertyValue);
+	//								}
+	//							} else if ("BOOLEAN".equals(tcPropertyType)) {
+	//								tcPropValueMap.put(tcProperty, "Y".equals(tcPropertyValue) ? true : false); 
+	//							}
+							});
+													
+							// 创建自编料号对象
+							StringBuilder createInfo = null;
+							tcPropValueMap.put("d9_MaterialGroup", tcPropValueMap.get("d9_MaterialGroup").toString().split(":")[0]);
+							tcPropValueMap.put("d9_TempPN", cmCode.toString());
+							tcPropValueMap.put("d9_FoxconnModelName", tcPropValueMap.get("d9_ModelName"));
+							tcPropValueMap.put("d9_Is2ndSource", "N");
+							if ("X-Network Communication Finish".equals(excelType)) {
+								tcPropValueMap.put("d9_MaterialType", "ZFRT");
+							} else if ("49-PCB BOARD".equals(excelType)) {
+								tcPropValueMap.put("d9_MaterialType", "ZROH");
+							} else if ("629-ACCESSORIES（SOFTWARE）".equals(excelType)) {
+								String tempVal = tcPropValueMap.getOrDefault("d9_Type_L6", "").toString();
+								if ("HDCP".equals(tempVal)) {
+									tcPropValueMap.put("d9_MaterialType", "ZROH");
+								} else {
+									tcPropValueMap.put("d9_MaterialType", "ZWAR");
+								}
+							} else if ("8-FINISH GOOD".equals(excelType)) {
+								tcPropValueMap.put("d9_MaterialType", "ZFRT");
+								String text = tcPropValueMap.getOrDefault("d9_ModelName", "").toString();
+								String[] split = text.split("_");
+								tcPropValueMap.put("d9_FoxconnModelName", split[0]);
+								if(split.length==2) {																
+									tcPropValueMap.put("d9_DerivativeTypeDC", split[1]);
+								}
+								tcPropValueMap.put("d9_ModelName", text.substring(0, 6));
+							}  else if ("79-PCB ASS'Y".equals(excelType)) {
+								tcPropValueMap.put("d9_ModelName", ((String)tcPropValueMap.get("d9_ModelName")).substring(0,6));
+								String temp_d9_ProductType_L6 = tcPropValueMap.getOrDefault("d9_ProductType_L6", "").toString();
+								String tempVal = tcPropValueMap.getOrDefault("d9_MakerCode_L6", "").toString();
+								if ("3.選擇性徵稅虛擬料號".equals(tempVal)) {
+									tcPropValueMap.put("d9_MaterialType", "ZROH");
+								} else {
+									String tempVal2 = tcPropValueMap.getOrDefault("d9_MakePattern", "").toString();
+									if ("虛階".equals(tempVal2)) {
+										tcPropValueMap.put("d9_MaterialType", "ZMOD");
+									} else {
+										tcPropValueMap.put("d9_MaterialType", "ZHLB");
+									}																		
+								}
+								
+								if ("INCLUDE (SMD/AI/OTHER/PRE-FORMING)".equals(temp_d9_ProductType_L6)) {
+									tcPropValueMap.put("item_revision_id", "00");
+								} else {
+									tcPropValueMap.put("item_revision_id", "A");
+								}							
+							}else {
+								String tempVal = tcPropValueMap.getOrDefault("d9_MakePattern", "").toString();
+								if ("虛階".equals(tempVal)) {
+									tcPropValueMap.put("d9_MaterialType", "ZMOD");
+								} else {
+									tcPropValueMap.put("d9_MaterialType", "ZHLB");
+								}
+							}
+							
+							if ("7351-HEATSINK ASS'Y(MONITOR)".equals(excelType)||"629-ACCESSORIES（SOFTWARE）".equals(excelType)||"7148-OTHER A'SSY".equals(excelType)||"71408-A'SSY PANEL".equals(excelType)||"71407-A'SSY FINAL".equals(excelType)||"713-PACKING ASS'Y".equals(excelType)) {
+								String finishedModelName = (String) tcPropValueMap.get("d9_ModelName");
+								tcPropValueMap.put("d9_ModelName_L6", finishedModelName.substring(1,6));
+							}
+
+							// 获取供应商信息
+	//						getSupplierInfo(tcPropValueMap);
+							tcPropValueMap.put("d9_ActualUserID",actualUser);
+							if (!createCustomMaterial(_tcTargetComp, tcType, 1 == itemIdLst.size() ? itemIdLst.get(0) : "", tcPropValueMap)) {
+								createInfo = new StringBuilder();
+								if (errorMap != null) {
+									createInfo.append("Sheet【")
+									.append(tempMap.get("exceltype"))
+									.append("】第【")
+									.append(tempMap.get("rownum"))
+									.append("】行，对象创建失败");								
+								}
+								_log.onLog(createInfo.toString(), Color.red);
+								_blnErrFlag = true;
+							} else {
+								createInfo = new StringBuilder();
+								if (null == errorMap) {
+									createInfo.append("Sheet【")
+									.append(tempMap.get("exceltype"))
+									.append("】第【")
+									.append(tempMap.get("rownum"))
+									.append("】行，对象创建成功");								
+								}
+								_log.onLog(createInfo.toString(), null);
+							}
+						}
+					}					
+				}
+			});	
+			
+			if (!_blnErrFlag && _customMateriaBatchImportType.equals(CustomMateriaBatchImportType.CHECK)) {
+				_log.onComplete();
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static boolean createCustomMaterial(TCComponent tcTargetComp, String tcType, String itemId, Map<String, Object> tcPropValueMap) {
+		boolean retFlag = true;
+		
+		try {
+			TCUtil.setBypass(TCUtil.getTCSession());
+			
+			TCComponent com = TCUtil.createCom(TCUtil.getTCSession(), tcType, itemId, tcPropValueMap);
+			
+			if (tcTargetComp != null && com != null)
+				tcTargetComp.add("contents", com);
+			tcTargetComp.refresh();	
+			
+		} catch (Exception e) {
+			retFlag = false;
+			e.printStackTrace();
+		} finally {
+			TCUtil.closeBypass(TCUtil.getTCSession());
+		}
+		
+		return retFlag;
+	}
+	
+	private Map<String, List<String>> checkMap = new HashedMap<>();
+	{
+		List<String> list = new ArrayList<>();
+		list.add("PCB ASS'Y CLASSIFICATION".trim());
+		list.add("PRODUCTION TYPE".trim());
+		list.add("PANEL SOURCE".trim());
+		list.add("VIRONMENTAL".trim());
+		list.add("MAKER CODE".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		list.add("衍生機種區別碼".trim());
+		checkMap.put("79-PCB ASS'Y".trim(),list);
+		list = new ArrayList<>();
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("7351-HEATSINK ASS'Y(MONITOR)".trim(),list);
+		list = new ArrayList<>();
+		list.add("TYPE".trim());
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("629-ACCESSORIES（SOFTWARE）".trim(),list);
+		list = new ArrayList<>();
+		list.add("物料群組".trim());
+		list.add("子類別".trim());
+		list.add("型號/機種".trim());
+		list.add("客戶".trim());
+		list.add("Adapter".trim());
+		list.add("Battery".trim());
+		list.add("出貨國家".trim());
+		list.add("制造環境".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("X-Network Communication Finish".trim(),list);
+		list = new ArrayList<>();
+		list.add("PRODUCT TYPE".trim());
+		list.add("PRODUCT CLASSIFICATION".trim());
+		list.add("MODEL REGISTERED,WITH SEQUENTIAL".trim());
+		list.add("PANEL SOURCE".trim());
+		list.add("SCALER IC".trim());
+		list.add("CUSTOMER CODE".trim());
+		list.add("AUDIO INPUT".trim());
+		list.add("POWER CORD TYPE".trim());
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("8-FINISH GOOD".trim(),list);
+		list = new ArrayList<>();
+		list.add("INCH".trim());
+		list.add("PANEL".trim());
+		list.add("MECHANICAL Status".trim());
+		list.add("PCBA STATUS".trim());
+		list.add("FACTORY CLASSIFICATION".trim());
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("7149-SKD ASS'Y".trim(),list);
+		list = new ArrayList<>();
+		list.add("CLASSIFICATION".trim());
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("7148-OTHER A'SSY".trim(),list);
+		list = new ArrayList<>();
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("71408-A'SSY PANEL".trim(),list);
+		list = new ArrayList<>();
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		checkMap.put("71407-A'SSY FINAL".trim(),list);
+		list = new ArrayList<>();
+		list.add("TYPE".trim());
+		list.add("ENVIRONMENTAL".trim());
+		list.add("物料群組".trim());
+		list.add("PCBA料号".trim());
+		list.add("進料方式".trim());
+		list.add("自製方式".trim());
+		list.add("成品Model Name".trim());
+		list.add("英文描述".trim());
+		list.add("中文描述".trim());
+		list.add("用量單位".trim());
+		list.add("出貨地".trim());
+		checkMap.put("713-PACKING ASS'Y".trim(),list);		
+	}
+	
+	private boolean checkExcel(String sheetName, List<String> columnNameLst) {	
+		List<String> checkList = checkMap.get(sheetName);
+		if(checkList.size() != columnNameLst.size()) {
+			return false;
+		}
+		for(String column:columnNameLst) {
+			if(!checkList.contains(column)) {
+				return false;
+			}
+		}		
+		return true;
+	}
+
+}

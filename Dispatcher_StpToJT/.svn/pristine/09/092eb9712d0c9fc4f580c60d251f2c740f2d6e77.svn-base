@@ -1,0 +1,5 @@
+tc_properties=D:\\dev\\tc_14workplace\\Dispatcher_StpToJT\\bin\\tc.properties
+step_to_jt_exe=D:\\Siemens\\Teamcenter14.2\\Visualization\\JT_STEP\\Program\\jt_step.exe
+step_to_jt_config=D:\\Siemens\\Teamcenter14.2\\Visualization\\JT_STEP\\etc\\steptojt.config
+to_userId=hua-sheng.yu@foxconn.com
+subject=Stp\u8f6cJT\u90ae\u4ef6\u63d0\u9192

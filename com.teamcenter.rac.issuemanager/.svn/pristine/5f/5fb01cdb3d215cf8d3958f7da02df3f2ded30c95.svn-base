@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-11">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="com.teamcenter.rac.issuemanager_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="hutool-all-5.8.10.jar"/>
+	<classpathentry kind="lib" path="TcSoaCoreRac_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="plmnow_zh_transfer.jar"/>
+	<classpathentry kind="lib" path="TcSoaCommon_14000.2.0.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

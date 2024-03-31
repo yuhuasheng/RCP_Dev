@@ -1,0 +1,38 @@
+package com.foxconn.electronics.prtL10ebom.ebomimport.domain;
+
+import java.util.List;
+
+public class BOMBean {
+	
+	private Integer level;
+	
+	private MaterialBean selfMaterialBean;
+	
+	private List<BOMBean> childList;
+
+	public Integer getLevel() {
+		return level;
+	}
+
+	public void setLevel(Integer level) {
+		this.level = level;
+	}
+
+	public MaterialBean getSelfMaterialBean() {
+		return selfMaterialBean;
+	}
+
+	public void setSelfMaterialBean(MaterialBean selfMaterialBean) {
+		this.selfMaterialBean = selfMaterialBean;
+	}
+
+	public List<BOMBean> getChildList() {
+		return childList;
+	}
+
+	public void setChildList(List<BOMBean> childList) {
+		this.childList = childList;
+	}
+	
+	
+}

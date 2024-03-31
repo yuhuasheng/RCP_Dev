@@ -1,0 +1,727 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+
+<mapper namespace="com.foxconn.dp.plm.syncdoc.mapper.SyncDocMapper">
+	
+	<resultMap type ="java.util.HashMap" id= "folderStructureMap">
+	     <result column ="projLevel" property="projLevel" />
+	     <result column ="parentname" property="parentname" />
+	     <result column ="childname" property="childname" />
+	     <result column ="pfolderpath" property="pfolderpath" />
+	</resultMap>
+	
+	<resultMap type ="java.util.HashMap" id= "DocRevMap">
+	     <result column ="doc_id" property="doc_id" />
+	     <result column ="doc_rev" property="doc_rev" />
+	     <result column ="doc_path" property="doc_path" />
+	</resultMap>
+	
+	<resultMap type ="java.util.HashMap" id= "tcMap">
+	     <result column ="parent_id" property="parent_id" />
+	</resultMap>
+	
+	<select id="getDMSProjectFolderParentId" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+		SELECT F1.FLD_ID AS PARENTID FROM
+		(
+		    SELECT LEVEL AS PROJLEVEL, F.FLD_ID, F.FLD_CHILD_ID, O.FLD_NAME, SYS_CONNECT_BY_PATH (O.FLD_NAME, '->') AS FOLDERPATH
+		    FROM FOLDER_STRUCTURE F, OBJ_FOLDER O WHERE F.FLD_ID = O.FLD_SN START WITH F.FLD_ID = #{dmsProjectFolderId}
+		    CONNECT BY PRIOR F.FLD_CHILD_ID = F.FLD_ID
+		) F1, OBJ_FOLDER O1 WHERE F1.FLD_CHILD_ID = O1.FLD_SN  ORDER BY F1.PROJLEVEL, F1.FLD_NAME, O1.FLD_NAME
+    </select>
+    
+    <select id="getDMSProjectFolderChildId" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+		SELECT F1.FLD_CHILD_ID AS CHILDID FROM
+		(
+		    SELECT LEVEL AS PROJLEVEL, F.FLD_ID, F.FLD_CHILD_ID, O.FLD_NAME, SYS_CONNECT_BY_PATH (O.FLD_NAME, '->') AS FOLDERPATH
+		    FROM FOLDER_STRUCTURE F, OBJ_FOLDER O WHERE F.FLD_ID = O.FLD_SN START WITH F.FLD_ID = #{dmsProjectFolderId}
+		    CONNECT BY PRIOR F.FLD_CHILD_ID = F.FLD_ID
+		) F1, OBJ_FOLDER O1 WHERE F1.FLD_CHILD_ID = O1.FLD_SN  ORDER BY F1.PROJLEVEL, F1.FLD_NAME, O1.FLD_NAME
+    </select>
+    
+    <update id="updateDMSFolderRef" parameterType="java.util.List">
+   		 <foreach collection="folderIds" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_FOLDER
+			<set>
+				REF_TYPE = 1
+			</set>
+			WHERE FLD_SN = #{item, jdbcType=INTEGER}
+		</foreach>		 
+   	</update>
+	
+	<select id="getDocs" resultType="com.foxconn.dp.plm.syncdoc.domain.ObjDocument">
+		SELECT DOC_SN docNo,DOC_NUM docNum, CREATOR creator, CREATOR_NAME creatorName FROM OBJ_DOCUMENT WHERE DOC_ORIGIN = 1
+    </select>
+    
+    <select id="getDocCreator" parameterType="java.lang.String"  resultType="com.foxconn.dp.plm.syncdoc.domain.ObjDocument">
+		SELECT T4.PUSER_ID creator, T4.PUSER_NAME creatorName FROM (
+		SELECT T2.ROWNING_USERU FROM 
+		(SELECT PUID FROM INFODBA.PITEM WHERE PITEM_ID = #{docNum}) T1
+		LEFT JOIN INFODBA.PPOM_APPLICATION_OBJECT T2 ON T1.PUID = T2.PUID) T3
+		LEFT JOIN INFODBA.PPOM_USER T4 ON T3.ROWNING_USERU = T4.PUID
+    </select>
+    
+   	<update id="setDocCreator" parameterType="java.util.List"> 
+   		 <foreach collection="docInfos" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_DOCUMENT
+			<set>
+				CREATOR = #{item.creator, jdbcType=VARCHAR},
+				CREATOR_NAME = #{item.creatorName, jdbcType=VARCHAR}
+			</set>
+			WHERE DOC_NUM = #{item.docNum, jdbcType=VARCHAR}
+		</foreach>		 
+   	</update>
+    
+   	<update id="setDocRevCreator" parameterType="java.util.List"> 
+   		 <foreach collection="docInfos" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_DOCUMENT_REV
+			<set>
+				CREATOR = #{item.creator, jdbcType=VARCHAR},
+				CREATOR_NAME = #{item.creatorName, jdbcType=VARCHAR}
+			</set>
+			WHERE DOC_ID = #{item.docNo, jdbcType=INTEGER}
+		</foreach>		 
+   	</update>
+
+   	<select id="getDMSProjectCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM OBJ_PROJECT WHERE PROJ_SPAS_ID = #{spasId}
+    </select>
+	
+	<select id="getDMSNoAccountDataId" resultType="java.lang.Integer">
+		SELECT TAB2.CID FROM 
+		(
+		    SELECT F1.PROJLEVEL, F1.FLD_ID PID, F1.FLD_NAME AS PARENTNAME, F1.FLD_CHILD_ID CID, O1.FLD_NAME AS CHILDNAME, LTRIM(F1.FOLDERPATH,'->') PFOLDERPATH FROM
+		    (
+		        SELECT LEVEL AS PROJLEVEL, F.FLD_ID, F.FLD_CHILD_ID, O.FLD_NAME, SYS_CONNECT_BY_PATH (O.FLD_NAME, '->') AS FOLDERPATH
+		        FROM FOLDER_STRUCTURE F, OBJ_FOLDER O WHERE F.FLD_ID = O.FLD_SN START WITH F.FLD_ID = #{dmsProjectFolderId}
+		        CONNECT BY PRIOR F.FLD_CHILD_ID = F.FLD_ID
+		    ) F1, OBJ_FOLDER O1 WHERE F1.FLD_CHILD_ID = O1.FLD_SN ORDER BY F1.PROJLEVEL, F1.FLD_NAME, O1.FLD_NAME
+		) TAB2 WHERE
+		<foreach collection="departments" index="index" item="item" open="" separator=" OR " close="">
+			PFOLDERPATH LIKE '%->' || #{item} || '->%'
+        </foreach>
+    </select>
+    
+    <select id="getDMSHasAccountDataId" resultType="java.lang.Integer">
+		SELECT TAB2.CID FROM 
+		(
+		    SELECT F1.PROJLEVEL, F1.FLD_ID PID, F1.FLD_NAME AS PARENTNAME, F1.FLD_CHILD_ID CID, O1.FLD_NAME AS CHILDNAME, LTRIM(F1.FOLDERPATH,'->') PFOLDERPATH FROM
+		    (
+		        SELECT LEVEL AS PROJLEVEL, F.FLD_ID, F.FLD_CHILD_ID, O.FLD_NAME, SYS_CONNECT_BY_PATH (O.FLD_NAME, '->') AS FOLDERPATH
+		        FROM FOLDER_STRUCTURE F, OBJ_FOLDER O WHERE F.FLD_ID = O.FLD_SN START WITH F.FLD_ID = #{dmsProjectFolderId}
+		        CONNECT BY PRIOR F.FLD_CHILD_ID = F.FLD_ID
+		    ) F1, OBJ_FOLDER O1 WHERE F1.FLD_CHILD_ID = O1.FLD_SN ORDER BY F1.PROJLEVEL, F1.FLD_NAME, O1.FLD_NAME
+		) TAB2 WHERE
+		<foreach collection="departments" index="index" item="item" open="" separator=" AND " close="">
+			PFOLDERPATH NOT LIKE '%->' || #{item} || '%'
+        </foreach>
+    </select>
+    
+    <update id="setDMSNoAccountDataSource" parameterType="java.util.List">
+		<foreach collection="list" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_FOLDER
+			<set>
+				REF_TYPE = 0
+			</set>
+			WHERE FLD_SN = #{item}
+		</foreach>
+    </update>
+    
+    <update id="setDMSHasAccountDataSource" parameterType="java.util.List">
+		<foreach collection="list" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_FOLDER
+			<set>
+				REF_TYPE = 1
+			</set>
+			WHERE FLD_SN = #{item}
+		</foreach>
+    </update>
+	
+	<select id="getTCDMSProjectInfo" resultType="com.foxconn.dp.plm.syncdoc.domain.ProjectInfo">
+		SELECT TAB2.spas_id tcSpasId ,TAB2.name tcProjectName,TAB3.PROJ_SPAS_ID dmsSpasId, TAB3.PROJ_NAME dmsProjectName, TAB3.FOLDER_ID dmsFolderId FROM (
+		    select tab1.spas_id,tab1.name from(
+		        select c.puid puid,c.pd9_spas_id spas_id,c.pobject_name name,u.pos_username creator,  
+		        TO_CHAR(c.pcreation_date + 8/24,'YYYY-MM-DD HH24:MI:SS') creation_time,c.plast_mod_date last_modify_time from 
+		        (select b.puid,b.pd9_spas_id,b.pobject_name,a.pcreation_date,a.plast_mod_date,a.rowning_useru from
+		        (select a.puid,r.pd9_spas_id,a.pobject_name from (
+		        select f.puid,w.pobject_name from infodba.pfolder f
+		        left join infodba.pworkspaceobject w on f.puid = w.puid where w.pobject_type = 'D9_PlatformFoundFolder'
+		        ) a left join infodba.pd9_projectfolder r on a.puid = r.puid) b
+		        left join infodba.ppom_application_object a on b.puid = a.puid) c
+		        left join infodba.puser u on c.rowning_useru = u.puid
+		    ) tab1 where tab1.creation_time > '2022-01-01 00:00:00'
+		) TAB2 LEFT JOIN (SELECT PROJ_SPAS_ID, PROJ_NAME, FOLDER_ID FROM OBJ_PROJECT) TAB3
+		ON TAB2.spas_id = TAB3.PROJ_SPAS_ID
+    </select>
+    
+    <update id="changeProjectName" parameterType="java.util.List">
+		<foreach collection="list" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_PROJECT
+			<set>
+				PROJ_NAME = #{item.tcProjectName, jdbcType=VARCHAR}
+			</set>
+			WHERE PROJ_SPAS_ID = #{item.tcSpasId, jdbcType=VARCHAR}
+		</foreach>
+    </update>
+    
+    <update id="changeFolderName" parameterType="java.util.List">
+		<foreach collection="list" item="item" index="index" open="begin" close=";end;" separator=";">
+			UPDATE OBJ_FOLDER
+			<set>
+				FLD_NAME = #{item.tcProjectName, jdbcType=VARCHAR}
+			</set>
+			WHERE FLD_SN = #{item.dmsFolderId, jdbcType=INTEGER}
+		</foreach>   
+    </update>
+
+	<select id="getProjectDifference" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call project_difference
+			(
+				#{tc_to_docManSys, mode=OUT, jdbcType=CURSOR, resultMap=tcMap}
+			)
+		}
+    </select>
+    
+    <select id="getProjectInfo" parameterType="java.util.List" resultType="com.foxconn.dp.plm.syncdoc.domain.Project">
+		SELECT TAB3.PUID,TAB4.PD9_SPAS_ID SPASID,TAB3.NAME FROM (
+		    SELECT TAB1.PUID, TAB2.POBJECT_NAME NAME FROM INFODBA.PFOLDER TAB1
+		    LEFT JOIN INFODBA.PWORKSPACEOBJECT TAB2 ON TAB1.PUID = TAB2.PUID WHERE TAB2.POBJECT_TYPE = 'D9_PlatformFoundFolder'
+		) TAB3 LEFT JOIN INFODBA.PD9_PROJECTFOLDER TAB4 ON TAB3.PUID = TAB4.PUID WHERE TAB4.PD9_SPAS_ID IN
+		<foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+        	#{item}
+        </foreach>
+    </select>
+    
+    <select id="TCProjectToDMS" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call tc_project_to_dms
+			(
+				#{spas_id, mode=IN, jdbcType=VARCHAR},
+				#{proj_name, mode=IN, jdbcType=VARCHAR}
+			)
+		}
+    </select>
+    
+    <select id="getTCProjectFolderSPASId" resultType="java.lang.String">
+		<!-- 
+			POC '2022-05-11 00:00:00'
+		-->
+		SELECT TAB3.PD9_SPAS_ID FROM (
+		    SELECT TAB1.PUID,TAB1.PD9_SPAS_ID,TO_CHAR(TAB2.PCREATION_DATE + 8/24,'YYYY-MM-DD HH24:MI:SS') CREATE_DATE FROM (
+		        SELECT D9.PUID ,D9.PD9_SPAS_ID FROM INFODBA.PD9_PROJECTFOLDER D9
+		        LEFT JOIN INFODBA.PWORKSPACEOBJECT W ON D9.PUID = W.PUID WHERE W.POBJECT_TYPE = 'D9_PlatformFoundFolder'
+		    ) TAB1 LEFT JOIN INFODBA.PPOM_APPLICATION_OBJECT TAB2 ON TAB1.PUID = TAB2.PUID 
+		) TAB3 WHERE TAB3.CREATE_DATE > '2022-01-01 00:00:00'
+    </select>
+    
+    <select id="getFolderStructureDifference" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call folder_structure_difference
+			(
+				#{spas_id, mode=IN, jdbcType=VARCHAR},
+				#{tc_to_docManSys, mode=OUT, jdbcType=CURSOR, resultMap=folderStructureMap},
+				#{docManSys_to_tc, mode=OUT, jdbcType=CURSOR, resultMap=folderStructureMap}
+			)
+		}
+    </select>
+
+    <select id="TCStructureToDMS" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call tc_folder_to_dms
+			(
+				#{project_id, mode=IN, jdbcType=INTEGER},
+				#{structure_level, mode=IN, jdbcType=VARCHAR},
+				#{parent_name, mode=IN, jdbcType=VARCHAR},
+				#{child_name, mode=IN, jdbcType=VARCHAR},
+				#{folder_path, mode=IN, jdbcType=VARCHAR},
+				#{tc_folder_id, mode=IN, jdbcType=VARCHAR},
+				#{ref_type, mode=IN, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="DMSStructureToTC" parameterType="java.util.Map" resultType="java.lang.String" statementType="CALLABLE" >
+		{
+			call dms_folder_to_tc
+			(
+				#{project_id, mode=IN, jdbcType=VARCHAR},
+				#{structure_level, mode=IN, jdbcType=VARCHAR},
+				#{parent_name, mode=IN, jdbcType=VARCHAR},
+				#{child_name, mode=IN, jdbcType=VARCHAR},
+				#{folder_path, mode=IN, jdbcType=VARCHAR},
+				#{parent_id, mode=OUT, jdbcType=VARCHAR}
+			)
+		}
+    </select>
+    
+    <select id="TCDocToDMS" parameterType="java.util.Map" statementType="CALLABLE" flushCache="true">
+		{
+			call TC_DOC_TO_DMS
+			(
+				#{ITEM_ID, mode=IN, jdbcType=VARCHAR},
+				#{PARENT_ID, mode=IN, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="getDocNum" resultType="java.lang.String">
+		SELECT DOC_NUM FROM OBJ_DOCUMENT
+    </select>
+    
+    <select id="getDMSDocInfo" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.DMSDocInfo">
+		SELECT DOC_NAME docName,DOCUMENT_CATEGORY docType FROM OBJ_DOCUMENT WHERE DOC_NUM = #{DMSItemId}
+    </select>
+    
+     <select id="getItemRevRealAuthor" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT CREATOR_NAME || '(' || CREATOR || ')' REALAUTHOR FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+    </select>
+    
+    <select id="getItemRevUploadDate" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT CREATED FROM (
+		    SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+		) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID WHERE TAB2.REV_NUM = #{docRev} AND DEL_FLAG = 0
+    </select>
+
+    <select id="getDMSItemRevId" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT FILE_VERSION_SN FROM OBJ_FILE_VERSION WHERE DOC_REV_ID = (
+		  SELECT TAB2.REV_SN FROM (
+		        SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+		    ) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID WHERE TAB2.REV_NUM = #{docRev} AND TAB2.DEL_FLAG = 0
+		)
+    </select>
+    
+    <select id="getDMSFileName" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT (TAB6.FILE_NAME || '.' || TAB6.FILE_TYPE) FILE_NAME FROM (
+		    SELECT TAB4.FILE_ID FROM (
+		        SELECT TAB2.REV_SN FROM (
+		            SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+		        ) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID WHERE TAB2.REV_NUM = #{docRev} AND TAB2.DEL_FLAG = 0
+		    ) TAB3 LEFT JOIN OBJ_FILE_VERSION TAB4 ON TAB3.REV_SN = TAB4.DOC_REV_ID
+		) TAB5 LEFT JOIN OBJ_FILE TAB6 ON TAB5.FILE_ID = TAB6.FILE_SN
+    </select>
+    
+	<select id="getTCProjectFolderPUID" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT PUID FROM INFODBA.PD9_PROJECTFOLDER WHERE PD9_SPAS_ID = #{spasId}
+    </select>
+    
+    <select id="getDMSProjectFolderId" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT FOLDER_ID FROM OBJ_PROJECT WHERE PROJ_SPAS_ID = #{spasId}
+    </select>
+    
+    <select id="getTCProjectFolderDocItemIds" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT DISTINCT(NVL(I.PITEM_ID, (SELECT I.PITEM_ID FROM INFODBA.PITEMREVISION IV, INFODBA.PITEM I WHERE IV.PUID = TAB1.CID AND IV.RITEMS_TAGU = I.PUID))) ITEMID FROM
+    	(SELECT C.PVALU_0 CID, W.POBJECT_TYPE CTYPE FROM INFODBA.PCONTENTS C,INFODBA.PWORKSPACEOBJECT W
+        WHERE C.PVALU_0 = W.PUID AND W.POBJECT_TYPE = 'Document' OR W.POBJECT_TYPE = 'DocumentRevision'
+        START WITH C.PUID = #{projectFolderPUID} CONNECT BY PRIOR C.PVALU_0 = C.PUID)TAB1, INFODBA.PITEM I WHERE TAB1.CID = I.PUID(+)
+    </select>
+    
+    <select id="getDMSItemCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docItemId}
+    </select>
+    
+    <select id="getTCItemInfo" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.ItemInfo">
+		SELECT PLEVEL,PNAME,PPATH FROM (
+	    SELECT TAB3.PLEVEL,TAB3.PID,TAB3.PNAME,TAB3.CID,TAB3.CNAME,TAB3.PPATH,TAB3.CTYPE,
+	    NVL(I.PITEM_ID, (SELECT I.PITEM_ID FROM INFODBA.PITEMREVISION IV, INFODBA.PITEM I WHERE IV.PUID = TAB3.CID AND IV.RITEMS_TAGU = I.PUID)) ITEMID
+	    FROM(
+	        SELECT TAB1.PLEVEL, TAB1.PID, TAB1.PNAME, TAB1.CID, TAB2.POBJECT_NAME CNAME, TAB1.PPATH, TAB2.POBJECT_TYPE CTYPE FROM 
+	        (
+	            SELECT LEVEL PLEVEL, C.PUID PID, W.POBJECT_NAME PNAME, C.PVALU_0 CID, LTRIM(SYS_CONNECT_BY_PATH (W.POBJECT_NAME, '->'), '->') PPATH FROM 
+	            INFODBA.PCONTENTS C, INFODBA.PWORKSPACEOBJECT W WHERE C.PUID = W.PUID
+	            START WITH C.PUID = #{TCProjectFolderPUID} CONNECT BY PRIOR C.PVALU_0 = C.PUID
+	        ) TAB1 LEFT JOIN INFODBA.PWORKSPACEOBJECT TAB2 ON TAB1.CID = TAB2.PUID
+	        WHERE TAB2.POBJECT_TYPE = 'Document' OR TAB2.POBJECT_TYPE = 'DocumentRevision'
+	    )TAB3, INFODBA.PITEM I WHERE TAB3.CID = I.PUID(+) ORDER BY ITEMID
+		) WHERE ITEMID = #{itemId}
+    </select>
+    
+    <select id="getDMSItemParentId" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT TAB1.CID FROM (
+		SELECT LEVEL PLEVEL, S.FLD_ID PID,F.FLD_NAME PNAME, FLD_CHILD_ID CID, LTRIM(SYS_CONNECT_BY_PATH (F.FLD_NAME, '->'), '->') PPATH FROM 
+		FOLDER_STRUCTURE S,OBJ_FOLDER F WHERE S.FLD_ID = F.FLD_SN 
+		START WITH S.FLD_ID = #{DMSProjectFolderId,jdbcType=VARCHAR} CONNECT BY PRIOR S.FLD_CHILD_ID = S.FLD_ID) TAB1
+		LEFT JOIN OBJ_FOLDER TAB2 ON TAB1.CID = TAB2.FLD_SN
+		WHERE TAB1.PLEVEL = #{level,jdbcType=VARCHAR} AND TAB2.FLD_NAME = #{name,jdbcType=VARCHAR} AND TAB1.PPATH = #{path,jdbcType=VARCHAR}
+		AND DEL_FLAG = 0
+    </select>
+    
+    <select id="getDMSProjectFolderDocItemIds" parameterType="java.lang.Integer" resultType="java.lang.String">
+		SELECT DISTINCT(TAB4.DOC_NUM) FROM(
+		    SELECT TAB1.FLD_CHILD_ID,TAB2.DOC_ID FROM(
+		            SELECT FLD_CHILD_ID FROM FOLDER_STRUCTURE S
+		            START WITH S.FLD_ID = #{DMSProjectFolderId} CONNECT BY PRIOR S.FLD_CHILD_ID = S.FLD_ID
+		        ) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.FLD_CHILD_ID = TAB2.FLD_ID 
+		    WHERE TAB2.DOC_ID IS NOT NULL AND DEL_FLAG = 0) TAB3 
+		LEFT JOIN OBJ_DOCUMENT TAB4 ON TAB3.DOC_ID = TAB4.DOC_SN WHERE TAB4.DEL_FLAG = 0 AND TAB4.DOC_NUM IS NOT NULL
+    </select>
+    
+    <select id="getTCItemCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM(
+		SELECT DISTINCT(NVL(I.PITEM_ID, (SELECT I.PITEM_ID FROM INFODBA.PITEMREVISION IV, INFODBA.PITEM I WHERE IV.PUID = TAB1.CID AND IV.RITEMS_TAGU = I.PUID))) ITEMID FROM
+		(SELECT C.PVALU_0 CID, W.POBJECT_TYPE CTYPE FROM INFODBA.PCONTENTS C,INFODBA.PWORKSPACEOBJECT W
+		WHERE C.PVALU_0 = W.PUID AND W.POBJECT_TYPE = 'Document' OR W.POBJECT_TYPE = 'DocumentRevision'
+		START WITH C.PUID = #{TCProjectFolderPUID,jdbcType=VARCHAR} CONNECT BY PRIOR C.PVALU_0 = C.PUID)TAB1, INFODBA.PITEM I WHERE TAB1.CID = I.PUID(+)
+		) WHERE ITEMID = #{docItemId,jdbcType=VARCHAR}
+    </select>
+    
+    <select id="getDMSItemInfo" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.ItemInfo">
+		SELECT PLEVEL,PNAME,PPATH FROM(
+		    SELECT TAB5.PLEVEL, TAB5.CID, TAB5.FLD_NAME PNAME, TAB5.PPATH, TAB5.DOC_ID, TAB6.DOC_NUM FROM(
+		        SELECT TAB3.PLEVEL, TAB3.CID, TAB3.FLD_NAME, TAB3.PPATH, TAB4.DOC_ID FROM(
+		            SELECT TAB1.PLEVEL, TAB1.CID, TAB2.FLD_NAME, TAB1.PPATH FROM(
+		                SELECT LEVEL PLEVEL, S.FLD_CHILD_ID CID, LTRIM(SYS_CONNECT_BY_PATH (F.FLD_NAME, '->'), '->') PPATH FROM 
+		                FOLDER_STRUCTURE S, OBJ_FOLDER F WHERE S.FLD_ID = F.FLD_SN
+		                START WITH FLD_ID = #{DMSProjectFolderId,jdbcType=VARCHAR} CONNECT BY PRIOR FLD_CHILD_ID = FLD_ID
+		            )TAB1, OBJ_FOLDER TAB2 WHERE TAB1.CID = TAB2.FLD_SN
+		        )TAB3 LEFT JOIN OBJ_DOCUMENT_REV TAB4 ON TAB3.CID = TAB4.FLD_ID WHERE TAB4.DOC_ID IS NOT NULL AND TAB4.REV_NUM = '01'
+		    )TAB5 LEFT JOIN OBJ_DOCUMENT TAB6 ON TAB5.DOC_ID = TAB6.DOC_SN
+		)TAB7 WHERE TAB7.DOC_NUM = #{itemId,jdbcType=VARCHAR}
+    </select>
+    
+    <select id="getTCItemParentId" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT CID FROM (
+	    	SELECT LEVEL PLEVEL, C.PUID PID, W.POBJECT_NAME PNAME, C.PVALU_0 CID, LTRIM(SYS_CONNECT_BY_PATH (W.POBJECT_NAME, '->'), '->') PPATH FROM 
+	    	INFODBA.PCONTENTS C, INFODBA.PWORKSPACEOBJECT W WHERE C.PUID = W.PUID
+	    	START WITH C.PUID = #{TCProjectFolderPUID} CONNECT BY PRIOR C.PVALU_0 = C.PUID
+		)TAB1 LEFT JOIN INFODBA.PWORKSPACEOBJECT TAB2 ON TAB1.CID = TAB2.PUID 
+		WHERE TAB1.PLEVEL = #{level} AND TAB2.POBJECT_NAME = #{name} AND TAB1.PPATH = #{path}
+    </select>
+    
+    <select id="getTCProjectDocRev" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.DocRevInfo">
+		SELECT NVL(TAB6.PITEM_ID, (SELECT I.PITEM_ID FROM INFODBA.PITEMREVISION IV, INFODBA.PITEM I WHERE IV.PUID = TAB5.CID AND IV.RITEMS_TAGU = I.PUID)) DOC_ID,
+		TAB5.ITEMREV DOC_REV,TAB5.PPATH DOC_PATH FROM(
+		    SELECT TAB3.PID,TAB3.PNAME,TAB3.CID,TAB3.CNAME,TAB3.CTYPE,TAB4.PITEM_REVISION_ID ITEMREV,TAB3.PPATH FROM(
+		        SELECT TAB1.PID,TAB1.PNAME,TAB1.CID,TAB2.POBJECT_NAME CNAME,TAB2.POBJECT_TYPE CTYPE,TAB1.PPATH FROM(
+		            SELECT C.PUID PID,W.POBJECT_NAME PNAME,C.PVALU_0 CID,LTRIM(SYS_CONNECT_BY_PATH (W.POBJECT_NAME, '->'), '->') PPATH FROM 
+		            INFODBA.PCONTENTS C, INFODBA.PWORKSPACEOBJECT W WHERE C.PUID = W.PUID
+		            START WITH C.PUID = #{TCProjectFolderPUID} CONNECT BY PRIOR C.PVALU_0 = C.PUID
+		        )TAB1 LEFT JOIN INFODBA.PWORKSPACEOBJECT TAB2 ON TAB1.CID = TAB2.PUID WHERE TAB2.POBJECT_TYPE = 'Document' OR TAB2.POBJECT_TYPE = 'DocumentRevision'
+		    ) TAB3 LEFT JOIN INFODBA.PITEMREVISION TAB4 ON TAB3.CID = TAB4.PUID
+		)TAB5 LEFT JOIN INFODBA.PITEM TAB6 ON TAB5.CID = TAB6.PUID
+    </select>
+    
+    <select id="getDocRevCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM (
+            SELECT DISTINCT(TAB2.PITEM_REVISION_ID) FROM INFODBA.PITEM TAB1, INFODBA.PITEMREVISION TAB2
+            WHERE TAB1.PUID = TAB2.RITEMS_TAGU AND TAB1.PITEM_ID = #{docId}
+        )
+    </select>
+
+	<select id="getDMSProjectDocRev" parameterType="java.lang.Integer" resultType="com.foxconn.dp.plm.syncdoc.domain.DocRevInfo">			
+		SELECT TAB5.DOC_NUM DOC_ID, TAB5.REV_NUM DOC_REV, (TAB5.PPATH || '->' || TAB6.FLD_NAME) DOC_PATH FROM (
+    		SELECT TAB3.PID, TAB3.PNAME, TAB3.CID, TAB4.DOC_NUM, TAB3.DOC_ID, TAB3.REV_NUM, TAB3.PPATH FROM (
+        		SELECT TAB1.PID, TAB1.PNAME, TAB1.CID, TAB2.DOC_ID, TAB2.REV_NUM, TAB1.PPATH FROM (
+            		SELECT S.FLD_ID PID, F.FLD_NAME PNAME, S.FLD_CHILD_ID CID, LTRIM(SYS_CONNECT_BY_PATH (F.FLD_NAME, '->'), '->') PPATH FROM FOLDER_STRUCTURE S, OBJ_FOLDER F
+		            WHERE S.FLD_ID = F.FLD_SN 
+		            START WITH S.FLD_ID = #{DMSProjectFolderId} CONNECT BY PRIOR S.FLD_CHILD_ID = S.FLD_ID
+		        ) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.CID = TAB2.FLD_ID WHERE DEL_FLAG = 0 AND TAB2.DOC_ID IS NOT NULL AND TAB2.REV_NUM IS NOT NULL
+		    ) TAB3 LEFT JOIN OBJ_DOCUMENT TAB4 ON TAB3.DOC_ID = TAB4.DOC_SN
+		) TAB5 LEFT JOIN OBJ_FOLDER TAB6 ON TAB5.CID = TAB6.FLD_SN WHERE TAB6.DEL_FLAG = 0 AND TAB5.DOC_NUM IS NOT NULL
+    </select>
+
+    <update id="deleteTCDocRevInfo">
+		TRUNCATE TABLE TC_DOC_REVISION_TEMP
+    </update>
+    
+    <select id="addTCDocRevInfo" parameterType = "java.util.List">
+		INSERT ALL
+        <foreach collection = "list" item = "item" index = "index" >
+            INTO TC_DOC_REVISION_TEMP
+            (DOC_ID,DOC_REV,DOC_PATH)
+            values
+            (#{item.doc_id,jdbcType=VARCHAR},#{item.doc_rev,jdbcType=VARCHAR},#{item.doc_path,jdbcType=VARCHAR})
+        </foreach >
+        select 1 from dual
+    </select>
+    
+    <update id="deleteDMSDocRevInfo">
+		TRUNCATE TABLE DMS_DOC_REVISION_TEMP
+    </update>
+    
+    <select id="addDMSDocRevInfo" parameterType = "java.util.List">
+		INSERT ALL
+        <foreach collection = "list" item = "item" index = "index" >
+            INTO DMS_DOC_REVISION_TEMP
+            (DOC_ID,DOC_REV,DOC_PATH)
+            values
+            (#{item.doc_id,jdbcType=VARCHAR},#{item.doc_rev,jdbcType=VARCHAR},#{item.doc_path,jdbcType=VARCHAR})
+        </foreach >
+        select 1 from dual
+    </select>
+    
+     <select id="getDocRevDifferenceData" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call docrev_structure_difference
+			(
+				#{tc_to_docManSys, mode=OUT, jdbcType=CURSOR, resultMap=DocRevMap},
+				#{docManSys_to_tc, mode=OUT, jdbcType=CURSOR, resultMap=DocRevMap}
+			)
+		}
+    </select>
+    
+    <select id="getItemRevOwning" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT TAB2.PUSER_NAME  FROM (
+		    SELECT ROWNING_USERU FROM INFODBA.PPOM_APPLICATION_OBJECT WHERE PUID = #{tcDocRevId}
+		) TAB1 LEFT JOIN INFODBA.PPOM_USER TAB2 ON TAB1.ROWNING_USERU = TAB2.PUID
+    </select>
+    
+    <select id="getDMSDocSN" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+    </select>
+    
+    <select id="getParentFolderId" parameterType="java.lang.String" resultType="java.lang.Integer">
+    	SELECT TAB3.CID FROM (
+		    SELECT TAB1.PID, TAB1.PNAME, TAB1.CID, TAB2.FLD_NAME CNAME, TAB2.DEL_FLAG, TAB1.PPATH || '->' || TAB2.FLD_NAME PATH FROM (
+		        SELECT S.FLD_ID PID, F.FLD_NAME PNAME, S.FLD_CHILD_ID CID, LTRIM(SYS_CONNECT_BY_PATH (F.FLD_NAME, '->'), '->') PPATH FROM 
+		        FOLDER_STRUCTURE S, OBJ_FOLDER F WHERE S.FLD_ID = F.FLD_SN 
+		        START WITH S.FLD_ID = #{DMSProjectFolderId} CONNECT BY PRIOR S.FLD_CHILD_ID = S.FLD_ID
+		    )TAB1 LEFT JOIN OBJ_FOLDER TAB2 ON TAB1.CID = TAB2.FLD_SN
+		)TAB3 WHERE TAB3.PATH = #{docPath} AND DEL_FLAG = 0
+    </select>
+    
+    <select id="addDMSDocRev" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call tc_docrev_to_dms
+			(
+				#{DMSDocSN, mode=IN, jdbcType=INTEGER},
+				#{docId, mode=IN, jdbcType=VARCHAR},
+				#{docRev, mode=IN, jdbcType=VARCHAR},
+				#{parentFolderId, mode=IN, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="getItemRevSource" parameterType="java.lang.String" resultType="java.lang.Integer">
+		<!--  SELECT TAB2.REF_TYPE FROM (
+		    SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId,jdbcType=VARCHAR}
+		) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID
+		WHERE TAB2.DOC_ID = TAB1.DOC_SN AND TAB2.REV_NUM = #{docRev,jdbcType=VARCHAR} AND TAB2.DEL_FLAG = 0
+		-->
+		SELECT REF_TYPE FROM (
+			SELECT TAB2.REF_TYPE FROM (
+			    SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId,jdbcType=VARCHAR}
+			) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID
+			WHERE TAB2.DOC_ID = TAB1.DOC_SN AND TAB2.REV_NUM = #{docRev,jdbcType=VARCHAR} AND TAB2.DEL_FLAG = 0
+		) WHERE ROWNUM = 1
+    </select>
+    
+    <select id="setItemRevDelFlag" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call set_ItemRev_Del
+			(
+				#{SPAS_ID, mode=IN, jdbcType=VARCHAR},
+				#{P_PATH, mode=IN, jdbcType=VARCHAR},
+				#{C_NAME, mode=IN, jdbcType=VARCHAR},
+				#{DOC_ID, mode=IN, jdbcType=VARCHAR}
+			)
+		}
+    </select>
+    
+    <select id="getTCParentFolderId" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT TAB3.CID FROM (
+		    SELECT TAB1.PID, TAB1.PNAME, TAB1.CID, TAB2.POBJECT_NAME, (TAB1.PPATH || '->' || TAB2.POBJECT_NAME) CPATH FROM(
+		        SELECT C.PUID PID, W.POBJECT_NAME PNAME, C.PVALU_0 CID, LTRIM(SYS_CONNECT_BY_PATH (W.POBJECT_NAME, '->'), '->') PPATH FROM
+		        INFODBA.PCONTENTS C, INFODBA.PWORKSPACEOBJECT W WHERE C.PUID = W.PUID
+		        START WITH C.PUID = #{TCProjectFolderPUID} CONNECT BY PRIOR C.PVALU_0 = C.PUID
+		    ) TAB1 LEFT JOIN INFODBA.PWORKSPACEOBJECT TAB2 ON TAB1.CID = TAB2.PUID
+		) TAB3 WHERE CPATH = #{docPath}
+    </select>
+    
+    <select id="getTCDocRevId" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT PUID FROM (
+		    SELECT TAB2.PUID FROM (
+		        SELECT PUID FROM INFODBA.PITEM WHERE PITEM_ID = #{docId}
+		    ) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE PITEM_REVISION_ID = #{frontDocRev}
+		     ORDER BY TAB2.PSEQUENCE_ID DESC
+		) WHERE ROWNUM = 1
+    </select>
+    
+    <select id="getDMSItemRevName" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT REV_NAME FROM (
+		    SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+		) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID
+		WHERE TAB2.DOC_ID = TAB1.DOC_SN AND TAB2.REV_NUM = #{docRev} AND TAB2.DEL_FLAG = 0
+    </select>
+    
+    <select id="getItemRevRefData" resultType="com.foxconn.dp.plm.syncdoc.domain.ItemRevInfo1">
+		SELECT TAB1.DOC_ID DOCID, TAB2.DOC_NUM DOCNUM, TAB1.VERSION_NUM VERSIONNUM FROM OBJ_FILE_VERSION TAB1
+		LEFT JOIN OBJ_DOCUMENT TAB2 ON TAB1.DOC_ID = TAB2.DOC_SN
+		WHERE TAB1.REF_TYPE = 1 AND TAB1.REF_ID IS NULL
+    </select>
+    
+    <select id="getItemRevRefId" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT TAB2.PUID FROM (
+		    SELECT PUID FROM INFODBA.PITEM WHERE PITEM_ID = #{docNum}
+		) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE TAB2.PITEM_REVISION_ID = #{versionNum}
+    </select>
+    
+    <select id="setItemRevRefId" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call set_ItemRev_RefId
+			(
+				#{doc_id, mode=IN, jdbcType=INTEGER},
+				#{version_num, mode=IN, jdbcType=VARCHAR},
+				#{itemrev_refid, mode=IN, jdbcType=VARCHAR}
+			)
+		}
+    </select>
+    
+    <select id="getItemRevStateData" resultType="com.foxconn.dp.plm.syncdoc.domain.ItemRevInfo1">
+		SELECT TAB1.DOC_ID DOCID, TAB2.DOC_NUM DOCNUM, TAB1.VERSION_NUM VERSIONNUM FROM OBJ_FILE_VERSION TAB1
+		LEFT JOIN OBJ_DOCUMENT TAB2 ON TAB1.DOC_ID = TAB2.DOC_SN
+		WHERE TAB1.REF_TYPE = 1 AND TAB1.LIFECYCLE_PHASE IS NULL
+    </select>
+    
+    <select id="getItemRevStateCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM (
+		    SELECT TAB2.PUID FROM (
+		        SELECT PUID,PITEM_ID FROM INFODBA.PITEM WHERE PITEM_ID = #{docNum}
+		    ) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE TAB2.PITEM_REVISION_ID = #{versionNum}
+		) TAB3 LEFT JOIN INFODBA.PRELEASE_STATUS_LIST TAB4 ON TAB3.PUID = TAB4.PUID
+    </select>
+    
+    <select id="getItemRevStateName" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT PNAME FROM (
+		    SELECT TAB4.PVALU_0 PUID FROM (
+		        SELECT TAB2.PUID FROM (
+		            SELECT PUID,PITEM_ID FROM INFODBA.PITEM WHERE PITEM_ID = #{docNum}
+		        ) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE TAB2.PITEM_REVISION_ID = #{versionNum}
+		    ) TAB3 LEFT JOIN INFODBA.PRELEASE_STATUS_LIST TAB4 ON TAB3.PUID = TAB4.PUID
+		) TAB5 LEFT JOIN INFODBA.PRELEASESTATUS TAB6 ON TAB5.PUID = TAB6.PUID
+    </select>
+    
+    <select id="setItemRevState" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call set_ItemRev_State
+			(
+				#{doc_id, mode=IN, jdbcType=INTEGER},
+				#{doc_num, mode=IN, jdbcType=VARCHAR},
+				#{lifecycle_phase, mode=IN, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="geCirculateTodayData" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.CirculateInfo">
+		SELECT HIS_DOC_SN hisId,FILE_VERSION_ID revId,HIS_ACTION action FROM HIS_FILE_VERSION WHERE HIS_ACTION = 2 AND HAS_SYNC = 0
+    </select>
+    
+    <select id="getDocIdAndRev" parameterType="java.lang.Integer" resultType="com.foxconn.dp.plm.syncdoc.domain.DocIdAndRevInfo">
+		SELECT TAB2.DOC_NUM docNum,TAB1.REV_NUM revNUM FROM (
+		    SELECT DOC_ID, REV_NUM FROM OBJ_DOCUMENT_REV WHERE REV_SN = #{revId}
+		)TAB1 LEFT JOIN OBJ_DOCUMENT TAB2 ON TAB1.DOC_ID = TAB2.DOC_SN
+    </select>
+    
+    <select id="getItemRevPuid" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT TAB2.PUID FROM (
+			SELECT PUID FROM INFODBA.PITEM WHERE PITEM_ID = #{docNum}
+		) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE TAB2.PITEM_REVISION_ID = #{revNum}
+    </select>
+    
+    <select id="setProcessingResult" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call set_Processing_Result
+			(
+				#{his_id, mode=IN, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="getDocSnByDocNum" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+    </select>
+    
+    <select id="setDMSDocRevIssueState" parameterType="java.util.Map" statementType="CALLABLE">
+		{
+			call SET_DMS_ITEMREV_ISSUE_STATE
+			(
+				#{DOC_SN, mode=IN, jdbcType=VARCHAR},
+				#{ITEM_REV, mode=IN, jdbcType=VARCHAR},
+				#{PROCESS_STATE, mode=OUT, jdbcType=INTEGER}
+			)
+		}
+    </select>
+    
+    <select id="getDMSItemRevProcessState" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT LIFECYCLE_PHASE FROM (
+		    SELECT TAB2.LIFECYCLE_PHASE FROM (
+		        SELECT DOC_SN FROM OBJ_DOCUMENT WHERE DOC_NUM = #{docId}
+		    ) TAB1 LEFT JOIN OBJ_DOCUMENT_REV TAB2 ON TAB1.DOC_SN = TAB2.DOC_ID WHERE REV_NUM = #{docRev} ORDER BY TAB2.FLD_ID DESC
+		) WHERE ROWNUM = 1
+    </select>
+    
+    <select id="getItemRevProcessStateCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+		SELECT COUNT(*) FROM INFODBA.PRELEASE_STATUS_LIST WHERE PUID = 
+		(
+		    SELECT PUID FROM (
+		        SELECT TAB2.PUID FROM (
+		            SELECT PUID FROM INFODBA.PITEM WHERE PITEM_ID =  #{docId}
+		        ) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE PITEM_REVISION_ID = #{docRev}
+		        ORDER BY TAB2.PSEQUENCE_ID DESC
+		    ) WHERE ROWNUM = 1
+		)
+    </select>
+    
+    <select id="getItemRevProcessStateName" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT PNAME FROM(
+		    SELECT PNAME FROM (
+		        SELECT TAB4.PVALU_0 PUID FROM (
+		            SELECT TAB2.PUID FROM (
+		                SELECT PUID,PITEM_ID FROM INFODBA.PITEM WHERE PITEM_ID = #{docId}
+		            ) TAB1 LEFT JOIN INFODBA.PITEMREVISION TAB2 ON TAB1.PUID = TAB2.RITEMS_TAGU WHERE TAB2.PITEM_REVISION_ID = #{docRev}
+		            ORDER BY TAB2.PSEQUENCE_ID DESC
+		        ) TAB3 LEFT JOIN INFODBA.PRELEASE_STATUS_LIST TAB4 ON TAB3.PUID = TAB4.PUID
+		    ) TAB5 LEFT JOIN INFODBA.PRELEASESTATUS TAB6 ON TAB5.PUID = TAB6.PUID
+		) WHERE ROWNUM = 1
+    </select>
+    
+    <select id="getDMSFolderRef" parameterType="java.lang.String" resultType="com.foxconn.dp.plm.syncdoc.domain.ProjectFolderRefInfo">
+	    SELECT TAB2.FLD_SN folderId, TAB2.REFTYPE refType, TAB2.REFID refId FROM 
+		(
+		    SELECT F1.PROJLEVEL, F1.FLD_NAME AS PARENTNAME, O1.FLD_NAME AS CHILDNAME, LTRIM(F1.FOLDERPATH,'->') PFOLDERPATH, 
+		    O1.FLD_SN, O1.REF_TYPE REFTYPE, O1.REF_ID REFID, O1.DEL_FLAG FROM
+		    (
+		        SELECT LEVEL AS PROJLEVEL, F.FLD_ID, F.FLD_CHILD_ID, O.FLD_NAME, SYS_CONNECT_BY_PATH (O.FLD_NAME, '->') AS FOLDERPATH
+		        FROM FOLDER_STRUCTURE F, OBJ_FOLDER O WHERE F.FLD_ID = O.FLD_SN START WITH F.FLD_ID = #{projectFolderId}
+		        CONNECT BY PRIOR F.FLD_CHILD_ID = F.FLD_ID
+		    ) F1, OBJ_FOLDER O1 WHERE F1.FLD_CHILD_ID = O1.FLD_SN ORDER BY F1.PROJLEVEL, F1.FLD_NAME, O1.FLD_NAME
+		) TAB2 WHERE PROJLEVEL = #{level} AND PARENTNAME = #{parentName} AND CHILDNAME = #{childName} AND PFOLDERPATH = #{folderPath} AND TAB2.DEL_FLAG = 0
+	    
+    </select>
+    
+    <update id="setFolderRefId" parameterType="java.lang.String">
+    	UPDATE OBJ_FOLDER SET REF_ID = #{folderPuid,jdbcType=VARCHAR} WHERE FLD_SN = #{folderId,jdbcType=VARCHAR}
+    </update>
+    
+    <update id="setFolderDelFlag" parameterType="java.lang.String">
+    	UPDATE OBJ_FOLDER SET DEL_FLAG = 1 WHERE FLD_SN = #{folderId,jdbcType=VARCHAR}
+    </update>
+    
+    <select id="getTCFolderId" parameterType="java.lang.String" resultType="java.lang.String">
+		SELECT PVALU_0 folderId FROM (
+		    SELECT PVALU_0, TAB1.PROJLEVEL, TAB1.PARENTNAME, TAB1.CHILDNAME, TAB1.PFOLDERPATH FROM
+		    (
+		        SELECT PVALU_0, T1.PROJLEVEL, T1.POBJECT_NAME AS PARENTNAME, W2.POBJECT_NAME AS CHILDNAME, LTRIM(T1.FOLDERPATH,'->') PFOLDERPATH , T1.POBJECT_TYPE PTYPE, W2.POBJECT_TYPE CTYPE FROM
+		        ( 
+		            SELECT LEVEL AS PROJLEVEL,C.PUID, C.PVALU_0, W.POBJECT_NAME, SYS_CONNECT_BY_PATH (W.POBJECT_NAME, '->') AS FOLDERPATH, W.POBJECT_TYPE
+		            FROM INFODBA.PCONTENTS C, INFODBA.PWORKSPACEOBJECT W WHERE C.PUID = W.PUID OR W.POBJECT_TYPE = 'D9_PlatformFoundFolder' 
+		            OR W.POBJECT_TYPE = 'D9_FunctionFolder' OR W.POBJECT_TYPE = 'D9_PhaseFolder' OR W.POBJECT_TYPE = 'D9_ArchiveFolder' 
+		            START WITH C.PUID = #{tcProjectId} CONNECT BY PRIOR C.PVALU_0 = C.PUID
+		        ) T1, INFODBA.PWORKSPACEOBJECT W2 WHERE T1.PVALU_0 = W2.PUID ORDER BY T1.PROJLEVEL, T1.POBJECT_NAME, W2.POBJECT_NAME
+		    ) TAB1 WHERE TAB1.CTYPE = 'D9_PlatformFoundFolder' OR TAB1.CTYPE = 'D9_FunctionFolder' OR TAB1.CTYPE = 'D9_PhaseFolder' OR TAB1.CTYPE = 'D9_ArchiveFolder'
+		) TAB2 WHERE PROJLEVEL = #{level} AND PARENTNAME = #{parentName} AND CHILDNAME = #{childName} AND PFOLDERPATH = #{folderPath}
+    </select>
+    
+    <select id="getDMSFolderDelFlag" parameterType="java.lang.String" resultType="java.util.Map">
+		SELECT DEL_FLAG,FLD_SN,FLD_NAME FROM OBJ_FOLDER WHERE REF_ID = #{tcFolderId ,jdbcType=VARCHAR}
+    </select>
+    
+    <update id="setFolderDelFlagNum" parameterType="java.lang.String">
+    	UPDATE OBJ_FOLDER SET DEL_FLAG = 0 WHERE REF_ID =  #{tcFolderId,jdbcType=VARCHAR}
+    </update>
+
+	<update id="updateFolderName">
+		UPDATE OBJ_FOLDER SET FLD_NAME = #{folderName} WHERE FLD_SN = #{fldSN}
+	</update>
+
+</mapper>

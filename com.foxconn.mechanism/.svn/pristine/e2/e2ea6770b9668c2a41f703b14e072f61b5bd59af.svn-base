@@ -1,0 +1,6 @@
+package com.foxconn.mechanism.dtpac.matmaintain.domain;
+
+public class MatMaintainConstant {
+	
+	public static final String D9_PACMATERIALTABLE = "d9_PACMaterialTable";
+}

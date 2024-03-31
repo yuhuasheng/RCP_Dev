@@ -1,0 +1,220 @@
+package com.teamcenter.rac.workflow.commands.newprocess;
+
+import com.foxconn.decompile.service.CustomPnService;
+import com.foxconn.decompile.util.CommonTools;
+import com.foxconn.decompile.util.SPASUser;
+import com.foxconn.decompile.util.TCUtil;
+import com.foxconn.decompile.util.WorkGroup;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplate;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+import java.io.PrintStream;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.CharsetUtils;
+import org.apache.http.util.EntityUtils;
+
+public class UserNewProcessDialog extends UserExtNewProcessDialog {
+	private TCSession session = null;
+	private PrintStream printStream = null;
+	Registry reg = null;
+	TCComponentTaskTemplate taskTemplate = null;
+	private TCComponent target;
+	AbstractAIFUIApplication app;
+	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+	
+	
+	public UserNewProcessDialog(NewProcessCommand paramNewProcessCommand) {
+		super(paramNewProcessCommand);
+		System.out.println("UserNewProcessDialog");
+		this.session = ((TCSession) AIFUtility.getCurrentApplication().getSession());
+		this.app = AIFUtility.getCurrentApplication();
+		this.target = ((TCComponent) this.app.getTargetComponent());
+		
+		getActualUserIdsProjectId();
+		System.out.println("actualUserIds = "+actualUserIds+",projectId = "+projectId);
+		
+		if(!projectId.equals("")) {
+			teamRosterUsers = loadTeamRosterData(session,projectId.toLowerCase());
+		}
+		
+//		System.out.println("paramNewProcessCommand ==" + paramNewProcessCommand);
+	}
+	
+	
+	@Override
+	public void startCommandOperation() {
+		// TODO Auto-generated method stub
+		System.out.println("startCommandOperation");
+		getpubMailPanel();
+		super.startCommandOperation();
+	}
+
+	public TCComponent getCreatorTask() {
+		//System.out.println("super.getCreatorTask() ==" + super.getCreatorTask());
+		System.out.println("super.getCreatorTask()");
+		return super.getCreatorTask();
+	}
+
+	public void getProcListAll() {
+		super.getProcListAll();
+		System.out.println("super.getProcListAll()");
+	}
+	
+	@Override
+	public void endOperation() {
+		super.endOperation();
+		String s=getProcessName();
+		//自编料号重抛流程
+		if(s!=null&&s.startsWith("FXN37_MNT")) {
+			try {
+				InterfaceAIFComponent[] tmps=this.pasteTargets;
+				TCComponent[] coms=new TCComponent[tmps.length];
+				for(int i=0;i<tmps.length;i++) {
+					coms[i]=(TCComponent)tmps[i];
+				}
+			    new CustomPnService().applyCustomPn(session,coms,null);
+			}catch(Exception e) {}
+		}
+	}
+	public String getProcessDescription() {
+		//System.out.println("super.getProcessDescription() ==" + super.getProcessDescription());
+		return super.getProcessDescription();
+	}
+
+	public String getProcessName() {
+		System.out.println("super.getProcessName()");
+		//System.out.println("super.getProcessName() ==" + super.getProcessName());
+		return super.getProcessName();
+	}
+
+	public Object getProcessTemplate() {
+		System.out.println("super.getProcessTemplate()");
+//		System.out.println("super.getProcessTemplate() ==" + super.getProcessTemplate());
+		return super.getProcessTemplate();
+	}
+
+	protected void getActualUserIdsProjectId() {
+		try {
+			if (pasteTargets != null) {
+				List<String> itemActualUserIdLst = new ArrayList<String>();
+				List<String> prjIdLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					if (targetComp instanceof TCComponentItemRevision) {
+						TCComponentItemRevision itemRev = (TCComponentItemRevision) targetComp;
+					
+						for (TCComponent prjComp : TCUtil.getProjects(itemRev)) {
+							// 获取项目信息
+							TCComponentProject prjOfItemRev = (TCComponentProject) prjComp;
+							if (null == prjOfItemRev) {
+								continue;
+							}
+							TCProperty propOfItemRev = prjOfItemRev.getTCProperty("project_id");
+							prjIdLst.add(propOfItemRev.getStringValue());
+						}
+						
+						String d9_ActualUserID = targetComp.getProperty("d9_ActualUserID");
+						if(d9_ActualUserID.contains("(") && d9_ActualUserID.contains(")") ) {
+							actualUserIds = d9_ActualUserID.substring(d9_ActualUserID.indexOf("(") + 1, d9_ActualUserID.indexOf(")"));
+						} else {
+							actualUserIds = d9_ActualUserID;
+						}
+						//itemActualUserIdLst.add(targetComp.getProperty("d9_ActualUserID"));
+					}
+				}
+				
+//				itemActualUserIdLst.removeIf(str -> "".equals(str) || str == null);
+//				if (itemActualUserIdLst != null && itemActualUserIdLst.size() > 0) 
+//					actualUserIds = itemActualUserIdLst.stream().map(e -> e.substring(e.indexOf("(") + 1, e.indexOf(")")))
+//							.collect(Collectors.joining(","));
+					
+				prjIdLst = prjIdLst.stream().filter(CommonTools.distinctByKey(str -> str)).collect(Collectors.toList()); // 移除相同的专案ID
+				projectId = prjIdLst.stream().collect(Collectors.joining(","));
+				
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private ArrayList<SPASUser> loadTeamRosterData(TCSession session, String platformFoundIds) {
+		ArrayList<SPASUser> teamRosterUsers = null;
+		try {
+			
+//			System.out.println("============loadTeamRosterData===============");
+			String result = "";
+			HashMap httpmap = new HashMap();
+			httpmap.put("platformFoundIds", platformFoundIds);
+			String springUrl = session.getPreferenceService().getString(TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+			
+			String url = springUrl + "/tc-integrate/spas/getTeamRoster";
+//			url = "http://127.0.0.1:8068" + "/spas/getTeamRoster";
+//			HttpClient httpClient = new DefaultHttpClient();
+			CloseableHttpClient httpClient = HttpClients.createDefault();
+			HttpPost httpPost = new HttpPost(url);
+			
+			// setConnectTimeout: 设置连接超时时间，单位为毫秒，此处设为5秒
+			// setConnectionRequestTimeout： 设置从connect Manager获取Connection超时时间，单位为毫秒，这个属性是新加的属性，因为目前版本是可以共享连接池的，此处设置为5秒
+			// setSocketTimeout: 请求获取数据的超时时间，单位为毫秒，如果访问一个接口，多少时间无法返回数据，就直接放弃此次调用，此处设置为10秒
+			RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(5000).setConnectionRequestTimeout(5000)
+					.setSocketTimeout(10000).build();
+			httpPost.setConfig(requestConfig);
+			
+			Gson gson = new Gson();
+			String params = gson.toJson(httpmap);
+			StringBody contentBody = new StringBody(params, Charset.defaultCharset());
+			MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+			builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+			builder.addPart("data", contentBody).setCharset(CharsetUtils.get("UTF-8")).build();
+			HttpEntity entity = builder.build();
+			httpPost.setEntity(entity);
+			CloseableHttpResponse response = httpClient.execute(httpPost);			
+			if (HttpStatus.SC_OK == response.getStatusLine().getStatusCode()) {
+				result = EntityUtils.toString(response.getEntity(), "utf-8");
+			} 
+			
+			httpClient.getConnectionManager().shutdown();
+			if (!result.equals("")) {
+				Gson gson1 = new Gson();
+				teamRosterUsers = gson1.fromJson(result, new TypeToken<List<SPASUser>>() {
+				}.getType());
+				
+			} else {
+				System.out.println("SPAS集成查询失败.");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("SPAS集成查询超时，请联系系统管理员");
+		}
+		return teamRosterUsers;
+
+	}
+}

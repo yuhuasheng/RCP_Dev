@@ -1,0 +1,570 @@
+package com.foxconn.electronics.login;
+
+import com.foxconn.tcutils.util.TCUtil;
+import com.simple.traditionnal.util.S2TTransferUtil;
+import com.teamcenter.rac.aif.IPerspectiveDefService;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.AbstractAIFSession;
+import com.teamcenter.rac.aif.kernel.ITCSession;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aif.navigationpane.ITaskPaneSection;
+import com.teamcenter.rac.aif.navigationpane.SecondaryPopupShell;
+import com.teamcenter.rac.aif.navigationpane.impl.OpenObjectInAppExtPointmanager;
+import com.teamcenter.rac.aif.navigationpane.impl.SectionComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.Activator;
+import com.teamcenter.rac.common.create.BOCreateDefinitionFactory;
+import com.teamcenter.rac.common.create.CreateInstanceInput;
+import com.teamcenter.rac.common.create.IBOCreateDefinition;
+import com.teamcenter.rac.common.create.ICreateInstanceInput;
+import com.teamcenter.rac.common.create.SOAGenericCreateHelper;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentForm;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.providers.TCComponentContentProvider;
+import com.teamcenter.rac.providers.TCComponentLabelProvider;
+import com.teamcenter.rac.providers.node.ComponentRootNode;
+import com.teamcenter.rac.services.IAWHostInteropService;
+import com.teamcenter.rac.services.ISessionService;
+import com.teamcenter.rac.util.OSGIUtil;
+import com.teamcenter.rac.util.PlatformHelper;
+import com.teamcenter.rac.util.event.ClientEventDispatcher;
+import com.teamcenter.soaictstubs.booleanSeq_tHolder;
+
+import java.awt.event.ActionEvent;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import javax.swing.SwingUtilities;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.eclipse.jface.viewers.TreeViewer;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Tree;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+
+public class MyInboxSectionComponent extends SectionComponent {
+	private ServiceRegistration	sessionListener;
+
+	ISessionService				isessionservice	= Activator.getDefault().getSessionService();
+	final AbstractAIFSession	session			= isessionservice.getActivePerspectiveSession();
+	final TCSession				tcsession		= (TCSession) session;
+
+	// public String OtherJob = "其他任務";
+	public String				ExecuteJob		= "要執行的任務";
+	public String				TrackingJob		= "要跟蹤的任務";
+	private boolean isRefresh = false;
+
+	public void createPartControl(ITaskPaneSection paramITaskPaneSection) {
+		super.createPartControl(paramITaskPaneSection);
+		AbstractAIFSession localAbstractAIFSession = Activator.getDefault().getSessionService().getActivePerspectiveSession();
+		setTCComponent(getUserInboxFolder(localAbstractAIFSession));
+	}
+
+	public void executeAction(ActionEvent paramActionEvent) {
+		isRefresh = true;
+		ISessionService localISessionService = Activator.getDefault().getSessionService();
+		AbstractAIFSession localAbstractAIFSession = localISessionService.getActivePerspectiveSession();
+		String str1 = AIFUtility.getCurrentApplication().getApplicationId();
+		String str2 = null;
+		if (getTCComponent() != null)
+			str2 = getTCComponent().getType();
+		boolean bool = OpenObjectInAppExtPointmanager.getInstance().tcOpenInCurrentPerspective(str2, str1);
+		if ((localAbstractAIFSession instanceof ITCSession) && (localAbstractAIFSession.isLoggedIn())) {
+			IPerspectiveDefService localIPerspectiveDefService = getPerspectiveDefService();
+			if ((!(bool)) && (!(localIPerspectiveDefService.isTypeOfPerspectiveActive(getDefaultPerspectiveId()))))
+				Display.getDefault().syncExec(new Runnable() {
+					public void run() {
+						PlatformHelper.showPerspective(getDefaultPerspectiveId());
+					}
+				});
+			if ((getTCComponent() == null) || (getTCComponent() != getUserInboxFolder(Activator.getDefault().getSessionService().getActivePerspectiveSession())))
+				setTCComponent(getUserInboxFolder(Activator.getDefault().getSessionService().getActivePerspectiveSession()));
+			if (getTCComponent() != null)
+				super.openComponent(getTCComponent());
+		} else {
+			if (this.sessionListener == null)
+				sessionListener = ClientEventDispatcher.addEventHandler(new IC_SessionChangeListener(), "com/teamcenter/rac/aifrcp/event/Session/Login/Post");
+			Display.getDefault().asyncExec(new Runnable() {
+				public void run() {
+					postPerspective("com.teamcenter.rac.ui.perspectives.navigatorPerspective");
+				}
+			});
+		}
+	}
+
+	private TCComponent getUserInboxFolder(AbstractAIFSession paramAbstractAIFSession) {
+
+		TCComponent localTCComponent = null;
+		if ((paramAbstractAIFSession instanceof TCSession) && (paramAbstractAIFSession.isLoggedIn())) {
+			// TCSession localTCSession = (TCSession) paramAbstractAIFSession;
+			try {
+				localTCComponent = getinbox();
+
+				// localTCComponent = localTCSession.getUser().getUserInBox();
+			} catch (Exception localException) {
+				Display.getDefault().asyncExec(new Runnable() {
+					public void run() {
+						MessageDialog.openError(Display.getCurrent().getActiveShell(), "Error", localException.getLocalizedMessage());
+					}
+				});
+			}
+		}
+		return localTCComponent;
+	}
+
+	public TCComponent getinbox() {
+		
+		TCComponent userFolder = null;
+		System.out.println("--------getinbox----------");
+		
+		OSSUserPojo userPojo = UserLoginSecond.getOSSUserInfo();
+		String nickname = "";
+		String name_no = "";
+		
+		try {
+			if (userPojo != null) {
+				
+				String emp_no = userPojo.getEmp_no();
+				if(emp_no!=null && !"".equals(emp_no)) {
+					TCComponent[] executeQuery = TCUtil.executeQuery(tcsession, "__D9_Find_Actual_User", new String[] {"item_id"},
+						new String[] {emp_no});
+					if(executeQuery!=null && executeQuery.length >0) {
+						nickname = executeQuery[0].getProperty("object_name");
+					}
+				}
+				//nickname = S2TTransferUtil.toTraditionnalString(userPojo.getNickname());
+				
+				System.out.println("nickname = " + nickname);
+				System.out.println("emp_no = " + emp_no);
+	
+				name_no = nickname + "(" + emp_no + ")" + "任務箱";
+			} else {
+	//			nickname = "apadmin";
+	//			name_no = "apadmin (apadmin) 任务箱";
+				return null;
+			}
+
+		
+			ArrayList<TCComponentTask> jobList = new ArrayList<TCComponentTask>();
+			ArrayList<TCComponentTask> trackingList = new ArrayList<TCComponentTask>();
+			TCComponent TasksToPerform = null;
+			TCComponent TasksToTrack = null;
+
+			// 要执行的任务
+			TCComponent userInBox = tcsession.getUser().getUserInBox();
+			if(isRefresh) {
+				userInBox.refresh();
+				isRefresh = false;
+			}
+			
+			AIFComponentContext[] childrens = userInBox.getChildren();
+			for (AIFComponentContext children : childrens) {
+				InterfaceAIFComponent component2 = children.getComponent();
+				AIFComponentContext[] childrens2 = component2.getChildren();
+				for (int i = 0; i < childrens2.length; i++) {
+					TCComponent tasks = (TCComponent) childrens2[i].getComponent();
+					String type = tasks.getType();
+					if ("TasksToPerform".equals(type)) {
+						TasksToPerform = tasks;
+					} else if ("TasksToTrack".equals(type)) {
+						TasksToTrack = tasks;
+					}
+				}
+			}
+
+			if (TasksToPerform != null) {
+				// 執行的
+				AIFComponentContext[] childrens3 = TasksToPerform.getChildren();
+
+				for (AIFComponentContext children3 : childrens3) {
+					InterfaceAIFComponent component3 = children3.getComponent();
+
+					TCComponentTask jobComponent = (TCComponentTask) component3;
+					String object_name13 = component3.getProperty("object_string");
+					System.out.println(object_name13);
+					String parent_name = jobComponent.getProperty("parent_name");
+
+					TCComponent[] relatedComponents = jobComponent.getRelatedComponents("root_target_attachments");
+					if (relatedComponents != null && relatedComponents.length > 0) {
+						boolean analysePublicMail = analysePublicMail((TCComponentItemRevision) relatedComponents[0], parent_name, nickname);
+						if (analysePublicMail) {
+							jobList.add((TCComponentTask) jobComponent);
+						}
+//						else {
+//							otherList.add((TCComponentTask) jobComponent);
+//						}
+					}
+				}
+			}
+
+			if (TasksToTrack != null) {
+				// 跟蹤的
+				AIFComponentContext[] childrens4 = TasksToTrack.getChildren();
+
+				for (AIFComponentContext children4 : childrens4) {
+					InterfaceAIFComponent component4 = children4.getComponent();
+					TCComponentTask jobComponent = (TCComponentTask) component4;
+
+					TCComponent[] relatedComponents = jobComponent.getRelatedComponents("root_target_attachments");
+					if (relatedComponents != null && relatedComponents.length > 0) {
+						boolean analysePublicMail = analysePublicMail((TCComponentItemRevision) relatedComponents[0], nickname);
+						if (analysePublicMail) {
+							trackingList.add((TCComponentTask) jobComponent);
+						}
+					}
+				}
+			}
+
+			userFolder = getMyTaskInbox(name_no);
+			TCComponent jobFolder = null;
+			// TCComponent otherFolder = null;
+			TCComponent trackingFolder = null;
+			if (userFolder == null) {
+				userFolder = createTaskInbox(tcsession, "Folder", name_no);
+				jobFolder = createTaskInbox(tcsession, "Folder", ExecuteJob);
+				trackingFolder = createTaskInbox(tcsession, "Folder", TrackingJob);
+				
+				userFolder.add("contents", jobFolder);
+				userFolder.add("contents", trackingFolder);
+			} else {
+				AIFComponentContext[] children = userFolder.getChildren();
+				for (AIFComponentContext aif : children) {
+					TCComponent folder = (TCComponent) aif.getComponent();
+					String object_name = folder.getProperty("object_name");
+					if (ExecuteJob.equals(object_name)) {
+						jobFolder = folder;
+					} else if (TrackingJob.equals(object_name)) {
+						trackingFolder = folder;
+					}
+				}
+				
+				if (jobFolder != null) {
+					jobFolder.setRelated("contents", new TCComponent[] {});
+				} else {
+					jobFolder = createTaskInbox(tcsession, "Folder", ExecuteJob);
+					userFolder.add("contents", jobFolder);
+				}
+				if (trackingFolder != null) {
+					trackingFolder.setRelated("contents", new TCComponent[] {});
+				} else {
+					trackingFolder = createTaskInbox(tcsession, "Folder", TrackingJob);
+					userFolder.add("contents", trackingFolder);
+				}
+			}
+
+			
+			if (jobList != null && jobList.size() > 0) {
+				jobFolder.setRelated("contents", jobList.toArray(new TCComponent[] {}));
+			}
+
+			if (trackingList != null && trackingList.size() > 0) {
+				trackingFolder.setRelated("contents", trackingList.toArray(new TCComponent[] {}));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return userFolder;
+
+	}
+
+	/**
+	 * 創建 TaskInbox
+	 * @param session
+	 * @param type
+	 * @param name
+	 * @return
+	 */
+	public static TCComponent createTaskInbox(TCSession session, String type, String name) {
+		List<ICreateInstanceInput> iputList = new ArrayList<>();
+		IBOCreateDefinition createDefinition = BOCreateDefinitionFactory.getInstance().getCreateDefinition(session, type);
+		CreateInstanceInput createInstanceInput = new CreateInstanceInput(createDefinition);
+		createInstanceInput.add("object_name", name);
+		iputList.add(createInstanceInput);
+		List<TCComponent> comps = null;
+		TCComponent folder = null;
+		try {
+			comps = SOAGenericCreateHelper.create(session, createDefinition, iputList);
+			folder = (TCComponent) comps.get(0);
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return folder;
+	}
+
+	private boolean analysePublicMail(TCComponentItemRevision itemr, String parent_name, String nickname) throws Exception {
+		TCComponentForm mailForm = com.foxconn.tcutils.util.TCUtil.getMailForm(itemr);
+		if (mailForm != null) {
+			TCComponent[] taskTable = mailForm.getRelatedComponents("d9_TaskTable");
+			if (taskTable != null && taskTable.length > 0) {
+				for (int i = 0; i < taskTable.length; i++) {
+					String d9_ProcessNode = taskTable[i].getProperty("d9_ProcessNode");
+					if (parent_name.equals(d9_ProcessNode)) {
+						String d9_ActualUserName = taskTable[i].getProperty("d9_ActualUserName");
+						if (d9_ActualUserName.contains(nickname)) {
+							System.out.println("d9_ActualUserName = " + d9_ActualUserName);
+							return true;
+						}
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean analysePublicMail(TCComponentItemRevision itemr, String nickname) throws Exception {
+		TCComponentForm mailForm = com.foxconn.tcutils.util.TCUtil.getMailForm(itemr);
+		if (mailForm != null) {
+			TCComponent[] taskTable = mailForm.getRelatedComponents("d9_TaskTable");
+			if (taskTable != null && taskTable.length > 0) {
+				for (int i = 0; i < taskTable.length; i++) {
+
+					String d9_ActualUserName = taskTable[i].getProperty("d9_ActualUserName");
+					if (d9_ActualUserName.contains(nickname)) {
+						System.out.println("d9_ActualUserName = " + d9_ActualUserName);
+						return true;
+					}
+
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * 读取文件信息到List
+	 * @param fileNow
+	 * @param strCharsetName
+	 * @return
+	 * @throws Exception
+	 * @author:
+	 */
+	public static List<String> getContent(File fileNow, String strCharsetName) throws Exception {
+		List<String> retLst = new ArrayList<String>();
+
+		String strLine = null;
+		BufferedReader br = null;
+		FileInputStream fis = null;
+		InputStreamReader isr = null;
+
+		try {
+			fis = new FileInputStream(fileNow);
+			if (strCharsetName != null && strCharsetName.length() > 0) {
+				isr = new InputStreamReader(fis, strCharsetName);
+			} else {
+				isr = new InputStreamReader(fis);
+			}
+			br = new BufferedReader(isr);
+			while ((strLine = br.readLine()) != null) {
+				retLst.add(strLine);
+			}
+		} finally {
+			if (fis != null)
+				fis.close();
+			if (isr != null)
+				isr.close();
+			if (br != null)
+				br.close();
+		}
+
+		return retLst;
+	}
+
+	public static boolean isContent(List<String> contentLst, String key, String user) {
+		for (String content : contentLst) {
+			String[] lineArr = content.split("=");
+			if (2 == lineArr.length) {
+				String lineKey = lineArr[0];
+				if (lineKey.equals(key)) {
+					System.out.println("lineKey =" + lineKey);
+					String lineValue = lineArr[1];
+					String[] pubUserArr = lineValue.split("##");
+					if (2 == pubUserArr.length) {
+						String[] realUserArr = pubUserArr[1].split("%%");
+						if (1 == realUserArr.length || 2 == realUserArr.length) {
+							String realUser = realUserArr[0];
+							System.out.println("------------------->" + realUser);
+							System.out.println("user------------------->" + user);
+							if (user.equals(realUser)) {
+								System.out.println("realUser = " + realUser);
+
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+	public static String getFilePath(String foldName) {
+		String tempPath = System.getProperty("java.io.tmpdir") + File.separator;
+		File file = new File(tempPath + foldName);
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+		return file.getAbsolutePath();
+	}
+
+	/**
+	 * 删除某个文件夹下的所有文件
+	 * @param delpath String
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 * @return boolean
+	 */
+	public static boolean deletefile(String delpath) throws Exception {
+		try {
+			File file = new File(delpath);
+			// 当且仅当此抽象路径名表示的文件存在且 是一个目录时，返回 true
+			if (!file.isDirectory()) {
+				file.delete();
+			} else if (file.isDirectory()) {
+				String[] filelist = file.list();
+				for (int i = 0; i < filelist.length; i++) {
+					File delfile = new File(delpath + File.separator + filelist[i]);
+					if (!delfile.isDirectory()) {
+						delfile.delete();
+						// System.out.println("【INFO】 " +
+						// delfile.getAbsolutePath() + "删除文件成功");
+					} else if (delfile.isDirectory()) {
+						deletefile(delpath + File.separator + filelist[i]);
+					}
+				}
+			}
+
+		} catch (FileNotFoundException e) {
+			// System.out.println("【ERROR】 " + "deletefile() Exception:" +
+			// e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+
+	public TCComponent getMyTaskInbox(String name) throws Exception {
+		TCComponent folderComponent = null;
+
+		TCComponent[] executeQuery = TCUtil.executeQuery(tcsession, "常规...", new String[] { "object_name", "object_type", "owning_user.user_id" }, new String[] { name, "Folder", "$USERID" });
+		if (executeQuery != null && executeQuery.length > 0) {
+			folderComponent = executeQuery[0];
+		}
+		return folderComponent;
+	}
+
+	public SecondaryPopupShell createSecondaryPopupShell(Object paramObject) {
+		IAWHostInteropService localIAWHostInteropService = (IAWHostInteropService) OSGIUtil.getService(Activator.getDefault(), IAWHostInteropService.class);
+		int i = ((localIAWHostInteropService != null) && (localIAWHostInteropService.isUseAWInboxEnabled("User_Inbox"))) ? 1 : 0;
+		if (i != 0) {
+			executeAction(null);
+			return null;
+		}
+		SecondaryPopupShell localSecondaryPopupShell = super.createSecondaryPopupShell(paramObject);
+		return localSecondaryPopupShell;
+	}
+
+	public void loadSecondaryPopupShellContent() {
+		AbstractAIFSession localAbstractAIFSession = Activator.getDefault().getSessionService().getActivePerspectiveSession();
+		TCComponent localTCComponent = getUserInboxFolder(localAbstractAIFSession);
+		Composite localComposite = this.secondaryPopupShell.getContentComposite();
+		localComposite.layout(true, true);
+//		TreeViewer localTreeViewer = new TreeViewer(localComposite, 768);
+//		localTreeViewer.setLabelProvider(new TCComponentLabelProvider());
+//		localTreeViewer.setContentProvider(new TCComponentContentProvider());
+//		localTreeViewer.addSelectionChangedListener(new ISelectionChangedListener() {
+//
+//			@Override
+//			public void selectionChanged(SelectionChangedEvent selectionchangedevent) {
+//				// TODO Auto-generated method stub
+//
+//				if (selectionchangedevent.getSelection().isEmpty())
+//					return;
+//				if (selectionchangedevent.getSelection() instanceof IStructuredSelection) {
+//					IStructuredSelection localIStructuredSelection = (IStructuredSelection) selectionchangedevent.getSelection();
+//					TreeViewer localTreeViewer = (TreeViewer) selectionchangedevent.getSource();
+//					Tree localTree = localTreeViewer.getTree();
+//					Object localObject1 = localTree.getItem(0).getData();
+//					Iterator localIterator = localIStructuredSelection.iterator();
+//					while (localIterator.hasNext()) {
+//						Object localObject2 = localIterator.next();
+//						if (localObject2.equals(localObject1))
+//							return;
+//						AIFComponentContext localAIFComponentContext = (AIFComponentContext) localObject2;
+//						TCComponent localTCComponent = (TCComponent) localAIFComponentContext.getComponent();
+//					}
+//				}
+//
+//			}
+//		});
+//		localTreeViewer.setInput(new ComponentRootNode(localTCComponent));
+//		localTreeViewer.expandToLevel(2);
+		this.secondaryPopupShell.reload();
+	}
+
+	private class IC_PostMyWorkListJob extends Job {
+		private IC_PostMyWorkListJob() {
+			super("");
+		}
+
+		@Override
+		protected IStatus run(IProgressMonitor arg0) {
+			ISessionService localISessionService = Activator.getDefault().getSessionService();
+			AbstractAIFSession localAbstractAIFSession = localISessionService.getActivePerspectiveSession();
+			if ((localAbstractAIFSession instanceof ITCSession) && (localAbstractAIFSession.isLoggedIn())) {
+				if (sessionListener != null) {
+					ClientEventDispatcher.removeEventHandler(sessionListener);
+					sessionListener = null;
+				}
+				SwingUtilities.invokeLater(new Runnable() {
+					public void run() {
+						System.out.println("1231321");
+						if (getTCComponent() == null || getTCComponent() != getUserInboxFolder(session))
+							setTCComponent(getUserInboxFolder(session));
+						if (getTCComponent() != null)
+							openComponent(getTCComponent());
+					}
+				});
+			}
+			return Status.OK_STATUS;
+		}
+	}
+
+	private final class IC_SessionChangeListener implements EventHandler {
+
+		@Override
+		public void handleEvent(Event event) {
+
+			String str = event.getTopic();
+			if ("com/teamcenter/rac/aifrcp/event/Session/Login/Post".equals(str)) {
+				MyInboxSectionComponent.IC_PostMyWorkListJob localIC_PostMyWorkListJob = new MyInboxSectionComponent.IC_PostMyWorkListJob();
+				localIC_PostMyWorkListJob.schedule();
+			} else {
+				throw new IllegalArgumentException("Unexcepted event: " + event);
+			}
+
+		}
+	}
+}

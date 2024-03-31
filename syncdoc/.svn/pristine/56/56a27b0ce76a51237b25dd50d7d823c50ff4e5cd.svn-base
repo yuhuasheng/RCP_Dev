@@ -1,0 +1,262 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.foxconn.dp.plm</groupId>
+    <artifactId>syncdoc</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <packaging>jar</packaging>
+
+    <name>syncdoc</name>
+    <url>http://maven.apache.org</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>3.8.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- mybatis -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.7</version>
+        </dependency>
+
+        <!--<dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+        </dependency>-->
+
+        <!-- 加入本地依赖 -->
+
+        <!-- Oracle 驱动 -->
+        <dependency>
+            <groupId>com.oracle</groupId>
+            <artifactId>ojdbc6</artifactId>
+            <version>11.2.0.3</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/ojdbc6-11.2.0.3.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/commons-logging.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>httpclient-4.5.2</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/httpclient-4.5.2.jar</systemPath>
+        </dependency>
+
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>httpcore-4.4.4</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/httpcore-4.4.4.jar</systemPath>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>httpmime-4.5.2</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/httpmime-4.5.2.jar</systemPath>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>com.google.gson</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/com.google.gson.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>log4j-1.2.13</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/log4j-1.2.13.jar</systemPath>
+        </dependency>
+
+        <!--<dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>log4j-api-2.8.2</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/log4j-api-2.8.2.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>log4j-core-2.8.2.</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/log4j-core-2.8.2.jar</systemPath>
+        </dependency>
+          <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>logback-classic-1.2.3</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/logback-classic-1.2.3.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>logback-core-1.2.3</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/logback-core-1.2.3.jar</systemPath>
+        </dependency>
+        -->
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>hutool-all-5.8.10</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/hutool-all-5.8.10.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>slf4j-api-1.7.32</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/slf4j-api-1.7.32.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaAdministrationStrong_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaAdministrationStrong_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaClient_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaClient_14000.2.0.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaCommon_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaCommon_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaCoreLoose_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaCoreLoose_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaCoreStrong_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaCoreStrong_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaQueryStrong_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaQueryStrong_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaStrongModel_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaStrongModel_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>TcSoaWorkflowStrong_14000.2.0</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/TcSoaWorkflowStrong_14000.2.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>xercesImpl</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/xercesImpl.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.foxconn.dp.plm.syncdoc</groupId>
+            <artifactId>xml-apis</artifactId>
+            <version>1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/xml-apis.jar</systemPath>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.foxconn.dp.plm.syncdoc.App</mainClass>
+                        </manifest>
+                        <manifestEntries>
+                            <Class-Path>.</Class-Path>
+                        </manifestEntries>
+                    </archive>
+                    <!-- 将这一段注释掉 -->
+                    <!--<descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>-->
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <!-- 增加配置 -->
+                        <configuration>
+                            <!-- assembly.xml文件路径 -->
+                            <descriptors>
+                                <descriptor>src/assembly/assembly.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

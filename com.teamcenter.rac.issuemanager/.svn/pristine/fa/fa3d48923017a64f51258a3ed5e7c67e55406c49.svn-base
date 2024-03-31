@@ -1,0 +1,52 @@
+#IM Perspectives
+im.issueManager.PERSPECTIVE     = Spr\u00E1vce p\u0159ipom\u00EDnek
+im.issueManager.PERSPECTIVE.TIP = <html><body>Spr\u00E1vce vyd\u00E1n\u00ED se pou\u017E\u00EDv\u00E1 k tvorb\u011B a spravov\u00E1n\u00ED objekt\u016F vyd\u00E1n\u00ED.</body></html>
+
+#IM View Category
+im.viewCategory                 = Spr\u00E1va p\u0159ipom\u00EDnek
+
+#IM Views
+im.issueHome.VIEW               = Dom\u00E1c\u00ED slo\u017Eka p\u0159ipom\u00EDnky
+im.issuePreview.VIEW            = N\u00E1hled p\u0159ipom\u00EDnky
+im.listDetails.VIEW             = Detaily seznamu p\u0159ipom\u00EDnky
+
+#IM Create Wizards
+im.newIssueMenu.LABEL           = V\u00FDpis p\u0159ipom\u00EDnky
+im.newIssueWizard.LABEL         = Vytvo\u0159it...
+im.newContextIssueWizard.LABEL  = Vytvo\u0159it v kontextu...
+im.newIssueWizard.TOOLTIP       = Vytvo\u0159it novou polo\u017Eku v\u00FDpisu p\u0159ipom\u00EDnky
+im.newContextIssueWizard.TOOLTIP= Vytvo\u0159it novou polo\u017Eku v\u00FDpisu p\u0159ipom\u00EDnky souvisej\u00EDc\u00ED s vybran\u00FDmi objekty
+im.wizard.TypePage.TITLE        = Typ v\u00FDpisu p\u0159ipom\u00EDnky
+im.wizard.TypePage.DESC         = Vybrat typ v\u00FDpisu p\u0159ipom\u00EDnky, kter\u00FD m\u00E1 b\u00FDt vytvo\u0159en
+im.wizard.CreatePropsPage.TITLE = Informace o tvorb\u011B polo\u017Eky v\u00FDpisu p\u0159ipom\u00EDnky
+im.wizard.CreatePropsPage.DESC  = Definovat informace o tvorb\u011B polo\u017Eky v\u00FDpisu p\u0159ipom\u00EDnky
+
+#Review Issue
+im.reviewIssue.LABEL            = Posoudit p\u0159ipom\u00EDnku...
+im.reviewIssue.TOOLTIP          = Posoudit p\u0159ipom\u00EDnku
+
+#Issue Home Actions
+im.issuefolder.manage.LABEL    = Spravovat seznamy p\u0159ipom\u00EDnky...
+im.issuefolder.manage.TOOLTIP  = Spravovat seznamy p\u0159ipom\u00EDnky
+im.issuefolder.edit.LABEL      = Upravit p\u0159ipom\u00EDnku...
+
+AssignParticipants.TITLE       = P\u0159i\u0159adit \u00FA\u010Dastn\u00EDky...
+NewChangeWizard.LABEL          = Zm\u011Bna...
+Open_the_selected_object.TIP   = Otev\u0159\u00EDt vybran\u00FD objekt
+
+#Toolbar command tooltip
+Open_Home.TIP                                     = Otev\u0159\u00EDt domovskou slo\u017Eku
+#Open_Inbox.TIP                                   = Open Inbox
+Refreshes_the_selected_object.TIP                 = Obnovit vybran\u00FD objekt
+Open_the_selected_object.TIP                      = Otev\u0159\u00EDt vybran\u00FD objekt
+Displays_properties_of_the_selected_object.TIP    = Zobraz\u00ED vlastnosti vybran\u00E9ho objektu
+Displays_accessibility_of_the_selected_object.TIP = Zobraz\u00ED p\u0159\u00EDstupnost vybran\u00E9ho objektu
+Add_Design_to_Product.TIP                         = P\u0159idat n\u00E1vrh do produktu
+Add_Part_to_Product.TIP                           = P\u0159idat sou\u010D\u00E1st do produktu
+Open_search_view.TIP                              = Otev\u0159\u00EDt pohled hled\u00E1n\u00ED
+openInVMU.TIP                                     = Spustit/otev\u0159\u00EDt ve vizualizaci \u017Eivotn\u00EDho cyklu
+
+
+
+
+

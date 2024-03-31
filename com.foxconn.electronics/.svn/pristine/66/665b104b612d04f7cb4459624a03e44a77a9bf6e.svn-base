@@ -1,0 +1,752 @@
+package com.foxconn.electronics.issuemanagement.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.foxconn.electronics.document.ProjectInfo;
+import com.foxconn.electronics.login.MyIssuesListCreateProcess;
+import com.foxconn.electronics.login.UserLoginSecond;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.TCUtil;
+import com.plm.tc.httpService.jhttp.GetMapping;
+import com.plm.tc.httpService.jhttp.HttpRequest;
+import com.teamcenter.rac.kernel.ITypeName;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentParticipant;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentProjectType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.StrSplitter;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import cn.hutool.log.LogFactory;
+
+public class CreateIssueService {
+	private TCSession session;
+	private ResourceBundle reg;
+	private String customer;
+	public CreateIssueService(TCSession session, ResourceBundle reg,String customer) {
+		super();
+		this.session = session;
+		this.reg = reg;
+		this.customer = customer;
+	}
+	public AjaxResult getBaseData(String type) {
+		JSONObject object = JSONUtil.createObj();
+		try {
+			object.set("userId", session.getUser().getProperty("user_id"));
+			// 獲取專案信息
+			TCComponentProjectType projectType = (TCComponentProjectType) session.getTypeComponent(ITypeName.TC_Project);
+	        TCComponentProject[] allProjects = projectType.extent(session.getUser(),true);
+	        List<String> projectList = new ArrayList<String>();
+	        for (int i = 0; i < allProjects.length; i++) {
+	        	TCComponentProject project = allProjects[i];
+	        	projectList.add(project.getProperty("project_id"));
+			}
+	        object.set("projectIds", projectList);
+			//  獲取實際用戶
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+					new String[] {UserLoginSecond.getOSSUserInfo().getEmp_no()});
+			if (executeQuery != null && executeQuery.length > 0) {
+				object.set("actualUser", executeQuery[0].getProperty("d9_UserInfo"));
+			}
+			// 查詢靜態LOV
+			if ("DELL".equals(type)) {
+				getDellBaseData(object);
+			} else if("HP".equals(type)) {
+				getHpBaseData(object);
+				// 查詢專案產品線和productline的對應關係
+				List<String> list = TCUtil.getArrayPreference(session,TCPreferenceService.TC_preference_site,"D9_HP_Issue_ProductLine_Mapping");
+				Map<String, String> map = new HashMap<String, String>();
+				if(CollUtil.isNotEmpty(list)) {
+					for (String str : list) {
+						List<String> split = StrSplitter.split(str, "=",true,true);
+						map.put(split.get(0), split.get(1));
+					}
+				}
+				object.set("productLineMapping", map);				
+			} else if("Lenovo".equals(type)) {
+				getLenovoBaseData(object);
+			}
+		}catch (Exception e) {
+			if(e instanceof TCException) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, ((TCException) e).getMessage());
+			}
+			return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, "查詢靜態LOV錯誤");
+		}
+		return AjaxResult.success(object);
+	}
+	
+	private void setTestUser(TCComponentItemRevision itemRevision) throws Exception {
+		//  獲取實際用戶
+		TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Actual_User", new String[] {"item_id"},
+				new String[] {UserLoginSecond.getOSSUserInfo().getEmp_no()});
+		if (executeQuery != null && executeQuery.length > 0) {
+			String uid = executeQuery[0].getUid();
+			setWorker(itemRevision, uid, "d9_IssueTester_ActualUser");
+		}
+		setWorker(itemRevision, session.getUser().getUid(), "D9_IssueTester");
+	}
+	
+	public AjaxResult createHpIssue(HttpRequest req) {
+		String body = req.getBody();
+		JSONObject json = JSONUtil.parseObj(body);
+		TCComponentItem createItem = TCUtil.createItem(null, "D9_IR_HP", null);
+		try {
+			TCComponentItemRevision itemRevision = createItem.getLatestItemRevision();
+			if(StrUtil.isNotBlank(json.getStr("actualUser"))) {
+				itemRevision.setProperty("d9_ActualUserID",json.getStr("actualUser"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("state"))) {
+				itemRevision.setProperty("d9_IRState",json.getStr("state"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("status"))) {
+				itemRevision.setProperty("d9_IRStatus",json.getStr("status"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("priority"))) {
+				itemRevision.setProperty("d9_IRPriority",json.getStr("priority"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("division"))) {
+				itemRevision.setProperty("d9_IRDivision",json.getStr("division"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("originatorWorkgroup"))) {
+				itemRevision.setProperty("d9_IROriginatorWorkgroup",json.getStr("originatorWorkgroup"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("primaryProduct"))) {
+				itemRevision.setProperty("d9_IRPlatformFound",json.getStr("primaryProduct"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("productVersion"))) {
+				itemRevision.setProperty("d9_IRProductVersion",json.getStr("productVersion"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("productLine"))) {
+				itemRevision.setProperty("d9_IRProductionLine",json.getStr("productLine"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("componentType"))) {
+				itemRevision.setProperty("d9_IRIssueType",json.getStr("componentType"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("componentSubSystem"))) {
+				itemRevision.setProperty("d9_IRCategory",json.getStr("componentSubSystem"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("component"))) {
+				itemRevision.setProperty("d9_IRCommodity",json.getStr("component"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("componentVersion"))) {
+				itemRevision.setProperty("d9_IRComponentVersion",json.getStr("componentVersion"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("componentLocalization"))) {
+				itemRevision.setProperty("d9_IRComponentLocalization",json.getStr("componentLocalization"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("componentPartNumber"))) {
+				itemRevision.setProperty("d9_IRComponentPartNumber",json.getStr("componentPartNumber"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("frequency"))) {
+				itemRevision.setProperty("d9_IRFrequency",json.getStr("frequency"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("gatingMilestone"))) {
+				itemRevision.setProperty("d9_IRGatingMilestone",json.getStr("gatingMilestone"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("testEscape"))) {
+				itemRevision.setProperty("d9_IRTestEscape",json.getStr("testEscape"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("severity"))) {
+				itemRevision.setProperty("d9_IRSeverity",json.getStr("severity"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("impacts"))) {
+				itemRevision.setProperty("d9_IRImpacts",json.getStr("impacts"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("shortDesc"))) {
+				itemRevision.setProperty("d9_IRName",json.getStr("shortDesc"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("longDesc"))) {
+				itemRevision.setProperty("d9_IRLongDescription",json.getStr("longDesc"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("stepsToReproduce"))) {
+				itemRevision.setProperty("d9_IRStepsToReproduce",json.getStr("stepsToReproduce"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("customerImpact"))) {
+				itemRevision.setProperty("d9_IRCustomerImpact",json.getStr("customerImpact"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("issueTl"))) {
+				setWorker(itemRevision,json.getStr("issueTl",""),"D9_IssueTL");
+			}
+			if(StrUtil.isNotBlank(json.getStr("tlActualUser"))) {
+				setWorker(itemRevision,json.getStr("tlActualUser",""),"d9_IssueTL_ActualUser");
+			}
+			setTestUser(itemRevision);
+			// 指派專案
+			String projectId = json.getStr("tcProject");
+			if(StrUtil.isNotBlank(projectId)) {
+				// 查詢專案信息
+				TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Project_Running", new String[] {"project_id","is_active"},
+						new String[] {projectId,"true"});
+				if (executeQuery != null && executeQuery.length > 0) {
+					TCComponentProject project = (TCComponentProject) executeQuery[0];
+					project.assignToProject(new TCComponent[]{itemRevision});;
+				}
+				// 掛載到專案的協同工作區
+				contentsToProjectFolder(projectId,createItem);
+			}
+			Boolean submit = json.getBool("submit");
+			if(ObjectUtil.isNotNull(submit) && submit) {
+				submit(itemRevision);
+			}
+		}catch (Exception e) {
+			if(e instanceof TCException) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, ((TCException) e).getMessage());
+			}
+			return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, "添加屬性失敗");
+		}
+		return AjaxResult.success(Boolean.TRUE);
+	}
+	
+	public AjaxResult createLenovoIssue(HttpRequest req) {
+		String body = req.getBody();
+		JSONObject json = JSONUtil.parseObj(body);
+		TCComponentItem createItem = TCUtil.createItem(null, "D9_IR_LENOVO", null);
+		try {
+			TCComponentItemRevision itemRevision = createItem.getLatestItemRevision();
+			if(StrUtil.isNotBlank(json.getStr("actualUser"))) {
+				itemRevision.setProperty("d9_ActualUserID",json.getStr("actualUser"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("name"))) {
+				itemRevision.setProperty("d9_IRName",json.getStr("name"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("requestPriority"))) {
+				itemRevision.setProperty("d9_IRSeverity",json.getStr("requestPriority"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("release"))) {
+				itemRevision.setProperty("d9_IRPlatformFound",json.getStr("release"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("productionLine"))) {
+				itemRevision.setProperty("d9_IRProductionLine",json.getStr("productionLine"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("component"))) {
+				itemRevision.setProperty("d9_IRCommodity",json.getStr("component"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("description"))) {
+				itemRevision.setProperty("d9_IRLongDescription",json.getStr("description"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("releaseOther"))) {
+				itemRevision.setProperty("d9_IRSimilarIssue",json.getStr("releaseOther"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("operationSys"))) {
+				String str = json.getStr("operationSys");
+				itemRevision.setProperty("d9_IROperatingSystem",str);
+				//List<String> split = StrSplitter.split(str, ",",true,true);
+				//TCProperty tcProperty = itemRevision.getTCProperty("d9_IROperatingSystem");
+				//tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("operationSysOther"))) {
+				String str = json.getStr("operationSysOther");
+				List<String> split = StrSplitter.split(str, ",",true,true);
+				TCProperty tcProperty = itemRevision.getTCProperty("d9_IROperatingSystemOther");
+				tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("phaseFound"))) {
+				itemRevision.setProperty("d9_IRPhaseFound",json.getStr("phaseFound"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("reproduceSteps"))) {
+				itemRevision.setProperty("d9_IRStepsToReproduce",json.getStr("reproduceSteps"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("defectConsistency"))) {
+				itemRevision.setProperty("d9_IRFrequency",json.getStr("defectConsistency"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("affectedSystem"))) {
+				itemRevision.setProperty("d9_IRAffectedSystem",json.getStr("affectedSystem"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("limitation"))) {
+				itemRevision.setProperty("d9_IRLimitation",json.getStr("limitation"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("brand"))) {
+				itemRevision.setProperty("d9_IRBrand",json.getStr("brand"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("closeDate"))) {
+				itemRevision.setDateProperty("d9_IRCloseDate",json.getDate("closeDate"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("answerCode"))) {
+				itemRevision.setProperty("d9_IRIssueType",json.getStr("answerCode"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("remark"))) {
+				itemRevision.setProperty("d9_IRComments",json.getStr("remark"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("configuration"))) {
+				itemRevision.setProperty("d9_IRConfiguration",json.getStr("configuration"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("issueTl"))) {
+				setWorker(itemRevision,json.getStr("issueTl",""),"D9_IssueTL");
+			}
+			if(StrUtil.isNotBlank(json.getStr("tlActualUser"))) {
+				setWorker(itemRevision,json.getStr("tlActualUser",""),"d9_IssueTL_ActualUser");
+			}
+			setTestUser(itemRevision);
+			// 指派專案
+			String projectId = json.getStr("tcProject");
+			if(StrUtil.isNotBlank(projectId)) {
+				// 查詢專案信息
+				TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Project_Running", new String[] {"project_id","is_active"},
+						new String[] {projectId,"true"});
+				if (executeQuery != null && executeQuery.length > 0) {
+					TCComponentProject project = (TCComponentProject) executeQuery[0];
+					project.assignToProject(new TCComponent[]{itemRevision});;
+				}
+				// 掛載到專案的協同工作區
+				contentsToProjectFolder(projectId,createItem);
+			}
+			Boolean submit = json.getBool("submit");
+			if(ObjectUtil.isNotNull(submit) && submit) {
+				submit(itemRevision);
+			}
+		}catch (Exception e) {
+			if(e instanceof TCException) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, ((TCException) e).getMessage());
+			}
+			return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, "添加屬性失敗");
+		}
+		return AjaxResult.success(Boolean.TRUE);
+	}
+	
+	public AjaxResult createDellIssue(HttpRequest req) {
+		String body = req.getBody();
+		JSONObject json = JSONUtil.parseObj(body);
+		TCComponentItem createItem = TCUtil.createItem(null, "D9_IR_DELL", null);
+		try {
+			TCComponentItemRevision itemRevision = createItem.getLatestItemRevision();
+			if(StrUtil.isNotBlank(json.getStr("actualUser"))) {
+				itemRevision.setProperty("d9_ActualUserID",json.getStr("actualUser"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("project"))) {
+				itemRevision.setProperty("d9_IRProject",json.getStr("project"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("issueType"))) {
+				itemRevision.setProperty("d9_IRIssueType",json.getStr("issueType"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("originVendor"))) {
+				itemRevision.setProperty("d9_IROriginatingVendor",json.getStr("originVendor"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("originGroup"))) {
+				itemRevision.setProperty("d9_IROriginatingGroup",json.getStr("originGroup"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("lobFound"))) {
+				String str = json.getStr("lobFound");
+				List<String> split = StrSplitter.split(str, ",",true,true);
+				TCProperty tcProperty = itemRevision.getTCProperty("d9_IRLOBFound");
+				tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("platformFound"))) {
+				String str = json.getStr("platformFound");
+				List<String> split = StrSplitter.split(str, ",",true,true);
+				TCProperty tcProperty = itemRevision.getTCProperty("d9_IRPlatformFoundDell");
+				tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("component"))) {
+				itemRevision.setProperty("d9_IRCategory",json.getStr("component"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("groupActivity"))) {
+				itemRevision.setProperty("d9_IRGroupActivity",json.getStr("groupActivity"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("groupLocation"))) {
+				itemRevision.setProperty("d9_IRGroupLocation",json.getStr("groupLocation"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("phaseFound"))) {
+				itemRevision.setProperty("d9_IRPhaseFoundDell",json.getStr("phaseFound"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("hardwareBuildVersion"))) {
+				itemRevision.setProperty("d9_IRHardwareBuildVersion",json.getStr("hardwareBuildVersion"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("discoveryMethod"))) {
+				itemRevision.setProperty("d9_IRDiscoveryMethod",json.getStr("discoveryMethod"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("testCaseNumber"))) {
+				itemRevision.setProperty("d9_IRTestCaseNumberRequired",json.getStr("testCaseNumber"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("platformIndependent"))) {
+				itemRevision.setProperty("d9_IRPlatformIndependent",json.getStr("platformIndependent"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("discretionaryLabels"))) {
+				itemRevision.setProperty("d9_IRDiscretionaryLabels",json.getStr("discretionaryLabels"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("classify"))) {
+				itemRevision.setProperty("d9_IRCommodity",json.getStr("classify"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("subClassify"))) {
+				itemRevision.setProperty("d9_IRCommodity",json.getStr("subClassify"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("productImpact"))) {
+				itemRevision.setProperty("d9_IRProductImpact",json.getStr("productImpact"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("customerImpact"))) {
+				itemRevision.setProperty("d9_IRCustomerImpactDell",json.getStr("customerImpact"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("likelihood"))) {
+				itemRevision.setProperty("d9_IRLikelihood",json.getStr("likelihood"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("rpn"))) {
+				itemRevision.setProperty("d9_IRRPN",json.getStr("rpn"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("issueSeverity"))) {
+				itemRevision.setProperty("d9_IRSeverity",json.getStr("issueSeverity"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("affectedOs"))) {
+				String str = json.getStr("affectedOs");
+				List<String> split = StrSplitter.split(str, ",",true,true);
+				TCProperty tcProperty = itemRevision.getTCProperty("d9_IRAffectedOS");
+				tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("affectedLanguages"))) {
+				String str = json.getStr("affectedLanguages");
+				List<String> split = StrSplitter.split(str, ",",true,true);
+				TCProperty tcProperty = itemRevision.getTCProperty("d9_IRAffectedLanguages");
+				tcProperty.setStringValueArray(split.toArray(new String[0]));
+			}
+			if(StrUtil.isNotBlank(json.getStr("affectedItems"))) {
+				itemRevision.setProperty("d9_IRAffectedItemsDell",json.getStr("affectedItems"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("partsForProjectAffect"))) {
+				itemRevision.setProperty("d9_IRPartsForProjectAffect",json.getStr("partsForProjectAffect"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("summary"))) {
+				itemRevision.setProperty("d9_IRName",json.getStr("summary"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("description"))) {
+				itemRevision.setProperty("d9_IRLongDescription",json.getStr("description"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("stepsToReproduce"))) {
+				itemRevision.setProperty("d9_IRStepsToReproduce",json.getStr("stepsToReproduce"));
+			}
+			if(StrUtil.isNotBlank(json.getStr("issueTl"))) {
+				setWorker(itemRevision,json.getStr("issueTl",""),"D9_IssueTL");
+			}
+			if(StrUtil.isNotBlank(json.getStr("tlActualUser"))) {
+				setWorker(itemRevision,json.getStr("tlActualUser",""),"d9_IssueTL_ActualUser");
+			}
+			setTestUser(itemRevision);
+			// 指派專案
+			String projectId = json.getStr("tcProject");
+			if(StrUtil.isNotBlank(projectId)) {
+				// 查詢專案信息
+				TCComponent[] executeQuery = TCUtil.executeQuery(session, "__D9_Find_Project_Running", new String[] {"project_id","is_active"},
+						new String[] {projectId,"true"});
+				if (executeQuery != null && executeQuery.length > 0) {
+					TCComponentProject project = (TCComponentProject) executeQuery[0];
+					project.assignToProject(new TCComponent[]{itemRevision});;
+				}
+				// 掛載到專案的協同工作區
+				contentsToProjectFolder(projectId,createItem);
+			}
+			Boolean submit = json.getBool("submit");
+			if(ObjectUtil.isNotNull(submit) && submit) {
+				submit(itemRevision);
+			}
+		}catch (Exception e) {
+			if(e instanceof TCException) {
+				return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, ((TCException) e).getMessage());
+			}
+			return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, "添加屬性失敗");
+		}
+		return AjaxResult.success(Boolean.TRUE);
+	}
+	
+	
+	private void submit (TCComponentItemRevision itemRevision) throws TCException {
+		String type = itemRevision.getType();
+		//獲取首選項
+		HashMap<String,String> map = MyIssuesListCreateProcess.getMapPreference(session, TCPreferenceService.TC_preference_site, "D9_DefaultIssueWorkflow");
+		if(map !=null && map.size() > 0) {
+			String mProcessName = map.get(type);
+			if(mProcessName!=null && !"".equals(mProcessName) ) {
+				MyIssuesListCreateProcess.addStatusByWorkFlow(session, new TCComponent[] {itemRevision} , mProcessName);
+			} else {
+				throw new TCException("獲取流程失敗，首選項D9_DefaultIssueWorkflow,中未匹配到"+type+"類型的流程！");
+			}
+		} else {
+			throw new TCException("獲取流程失敗，請檢查首選項D9_DefaultIssueWorkflow!");
+		}
+	}
+	
+	private void setWorker(TCComponentItemRevision itemRevision,String uid,String relate) throws TCException {
+		if(relate.endsWith("_ActualUser")) {
+			if(StrUtil.isNotBlank(uid)) {
+				TCComponent objComponent = TCUtil.loadObjectByUid(uid);
+				itemRevision.setRelated(relate, new TCComponent[] {objComponent});
+			}else {
+				itemRevision.setRelated(relate, new TCComponent[] {});
+			}
+		}else {
+			// 查詢工作者是否設置,如果設置了先移除
+			TCComponentParticipant[] participants = itemRevision.getParticipants();
+			for (int i = 0; i < participants.length; i++) {
+				if(relate.equals(participants[i].getType())) {
+					TCUtil.removeWorker(session,itemRevision,participants[i]);
+					break;
+				}
+			}
+			// 如果傳了一級賬號uid則直接設置
+			if(StrUtil.isNotBlank(uid)) {
+				TCComponent objComponent = TCUtil.loadObjectByUid(uid);
+				if(objComponent instanceof TCComponentUser) {
+					TCComponentUser user = (TCComponentUser)objComponent;
+					TCComponentGroupMember groupMember = user.getGroupMembers()[0];
+					TCUtil.setWorker(session, itemRevision, relate, groupMember);
+				}
+			}
+		}
+	}
+	
+	
+	public AjaxResult getActualUsers(){
+		try {
+			String url = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site,"D9_SpringCloud_URL");
+			String result = HttpUtil.get(url + "/tc-service/issueManagement/getWorkList?customer=" + customer);
+			JSONObject obj = JSONUtil.parseObj(result);
+			if("0000".equals(obj.getStr("code"))) {
+				return AjaxResult.success(obj.getJSONArray("data"));
+			}
+		} catch (Exception e) {
+			LogFactory.get().error(e.getMessage());
+		}
+		return AjaxResult.error(AjaxResult.STATUS_NO_RESULT, "查詢實際參與者錯誤");
+	}
+	
+	private List<JSONObject> addUser(String name,String key,String value) throws Exception {
+		List<JSONObject> list = new ArrayList<JSONObject>();
+		TCComponent[] executeQuery = TCUtil.executeQuery(session, name, new String[] {"user_id",key},
+				new String[] {"*",value});
+		if (executeQuery != null && executeQuery.length > 0) {
+			for (int j = 0; j < executeQuery.length; j++) {
+				JSONObject obj = JSONUtil.createObj();
+				obj.set("uid", executeQuery[j].getUid());
+				if("__D9_Find_User".equals(name)) {
+					obj.set("item_id", executeQuery[j].getProperty("user_id"));
+					obj.set("object_name", executeQuery[j].getProperty("user_name"));
+					obj.set("user_info", executeQuery[j].getProperty("user_name") + "("+ executeQuery[j].getProperty("user_id") +")");
+					obj.set("disabled", true);
+				}else {
+					obj.set("item_id", executeQuery[j].getProperty("item_id"));
+					obj.set("object_name", executeQuery[j].getProperty("object_name"));
+					obj.set("user_info", executeQuery[j].getProperty("d9_UserInfo"));
+					obj.set("disabled", false);
+				}
+				list.add(obj);
+			}
+		}
+		return list;
+	}
+	
+	private void contentsToProjectFolder(String projectId,TCComponentItem item) throws Exception {
+		JSONObject param = JSONUtil.createObj();
+		param.set("projectId", projectId);
+		param.set("itemUid", item.getUid());
+		// 查詢專案的文件夾
+		String url = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site,"D9_SpringCloud_URL");
+		String result = HttpUtil.post(url + "/tc-service/issueManagement/contents",JSONUtil.toJsonStr(param));
+		//String url = "http://10.205.56.204:8888";
+		//String result = HttpUtil.post(url + "/issueManagement/contents",JSONUtil.toJsonStr(param));
+		if(StrUtil.isNotBlank(result)) {
+			JSONObject obj = JSONUtil.parseObj(result);
+			if(!"0000".equals(obj.getStr("code"))) {
+				throw new TCException(obj.getStr("msg"));
+			}
+		}
+	}
+	
+	
+	private void getLenovoBaseData(JSONObject object) {
+		object.set("requestPriorityList", getOptionList(TCUtil.getLovValues("D9_IRSeverity_LOV_Lenovo")));
+		object.set("releaseList", getOptionList(TCUtil.getLovValues("D9_IRPlatformFound_LOV_Lenovo")));
+		Object[] productionLines = TCUtil.getLovValues("D9_IRCategory_LOV_Lenovo_ProductionLine");
+		List<JSONObject> productionLineList = new ArrayList<JSONObject>();
+		for (int i = 0; i < productionLines.length; i++) {
+			JSONObject obj = JSONUtil.createObj();
+			String item = productionLines[i].toString();
+			obj.set("label", item);
+			obj.set("value", item);
+			if(item.contains(" ")) {
+				item = item.replace(" ", "");
+			}
+			obj.set("componentList", getOptionList(TCUtil.getLovValues("D9_IRCategory_LOV_Lenovo_ComponentType_" + item)));
+			productionLineList.add(obj);
+		}
+		object.set("productionLineList",productionLineList);
+		object.set("operationSysList", getOptionList(TCUtil.getLovValues("D9_IROperatingSystem_LOV_Lenovo")));
+		object.set("operationSysOtherList", getOptionList(TCUtil.getLovValues("D9_IROperatingSystemOther_LOV_Lenovo")));
+		object.set("phaseFoundList", getOptionList(TCUtil.getLovValues("D9_IRPhaseFound_LOV_Lenovo")));
+		object.set("defectConsistencyList", getOptionList(TCUtil.getLovValues("D9_IRFrequency_LOV_Lenovo")));
+		object.set("limitationList", getOptionList(TCUtil.getLovValues("D9_IRLimitation_LOV_Lenovo")));
+		object.set("brandList", getOptionList(TCUtil.getLovValues("D9_IRBrand_LOV_Lenovo")));
+		object.set("answerCodeList", getOptionList(TCUtil.getLovValues("D9_IRIssueType_LOV_Lenovo")));
+	}
+	
+	private void getHpBaseData(JSONObject object) {
+		Object[] states = TCUtil.getLovValues("D9_IRState_LOV_HP");
+		List<JSONObject> stateList = new ArrayList<JSONObject>();
+		for (int i = 0; i < states.length; i++) {
+			JSONObject obj = JSONUtil.createObj();
+			String item = states[i].toString();
+			obj.set("label", item);
+			obj.set("value", item);
+			if("New*/Reopen".equals(item)) {
+				obj.set("statusList", getOptionList(TCUtil.getLovValues("D9_IRState_LOV_HP_New_Reopen")));
+			} else {
+				if(item.contains(" ")) {
+					item = item.replace(" ", "");
+				}
+				if(item.contains(".")) {
+					item = item.replace(".", "");
+				}
+				if(item.contains("/")) {
+					item = item.replace("/", "_");
+				}
+				if(item.contains("-")) {
+					item = item.replace("-", "_");
+				}
+				obj.set("statusList", getOptionList(TCUtil.getLovValues("D9_IRState_LOV_HP_"+item)));
+			}
+			stateList.add(obj);
+		}
+		object.set("stateList",stateList);
+		object.set("priorityList", getOptionList(TCUtil.getLovValues("D9_IRPriority_LOV_HP")));
+		object.set("divisionList", getOptionList(TCUtil.getLovValues("D9_IRDivision_LOV_HP")));
+		object.set("gatingMilestone", getOptionList(TCUtil.getLovValues("D9_IRGatingMilestone_LOV_HP_CMIT")));
+		Object[] primaryProducts = TCUtil.getLovValues("D9_IRPlatformFound_LOV_HP");
+		List<JSONObject> primaryProductList = new ArrayList<JSONObject>();
+		for (int i = 0; i < primaryProducts.length; i++) {
+			JSONObject obj = JSONUtil.createObj();
+			String item = primaryProducts[i].toString();
+			obj.set("label", item);
+			obj.set("value", item);
+			obj.set("productVersionList", getOptionList(TCUtil.getLovValues("D9_IRPlatformFound_LOV_HP_"+item)));
+			primaryProductList.add(obj);
+		}
+		object.set("primaryProductList",primaryProductList);
+		
+		Object[] productLines = TCUtil.getLovValues("D9_IRCategory_LOV_HP_ProductionLine");
+		List<JSONObject> productLineList = new ArrayList<JSONObject>();
+		for (int i = 0; i < productLines.length; i++) {
+			JSONObject obj = JSONUtil.createObj();
+			String item = productLines[i].toString();
+			obj.set("label", item);
+			obj.set("value", item);
+			if(item.contains(" ")) {
+				item = item.replace(" ", "");
+			}
+			List<JSONObject> componentTypeList = getOptionList(TCUtil.getLovValues("D9_IRCategory_LOV_HP_ComponentType_"+item));
+			for (JSONObject jsonObject : componentTypeList) {
+				String value = jsonObject.getStr("value");
+				if(value.contains("/")) {
+					value = value.replace("/", "");
+				}
+				List<JSONObject> componentSubSystemList = getOptionList(TCUtil.getLovValues("D9_IRCategory_LOV_HP_ComponentType_"+item + "_" + value));
+				for (JSONObject jsonObj : componentSubSystemList) {
+					String subValue = jsonObj.getStr("value");
+					if(subValue.contains(" ")) {
+						subValue = subValue.replace(" ", "");
+					}
+					if(subValue.contains("/")) {
+						subValue = subValue.replace("/", "_");
+					}
+					if(subValue.contains("&")) {
+						subValue = subValue.replace("&", "_");
+					}
+					if(subValue.contains("-")) {
+						subValue = subValue.replace("-", "_");
+					}
+					jsonObj.set("componentList", getOptionList(TCUtil.getLovValues("D9_IRCategory_LOV_HP_ComponentType_"+item + "_" + value + "_" + subValue)));
+				}
+				jsonObject.set("componentSubSystemList", componentSubSystemList);
+			}
+			obj.set("componentTypeList",componentTypeList);
+			productLineList.add(obj);
+		}
+		object.set("productLineList",productLineList);
+		
+		object.set("frequencyList", getOptionList(TCUtil.getLovValues("D9_IRFrequency_LOV_HP")));
+		object.set("severityList", getOptionList(TCUtil.getLovValues("D9_IRSeverity_LOV_HP")));
+	}
+	
+	private void getDellBaseData(JSONObject object) {
+		object.set("projectList", getOptionList(TCUtil.getLovValues("D9_IRProject_LOV_DELL")));
+		object.set("issueTypeList", getOptionList(TCUtil.getLovValues("D9_IRIssueType_LOV_Dell")));
+		object.set("originVendorList", getOptionList(TCUtil.getLovValues("D9_IROriginatingVendor_LOV_Dell")));
+		object.set("originGroupList", getOptionList(TCUtil.getLovValues("D9_IROriginatingGroup_LOV_Dell")));
+		object.set("lobFoundList", getOptionList(TCUtil.getLovValues("D9_IRLOBFound_LOV_Dell")));
+		object.set("platformFoundList", getOptionList(TCUtil.getLovValues("D9_IRPlatformFound_LOV_Dell")));
+		object.set("componentList", getOptionList(TCUtil.getLovValues("D9_IRCategory_LOV_Dell_Component")));
+		object.set("groupActivityList", getOptionList(TCUtil.getLovValues("D9_IRGroupActivity_LOV_Dell")));
+		object.set("groupLocationList", getOptionList(TCUtil.getLovValues("D9_IRGroupLocation_LOV_Dell")));
+		object.set("phaseFoundList", getOptionList(TCUtil.getLovValues("D9_IRPhaseFoundDell_Dell")));
+		object.set("hardwareBuildVersionList", getOptionList(TCUtil.getLovValues("D9_IRHardwareBuildVersione_Dell")));
+		object.set("discoveryMethodList", getOptionList(TCUtil.getLovValues("D9_IRDiscoveryMethod_LOV_Dell")));
+		object.set("platformIndependentList", getOptionList(TCUtil.getLovValues("D9_IRPlatformIndependent_Dell")));
+		object.set("affectedOsList", getOptionList(TCUtil.getLovValues("D9_IRAffectedOS_LOV_Dell")));
+		object.set("affectedLanguageList", getOptionList(TCUtil.getLovValues("D9_IRAffectedLanguages_LOV_Dell")));
+		object.set("affectedItemList", getOptionList(TCUtil.getLovValues("D9_IRAffectedItemsDell_LOV_Dell")));
+		object.set("partsForProjectAffectList", getOptionList(TCUtil.getLovValues("D9_IRPartsForProjectAffect_LOV_Dell")));
+		object.set("productImpactList", getOptionList(TCUtil.getLovValues("D9_IRProductImpact_LOV_Dell")));
+		object.set("customerImpactList", getOptionList(TCUtil.getLovValues("D9_IRCustomerImpactDell_LOV_Dell")));
+		object.set("likelihoodList", getOptionList(TCUtil.getLovValues("D9_IRLikelihood_LOV_Dell")));
+		object.set("issueSeverityList", getOptionList(TCUtil.getLovValues("D9_IRSeverity_LOV_Dell")));
+		
+		Object[] classifys = TCUtil.getLovValues("D9_IRCommodity_LOV_Dell_Classify");
+		List<JSONObject> classifyList = new ArrayList<JSONObject>();
+		for (int i = 0; i < classifys.length; i++) {
+			JSONObject obj = JSONUtil.createObj();
+			String item = classifys[i].toString();
+			obj.set("label", item);
+			obj.set("value", item);
+			if("OS (Operation System)".equals(item)) {
+				obj.set("subClassifyList", getOptionList(TCUtil.getLovValues("D9_IRCommodity_LOV_Dell_SubClassify_OS")));
+			} else {
+				if(item.contains(" ")) {
+					item = item.replace(" ", "");
+				}
+				if(item.contains("/")) {
+					item = item.replace("/", "");
+				}
+				if(item.contains("-")) {
+					item = item.replace("-", "");
+				}
+				obj.set("subClassifyList", getOptionList(TCUtil.getLovValues("D9_IRCommodity_LOV_Dell_SubClassify_"+item)));
+			}
+			classifyList.add(obj);
+		}
+		object.set("classifyList",classifyList);
+	}
+	
+	private List<JSONObject> getOptionList(Object[] list){
+		if(ObjectUtil.isNull(list) || list.length == 0) {
+			return Collections.emptyList();
+		}
+		List<JSONObject> resList = new ArrayList<JSONObject>();
+		for (int i = 0; i < list.length; i++) {
+			String value = list[i].toString();
+			JSONObject object = JSONUtil.createObj();
+			object.set("label", value);
+			object.set("value", value);
+			resList.add(object);
+		}
+		return resList;
+	}
+	
+}

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy 6 elements to &apos;lib&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.tcutils&apos;&#x0D;&#x0A;- Destination element: &apos;lib&apos;&#x0D;&#x0A;- Original elements:&#x0D;&#x0A;     com.google.gson.jar&#x0D;&#x0A;     fastjson-1.2.78.jar&#x0D;&#x0A;     hutool-all-5.8.10.jar&#x0D;&#x0A;     poi-ooxml-4.1.2.jar&#x0D;&#x0A;     poi-ooxml-schemas-4.1.2.jar&#x0D;&#x0A;     poi-4.1.2.jar" description="Copy files" element1="lib/com.google.gson.jar" element2="lib/fastjson-1.2.78.jar" element3="lib/hutool-all-5.8.10.jar" element4="lib/poi-ooxml-4.1.2.jar" element5="lib/poi-ooxml-schemas-4.1.2.jar" element6="lib/poi-4.1.2.jar" files="6" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1678853709264" target="/com.foxconn.packagetest/lib" units="0" version="1.0"/>
+</session>

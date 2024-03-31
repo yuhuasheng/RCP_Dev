@@ -1,0 +1,4 @@
+jdbc.driver=oracle.jdbc.OracleDriver
+jdbc.url=jdbc:oracle:thin:@10.203.163.223:1526/tcuat
+jdbc.username=XPLM
+jdbc.password=PASSW0RDPLM

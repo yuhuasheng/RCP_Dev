@@ -1,0 +1,25 @@
+package com.foxconn.mechanism.dtpac.matmaintain.MatrixFactory;
+
+import java.math.BigDecimal;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+
+import cn.hutool.core.util.NumberUtil;
+
+/**
+ * 缓冲材类-EPE泡棉/EPS 泡棉/纸托 計算公式
+ * @author MW00442
+ *
+ */
+public class BufferMatrix extends ExcelBean implements MatrixInterfance{
+
+	@Override
+	public void calculateCost() {
+		BigDecimal total = NumberUtil.mul(this.getWeight(),this.getQty());
+		BigDecimal costDecimal = NumberUtil.mul(total.toString(),this.getCostFactor());
+		this.setCost(NumberUtil.roundStr(costDecimal.doubleValue(), 2));
+	}
+	
+	
+
+}

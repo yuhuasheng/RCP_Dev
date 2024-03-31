@@ -1,0 +1,70 @@
+package com.teamcenter.ets.custom.foxconnsoldispatcherclient;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import com.teamcenter.ets.custom.util.WorkflowUtil;
+import com.teamcenter.ets.load.DatabaseOperation;
+import com.teamcenter.ets.request.TranslationRequest;
+import com.teamcenter.ets.soa.SoaHelper;
+import com.teamcenter.soa.client.model.strong.EPMTask;
+import com.teamcenter.translationservice.task.TranslationDBMapInfo;
+
+public class SOLDatabaseOperation extends DatabaseOperation {
+
+	 public static final String TASK_STATE_COMPLETED = "Completed";
+
+	    public SOLDatabaseOperation() {
+	    }
+
+	    public void load(TranslationDBMapInfo zDbMapInfo, List<String> zFileList) throws Exception {
+	    }
+
+	    public void load() throws Exception {
+	    	this.m_zTaskLogger.info("Performing database operation (loader) for dispatcher ...");
+	        String currentState = this.request.getPropertyObject("currentState").getStringValue();
+	        this.m_zTaskLogger.info("currentState: " + currentState);
+	        if (!"TERMINAL".equalsIgnoreCase(currentState)) {
+	            Map<String, String> translatorArgs = TranslationRequest.getTranslationArgs(this.request);
+	            this.m_zTaskLogger.info("translatorArgs: " + translatorArgs);
+	            Iterator var4 = translatorArgs.entrySet().iterator();
+	            while(var4.hasNext()) {
+	                Entry<String, String> entry = (Entry)var4.next();	                
+	                this.m_zTaskLogger.info("The dispatcher has received the following argument <" + (String)entry.getKey() + " := " + (String)entry.getValue() + ">.");
+	            }
+
+	            boolean isCurrentTaskUid = translatorArgs.containsKey("CURRENT_EPMTASK");
+	            if (isCurrentTaskUid) {
+	                String uid = (String)translatorArgs.get("CURRENT_EPMTASK");
+	                uid = uid.substring(0, 14);
+	                EPMTask task = (EPMTask)SoaHelper.getModelObject(uid);
+	                (new WorkflowUtil(this.m_zTaskLogger)).completeWorkflowTask(task.getUid(), "Workflow task approved by dispatcher");
+	                String taskState = task.get_task_state();	                
+	                if (!taskState.equals("Completed")) {
+	                    this.m_zTaskLogger.info("completeWorkflowTask Failed... Trying second time..");
+	                    (new WorkflowUtil(this.m_zTaskLogger)).completeWorkflowTask(task.getUid(), "Workflow task approved by dispatcher");
+	                }
+
+	                taskState = task.get_task_state();	               
+	                if (taskState.equals("Completed")) {
+	                    this.m_zTaskLogger.info("completeWorkflowTask Succeeded ..");
+	                }
+	            } else {
+	                this.m_zTaskLogger.info("Current workflow will not be completed because of missing translator arguments.");
+	            }
+	        } else {
+	            this.m_zTaskLogger.error("The archiving dispatcher has ended in state <" + currentState + ">.");
+	        }
+
+	    }
+
+		
+	    @Override
+		public void query() throws Exception {
+			System.out.println("==>> 开始执行query()方法");
+		}
+
+	    
+}

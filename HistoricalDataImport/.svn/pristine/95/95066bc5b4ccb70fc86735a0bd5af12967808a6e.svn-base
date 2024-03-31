@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="lib" path="lib/logback-classic-1.2.3.jar"/>
+	<classpathentry kind="lib" path="lib/logback-core-1.2.3.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.7.32.jar"/>
+	<classpathentry kind="lib" path="lib/mysql-connector-java-8.0.15.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaAdministrationStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCadLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCommon_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCoreLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaCoreStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaQueryLoose_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaQueryStrong_14000.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/TcSoaStrongModel_14000.2.0.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

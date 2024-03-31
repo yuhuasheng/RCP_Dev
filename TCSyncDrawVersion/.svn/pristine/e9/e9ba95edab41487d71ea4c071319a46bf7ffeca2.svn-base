@@ -1,0 +1,8 @@
+log4_properties=C:\\Siemens\\Dispatcher\\Module\\Translators\\conf\\log4j.properties
+tc_properties=C:\\Siemens\\Dispatcher\\Module\\Translators\\creodispatcherclient\\tc.properties
+mail_exe=C:\\Siemens\\Teamcenter12\\bin\\tc_mail_smtp_ootb.exe
+ipemexport=C:\\Siemens\\ipem2\\ipemexport.bat
+ipemimport=C:\\Siemens\\ipem2\\ipemimport.bat
+to_userId=hua-sheng.yu@foxconn.com
+subject=Creo\u88C5\u914D\u56FE\u7EB8\u5347\u7D1A\u7248\u672C\u63D0\u9192
+fms_url=http://10.203.163.245:4544

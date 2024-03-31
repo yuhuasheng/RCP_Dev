@@ -1,0 +1,368 @@
+package com.foxconn.electronics.prtL10ebom.ebomimport.dialog;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.window.IShellProvider;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
+import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.ShellAdapter;
+import org.eclipse.swt.events.ShellEvent;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.ProgressBar;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.wb.swt.SWTResourceManager;
+
+import com.foxconn.decompile.util.ExcelUtil;
+import com.foxconn.electronics.L10Ebom.dialog.MaterialTableViewerContentProvider;
+import com.foxconn.electronics.L10Ebom.dialog.MaterialTableViewerLabelProvider;
+import com.foxconn.electronics.L10Ebom.domain.EBOMApplyRowBean;
+import com.foxconn.electronics.L10Ebom.util.TableTools;
+import com.foxconn.electronics.prtL10ebom.ebomimport.rightbtn.MyActionGroup;
+import com.foxconn.electronics.prtL10ebom.ebomimport.util.ExcelParseTools;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+public class L110EBOMImportDialog extends Dialog {	
+	
+	private AbstractAIFUIApplication app = null;
+	private TCSession session = null;
+	private Shell shell = null;
+	private Shell parentShell = null;
+	private Text filePathText = null;
+	private Button chooseBtn = null;
+	private Button importButton = null;
+	private Label label = null;
+	private Combo combo = null;	
+	private StyledText styledText = null;
+	private StyleRange infoStyle = null;
+	private StyleRange warnStyle = null;
+	private StyleRange errorStyle = null;
+	private Composite statusBar = null;
+	private Label status = null;
+	private ProgressBar progressBar = null;
+	private Composite progressComposite = null;
+	private Registry reg = null;
+	private List<String> comboList = null;
+	private String comboTextValue = null;
+	private boolean isRunning = false;
+	private ExcelUtil excelUtil = null;
+	private Workbook workbook = null;
+	private ExcelParseTools parseTools = null;
+	private String filePath = null;
+	
+	public L110EBOMImportDialog(AbstractAIFUIApplication app, Shell parentShell) {
+		super(parentShell);
+		this.app = app;
+		this.session = (TCSession) this.app.getSession();
+		this.parentShell = parentShell;
+		reg = Registry.getRegistry("com.foxconn.electronics.prtL10ebom.prtL10ebom");
+		
+		excelUtil = new ExcelUtil();
+		parseTools = new ExcelParseTools();
+		
+		infoStyle = new StyleRange();
+		infoStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_GREEN);
+		
+		warnStyle = new StyleRange();				
+		warnStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_DARK_YELLOW);
+		
+		errorStyle = new StyleRange();				
+		errorStyle.foreground = SWTResourceManager.getColor(SWT.COLOR_RED);
+		
+		initUI();
+	}
+	
+	
+	private void initUI() {
+		shell = new Shell(parentShell, SWT.DIALOG_TRIM | SWT.MAX | SWT.RESIZE | SWT.CLOSE);
+		shell.setSize(700, 600);
+		shell.setText(reg.getString("L10EBOMImport.TITLE"));
+		shell.setLayout(new GridLayout(1, false));
+		TCUtil.centerShell(shell);
+		
+		Image image = getDefaultImage();
+		if (CommonTools.isNotEmpty(image)) {
+			shell.setImage(image);
+		}
+		
+		GridData topData = new GridData(GridData.HORIZONTAL_ALIGN_FILL);
+		topData.grabExcessHorizontalSpace = true;
+		
+		Composite topComposite = new Composite(shell, SWT.NONE);
+		topComposite.setLayout(new GridLayout(5, false));
+		topComposite.setLayoutData(topData);
+		
+		label = new Label(topComposite, SWT.NONE);
+		label.setText(reg.getString("Combo.LABEL"));
+		
+		GridData gridDataText = new GridData();
+		gridDataText.widthHint = 100;
+		
+		combo = new Combo(topComposite, SWT.READ_ONLY); // 定义一个只读的下拉框
+		combo.setLayoutData(gridDataText);
+		
+		
+		GridData filePathData = new GridData(GridData.FILL_HORIZONTAL);
+		
+		filePathText = new Text(topComposite, SWT.SINGLE | SWT.BORDER);
+		filePathText.setEnabled(false); // 设置不可编辑
+		filePathText.setLayoutData(filePathData);
+		
+		chooseBtn = new Button(topComposite, SWT.NONE);
+		chooseBtn.setText(reg.getString("ChooseBtn.LABEL"));
+		
+		styledText = new StyledText(shell, SWT.READ_ONLY | SWT.MULTI |  SWT.V_SCROLL | SWT.H_SCROLL | SWT.BORDER);
+		styledText.setLayoutData(new GridData(GridData.FILL_BOTH));
+		
+		MyActionGroup actionGroup = new MyActionGroup(styledText, reg);
+		actionGroup.fillContextMenu(new MenuManager());
+		
+//		statusBar = new Composite(shell, SWT.NONE);
+//		statusBar.setLayout(new GridLayout(2, false));
+//		statusBar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+//		
+//		status = new Label(statusBar, SWT.NONE);
+//		status.setText(reg.getString("ProgressBar1.TITLE"));
+//		status.setVisible(false);
+		
+//		progressComposite = new Composite(shell, SWT.NONE);
+		
+		statusBar = new Composite(shell, SWT.NONE);
+		statusBar.setLayout(new GridLayout(2, false));
+		statusBar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		
+		status = new Label(statusBar, SWT.NONE);		
+		
+		Composite bottomBtnComposite = new Composite(shell, SWT.NONE);
+		GridData bottomBtndata = new GridData(GridData.FILL_HORIZONTAL);
+		bottomBtndata.horizontalAlignment = GridData.CENTER; 		
+		bottomBtnComposite.setLayoutData(bottomBtndata);
+		
+		RowLayout bottomRowLayout = new RowLayout(); 
+		bottomRowLayout.spacing = 15;
+		
+		bottomBtnComposite.setLayout(bottomRowLayout);
+		
+		RowData bottomBtnRowData = new RowData();
+		bottomBtnRowData.width = 60;
+		bottomBtnRowData.height = 30;
+		
+		importButton = new Button(bottomBtnComposite, SWT.NONE);
+		importButton.setText(reg.getString("ImportBtn.LABEL"));
+		importButton.setLayoutData(bottomBtnRowData);
+		importButton.setEnabled(false); // 设置不可点击		
+		status.setVisible(false); // 界面加载设置不显示	
+		
+		addListener();		
+				
+		shell.open();
+		shell.layout();
+
+		Display display = shell.getDisplay();
+		while (!shell.isDisposed()) {
+			if (!display.readAndDispatch()) {
+				display.sleep();
+			}
+		}
+	}
+	
+	
+	public void setUpStatusBar(String statusName, boolean importFlag) {		
+			if (!statusBar.isDisposed()) {
+				status.setText(statusName);
+				status.setVisible(true);
+			}
+			
+			progressBar = new ProgressBar(statusBar, SWT.SMOOTH);
+			progressBar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			progressBar.setMaximum(100);
+			
+			statusBar.layout();
+
+	}
+
+	
+	private void updateProgressBarByLoadSheet() {
+
+		new Thread(new Runnable() {
+			private int progress = 0;
+			private static final int INCREMENT = 10;
+			private boolean flag = false; // 数据接口获取成功与否接口
+			
+			@Override
+			public void run() {
+				new Thread() {
+					public void run() {	
+						FileInputStream fis = null;
+						try {
+							fis = new FileInputStream(filePath);
+							workbook = WorkbookFactory.create(fis);
+							
+							List<String> list = parseTools.getSheetNameList(workbook);
+									
+							if (CommonTools.isEmpty(list)) {
+								TCUtil.errorMsgBox(reg.getString("SheetLoadingErr.MSG"), reg.getString("ERROR.MSG"));
+								return;
+							}
+							
+							comboList = new ArrayList<String>(list.size() + 1); 
+							
+							comboList.addAll(list);
+							comboList.add(0, "--- 请选择 ---");	
+							
+							setComboValues(); // 设置sheet页名称下拉值
+						} catch (IOException e) {
+							e.printStackTrace();
+						} finally {			
+							if (CommonTools.isNotEmpty(fis)) {
+								try {
+									fis.close();
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}			
+							if (CommonTools.isNotEmpty(workbook)) {
+								try {
+									workbook.close();
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}		
+							
+						}
+						
+						flag = true;						 						
+					}
+				}.start();
+				
+				while (progressBar != null && !progressBar.isDisposed()) {
+					Display.getDefault().asyncExec(new Runnable() {
+						@Override
+						public void run() {
+							if (flag) {
+								if (!shell.isDisposed()) {
+									status.setVisible(false);					    		
+									filePathText.setText(filePath);
+						    		progressBar.dispose(); // 销毁进度条组件
+						    						
+								}								
+							}
+							if (!progressBar.isDisposed()) {
+								progressBar.setSelection((progress += INCREMENT) % (progressBar.getMaximum() + INCREMENT));
+							}								
+						}
+					});
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}					
+					
+				}
+			}
+		}).start();
+	
+	}
+	
+	
+	
+ 	private void addListener() {
+		chooseBtn.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				filePath = TCUtil.openFileChooser(shell);
+				if (CommonTools.isEmpty(filePath)) {
+					return;
+				}
+				
+				setUpStatusBar(reg.getString("ProgressBar1.TITLE"), false);
+				updateProgressBarByLoadSheet();
+								
+			}
+		});
+		
+		importButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				String selectFilePath = filePathText.getText();
+			}
+		});		
+		
+		shell.addShellListener(new ShellAdapter() {
+			public void shellClosed(ShellEvent e) {
+				if (isRunning) {
+					MessageDialog.openWarning(getShell(), reg.getString("WARNING.MSG"), reg.getString("ImportWarn.MSG"));
+					e.doit = false;
+				} else {
+					boolean flag = MessageDialog.openQuestion(getShell(), reg.getString("INFORMATION.MSG"), reg.getString("CloseTip.MSG"));
+					System.out.println("==>> flag: " + flag);
+					e.doit = flag == true;
+					if (e.doit) {
+						shell.dispose();
+					}
+					
+				}
+			}
+		});
+	
+		combo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				Combo source = (Combo) e.getSource();
+				comboTextValue = source.getText();
+				System.out.println("==>> 当前下拉框选中值为: " + source.getText());
+				if (!comboTextValue.equals(comboList.get(0)) && CommonTools.isNotEmpty(filePath)) { // 判断当前下拉框值是否为请选择并且文件路径不为空					
+					importButton.setEnabled(true);
+				} else if (comboTextValue.equals(comboList.get(0)) || CommonTools.isEmpty(filePath)) {
+					importButton.setEnabled(false);
+				}
+			}
+		});
+ 	}
+	
+	private void setRunningFlag(boolean flag) {
+		Display.getDefault().syncExec(() -> {
+			isRunning = flag;
+			if (!importButton.isDisposed()) {
+				importButton.setEnabled(!flag);
+			}
+		});
+	}
+	
+	
+	private void setComboValues() {
+		Display.getDefault().syncExec(() -> {
+			combo.removeAll(); // 清除所有的下拉值
+			for (int i = 0; i < comboList.size(); i++) {
+				combo.add(comboList.get(i));
+			}
+			
+			comboTextValue = comboList.get(0);
+			combo.select(0); // 设置第一项为当前项
+		});
+		
+	}
+}

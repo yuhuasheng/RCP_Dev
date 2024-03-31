@@ -1,0 +1,41 @@
+1690190798809	Delete element
+1690191803941	Rename type 'BOMApplyBean'
+1690191817534	Rename type 'EBOMApplyBean'
+1690191830267	Rename type 'EEDiffMatBean'
+1690191841033	Rename type 'EENewBOMBean'
+1690191852254	Rename type 'FinishBOMBean'
+1690191866745	Rename type 'FinishMatBean'
+1690191877102	Rename type 'HalfMatBean'
+1690191896480	Rename type 'MEDiffMatBean'
+1690191899191	Delete element
+1690191909100	Rename type 'MENewBOMBean'
+1690191918563	Rename type 'PowerCordBean'
+1690191926916	Rename type 'PowerDiffMatBean'
+1690191935772	Rename type 'PowerNewBOMBean'
+1690191943972	Rename type 'RDEBOMBean'
+1690246319599	Delete element
+1690250650108	Rename type 'BOMApplyBean'
+1690251538507	Rename type 'MatBean'
+1690255514598	Rename type 'HalfMatBean'
+1690269434515	Extract method 'checkHalfMatExist'
+1690276989965	Extract method 'halfMatToTable'
+1690277164290	Extract method 'BOMApplyMatToTable'
+1690277288423	Extract method 'RDEBOMMatToTable'
+1690277425685	Extract method 'MEMatToTable'
+1690277544197	Extract method 'EEMatToTable'
+1690277639290	Extract method 'PowerMatToTable'
+1690278141065	Rename type 'MatToBean'
+1690278156366	Rename type 'BOMApplyToBean'
+1690278194323	Rename type 'EEBOMToMat'
+1690278238626	Rename type 'RDEBOMToBean'
+1690278261124	Rename type 'HalfMatToBean'
+1690278322356	Rename type 'MEBOMToMat'
+1690278360534	Rename type 'PowerBOMToMat'
+1690278372135	Rename type 'MEBOMToTableBean'
+1690278400338	Rename type 'EEBOMToTableBean'
+1690278495098	Rename type 'FinishMatToTable'
+1690354488240	Rename type 'FinishToTableBean'
+1690442528132	Delete element
+1690442896856	Delete element
+1690537126683	Delete element
+1690537151941	Delete element

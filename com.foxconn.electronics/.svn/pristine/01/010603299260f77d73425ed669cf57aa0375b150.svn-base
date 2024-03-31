@@ -1,0 +1,34 @@
+package com.foxconn.electronics.prtL10ebom.ebomimport.domain;
+
+public class PartQtyBean {
+
+	private String sku;
+	
+	private String partNum;
+	
+	private String qty;
+
+	public String getSku() {
+		return sku;
+	}
+
+	public void setSku(String sku) {
+		this.sku = sku;
+	}
+
+	public String getPartNum() {
+		return partNum;
+	}
+
+	public void setPartNum(String partNum) {
+		this.partNum = partNum;
+	}
+
+	public String getQty() {
+		return qty;
+	}
+
+	public void setQty(String qty) {
+		this.qty = qty;
+	}
+}

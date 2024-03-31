@@ -1,0 +1,52 @@
+#IM Perspectives
+im.issueManager.PERSPECTIVE     = \u554F\u984C\u7BA1\u7406\u5668
+im.issueManager.PERSPECTIVE.TIP = <html><body>\u300C\u554F\u984C\u7BA1\u7406\u5668\u300D\u7528\u65BC\u5EFA\u7ACB\u548C\u7BA1\u7406\u554F\u984C\u7269\u4EF6\u3002</body></html>
+
+#IM View Category
+im.viewCategory                 = \u554F\u984C\u7BA1\u7406
+
+#IM Views
+im.issueHome.VIEW               = \u554F\u984C\u4E3B\u76EE\u9304
+im.issuePreview.VIEW            = \u554F\u984C\u9810\u89BD
+im.listDetails.VIEW             = \u554F\u984C\u6E05\u55AE\u8A73\u7D30\u8CC7\u8A0A
+
+#IM Create Wizards
+im.newIssueMenu.LABEL           = \u554F\u984C\u5831\u544A
+im.newIssueWizard.LABEL         = \u5EFA\u7ACB...
+im.newContextIssueWizard.LABEL  = \u95DC\u806F\u5EFA\u7ACB...
+im.newIssueWizard.TOOLTIP       = \u65B0\u5EFA\u554F\u984C\u5831\u544A\u9805\u76EE
+im.newContextIssueWizard.TOOLTIP= \u5EFA\u7ACB\u8207\u6240\u9078\u7269\u4EF6\u76F8\u95DC\u7684\u65B0\u554F\u984C\u5831\u544A\u9805\u76EE
+im.wizard.TypePage.TITLE        = \u554F\u984C\u5831\u544A\u985E\u578B
+im.wizard.TypePage.DESC         = \u9078\u53D6\u8981\u5EFA\u7ACB\u7684\u554F\u984C\u5831\u544A\u985E\u578B
+im.wizard.CreatePropsPage.TITLE = \u554F\u984C\u5831\u544A\u9805\u76EE\u5EFA\u7ACB\u8CC7\u8A0A
+im.wizard.CreatePropsPage.DESC  = \u5B9A\u7FA9\u554F\u984C\u5831\u544A\u9805\u76EE\u5EFA\u7ACB\u8CC7\u8A0A
+
+#Review Issue
+im.reviewIssue.LABEL            = \u5BE9\u6838\u554F\u984C...
+im.reviewIssue.TOOLTIP          = \u5BE9\u6838\u554F\u984C
+
+#Issue Home Actions
+im.issuefolder.manage.LABEL    = \u7BA1\u7406\u554F\u984C\u6E05\u55AE...
+im.issuefolder.manage.TOOLTIP  = \u7BA1\u7406\u554F\u984C\u6E05\u55AE
+im.issuefolder.edit.LABEL      = \u7DE8\u8F2F\u554F\u984C...
+
+AssignParticipants.TITLE       = \u6307\u6D3E\u53C3\u8207\u8005...
+NewChangeWizard.LABEL          = \u8B8A\u66F4...
+Open_the_selected_object.TIP   = \u958B\u555F\u9078\u5B9A\u7684\u7269\u4EF6
+
+#Toolbar command tooltip
+Open_Home.TIP                                     = \u958B\u555F Home \u8CC7\u6599\u593E
+#Open_Inbox.TIP                                   = Open Inbox
+Refreshes_the_selected_object.TIP                 = \u91CD\u65B0\u6574\u7406\u9078\u5B9A\u7684\u7269\u4EF6
+Open_the_selected_object.TIP                      = \u958B\u555F\u9078\u5B9A\u7684\u7269\u4EF6
+Displays_properties_of_the_selected_object.TIP    = \u986F\u793A\u9078\u5B9A\u7269\u4EF6\u7684\u5C6C\u6027
+Displays_accessibility_of_the_selected_object.TIP = \u986F\u793A\u9078\u5B9A\u7269\u4EF6\u7684\u53EF\u5B58\u53D6\u6027
+Add_Design_to_Product.TIP                         = \u5C07\u8A2D\u8A08\u65B0\u589E\u5230\u7522\u54C1
+Add_Part_to_Product.TIP                           = \u5C07\u96F6\u4EF6\u65B0\u589E\u5230\u7522\u54C1
+Open_search_view.TIP                              = \u958B\u555F\u641C\u5C0B\u8996\u5716
+openInVMU.TIP                                     = \u555F\u52D5\u751F\u547D\u9031\u671F\u8996\u89BA\u5316/\u5728\u751F\u547D\u9031\u671F\u8996\u89BA\u5316\u4E2D\u958B\u555F
+
+
+
+
+

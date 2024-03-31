@@ -1,0 +1,200 @@
+package com.teamcenter.rac.workflow.commands.newprocess;
+
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import javax.swing.JPanel;
+import javax.swing.table.TableModel;
+
+import org.eclipse.swt.widgets.Display;
+
+import com.foxconn.decompile.util.SPASUser;
+import com.teamcenter.rac.common.TCTreeNode;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplate;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.util.SplitPane;
+import com.teamcenter.rac.util.VerticalLayout;
+
+public class PublicAccountPanel extends JPanel {
+	private Registry appReg;
+	
+	protected TCSession session;
+
+	protected TeamRosterPanel teamRosterPanel;
+	
+	protected PublicMailPanel publicMailPanel;
+	
+	protected UserAssignAllTasksPanel assignPanel;
+	
+	protected String projectId = "";
+	
+	
+	public PublicAccountPanel(TCSession paramTCSession, UserAssignAllTasksPanel assignPanel, String projectId) {
+//		System.out.println("=============PublicAccountPanel()==============");
+		this.appReg = Registry.getRegistry(this);
+		this.session = paramTCSession;
+		this.assignPanel = assignPanel;
+		this.projectId = projectId;
+		
+		initializePanel();
+	}
+	
+	protected void initializePanel() {
+		teamRosterPanel = new TeamRosterPanel(session, projectId);
+		publicMailPanel = new PublicMailPanel(session);				
+		
+		teamRosterPanel.addButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Display.getDefault().syncExec(new Runnable() {
+					@Override
+					public void run() {
+						addPubMailInfo();		
+					}
+				});
+			}
+		});
+		
+		teamRosterPanel.deleteButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Display.getDefault().syncExec(new Runnable() {
+					@Override
+					public void run() {
+						removePubMailInfo();
+					}
+				});
+			}
+		});
+		
+		teamRosterPanel.userList.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if(teamRosterPanel.userList.getSelectedIndex() != -1) {                   
+                   if(2 == e.getClickCount())
+                	   Display.getDefault().syncExec(new Runnable() {
+       					@Override
+       					public void run() {
+       						addPubMailInfo();		
+       					}
+       				});
+				}
+			}
+		});
+		
+//		setLayout(new BorderLayout());
+//      add(publicMailPanel, BorderLayout.CENTER);
+//      add(teamRosterPanel, BorderLayout.EAST);
+		
+		setLayout(new VerticalLayout(7, 4, 4, 4, 4));
+		SplitPane splitPane = new SplitPane(0);
+		splitPane.setLeftComponent(publicMailPanel);
+		splitPane.setRightComponent(this.teamRosterPanel);
+		splitPane.setDividerSize(2);		
+		splitPane.setDividerLocation(0.65D);		
+		add("unbound.bind", splitPane);
+	}
+	
+	private void addPubMailInfo() {
+		try {				
+			SPASUser user = (SPASUser) teamRosterPanel.userList.getSelectedValue();
+			
+			UserAssignmentListPanel.pubMail = user.getNotes();																	
+			
+			TableModel tableModel = publicMailPanel.table.getModel();
+			
+			if (-1 == publicMailPanel.table.getSelectedRow()) {
+				MessageBox.post("请选择表数据", "提示", 2);
+				return;
+			}
+			
+			if (checkIsModify(tableModel)) {
+				if (!"".equals(tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 1))) {
+					tableModel.setValueAt(user.getName(), publicMailPanel.table.getSelectedRow(), 2);
+					tableModel.setValueAt(user.getNotes(), publicMailPanel.table.getSelectedRow(), 3);	
+						
+					publicMailPanel.m_rowMap.put(tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 0)+""+tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 1), 
+												Arrays.asList(user.getName(), user.getNotes()));							
+				} else {
+					MessageBox.post("请选择TC共用帐号", "提示", 2);
+				}
+			} else {
+				MessageBox.post("當前流程節點不能編輯", "提示", 2);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+	
+	
+	private void appendPubMailInfo() {
+		try {
+			SPASUser user = (SPASUser) teamRosterPanel.userList.getSelectedValue();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	private void removePubMailInfo() {
+		try {						
+			TableModel tableModel = publicMailPanel.table.getModel();
+			
+			if (-1 == publicMailPanel.table.getSelectedRow()) {
+				MessageBox.post("请选择表数据", "提示", 2);
+				return;
+			}
+			
+			if (!"".equals(tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 1))) {
+				tableModel.setValueAt("", publicMailPanel.table.getSelectedRow(), 2);
+				tableModel.setValueAt("", publicMailPanel.table.getSelectedRow(), 3);	
+					
+				publicMailPanel.m_rowMap.put(tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 0)+""+tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 1), Arrays.asList("", ""));							
+			} else {
+				MessageBox.post("请选择TC共用帐号", "提示", 2);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private boolean checkIsModify(TableModel tableModel) {		
+		try {
+			String node = tableModel.getValueAt(publicMailPanel.table.getSelectedRow(), 0).toString();
+			
+			TCTreeNode tCTreeNode = (TCTreeNode) assignPanel.resourcesPanel.processTreeView.getRootNode();
+			int fCount = tCTreeNode.getChildCount();
+			for (int fi = 0; fi < fCount; fi++) {
+				TCTreeNode fTCTreeNode1 = (TCTreeNode) tCTreeNode.getChildAt(fi);
+				TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) fTCTreeNode1.getComponent();
+				int sCount = fTCTreeNode1.getChildCount();
+				if (sCount > 0 && tCComponentTaskTemplate !=null && node.equals(tCComponentTaskTemplate.getName())) {
+					return true;
+				}
+			}
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return false;
+	}
+	
+}

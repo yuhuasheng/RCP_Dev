@@ -1,0 +1,205 @@
+package com.foxconn.electronics.pamatrixbom.domain;
+
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import com.foxconn.electronics.dcnreport.dcncostimpact.util.TCPropertes;
+import com.foxconn.electronics.pamatrixbom.service.PAMatrixBOMService;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+
+public class PAVariableBOMBean {
+
+	private List<PAVariableBOMBean> child; // 子集合
+	private List<PAVariableBOMBean> subList; // 替代料集合
+	private Integer level=3; 
+	private String lineId;
+	private boolean isSub = false; // 判断是否为替代料
+	
+	@TCPropertes(tcProperty = "bl_sequence_no")
+	private String findNum;
+	@TCPropertes(tcProperty = "bl_quantity")
+	private String qty = "1";
+	@TCPropertes(tcProperty = "bl_item_item_id")
+	private String itemId;
+	@TCPropertes(tcProperty = "bl_rev_item_revision_id")
+	private String itemRevision;
+	@TCPropertes(tcProperty = "object_name")
+	private String itemName;
+	@TCPropertes(tcProperty = "d9_EnglishDescription")
+	private String englishDescription;
+	
+	private String itemRevUid;
+	private String errorMsg;
+	private boolean isReleased=false;
+	private boolean isModify = false;
+	
+	public PAVariableBOMBean() {		
+		
+	}
+	
+	public static PAVariableBOMBean getBean(PAVariableBOMBean bean, TCComponentBOMLine tcbomLine) throws TCException, InterruptedException {
+		String[] bomName = new String[] {"bl_item_item_id","bl_rev_item_revision_id","bl_item_object_name","bl_quantity","bl_rev_d9_EnglishDescription","bl_sequence_no"};
+		
+		if (bean != null && tcbomLine != null) {
+			PAMatrixBOMService.loadAllProperties(tcbomLine,null, null, bomName);
+			
+			String[] bomPro = tcbomLine.getProperties(bomName);
+			bean.setItemId(bomPro[0]);
+			bean.setItemRevision(bomPro[1]);
+			bean.setItemName(bomPro[2]);
+			bean.setQty(bomPro[3]);
+			bean.setEnglishDescription(bomPro[4]);
+			bean.setFindNum(bomPro[5]);
+		}
+		return bean;
+	}
+	
+	public PAVariableBOMBean(TCComponentBOMLine bomLine) {
+		child = new CopyOnWriteArrayList<PAVariableBOMBean>();
+		try {
+			getBean(this, bomLine);
+			TCComponentItemRevision itemRev = bomLine.getItemRevision();
+			this.setItemRevUid(itemRev.getUid());
+			this.setLineId(CommonTools.md5Encode(this.getItemId()));
+			this.setReleased(TCUtil.isReleased(itemRev));
+		} catch (IllegalArgumentException | TCException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}	
+	
+	
+
+	public String getFindNum() {
+		return findNum;
+	}
+
+	public void setFindNum(String findNum) {
+		this.findNum = findNum;
+	}
+
+	public String getItemId() {
+		return itemId;
+	}
+
+	public void setItemId(String itemId) {
+		this.itemId = itemId;
+	}
+
+	public Integer getLevel() {
+		return level;
+	}
+	public void setLevel(Integer level) {
+		this.level = level;
+	}
+
+	public String getItemRevUid() {
+		return itemRevUid;
+	}
+
+	public void setItemRevUid(String itemRevUid) {
+		this.itemRevUid = itemRevUid;
+	}
+
+	public String getQty() {
+		return qty;
+	}
+
+	public void setQty(String qty) {
+		this.qty = qty;
+	}
+
+	public String getErrorMsg() {
+		return errorMsg;
+	}
+
+	public void setErrorMsg(String errorMsg) {
+		this.errorMsg = errorMsg;
+	}
+	
+	public String getEnglishDescription() {
+		return englishDescription;
+	}
+	public void setEnglishDescription(String englishDescription) {
+		this.englishDescription = englishDescription;
+	}
+	
+	public void addQty(String  num) {
+		 if(num==null||"".equalsIgnoreCase(num.trim())) {
+		    	return;  
+		  }
+		  Integer  mqtyInteger=Integer.parseInt(qty)+Integer.parseInt(num); 
+		  qty = ""+mqtyInteger;
+	}
+	
+	public void setChild(List<PAVariableBOMBean> child) {
+		this.child = child;
+	}
+	
+	public List<PAVariableBOMBean> getChild() {
+		return child;
+	}	
+	
+	public List<PAVariableBOMBean> getSubList() {
+		return subList;
+	}
+	
+	public void setSubList(List<PAVariableBOMBean> subList) {
+		this.subList = subList;
+	}	
+
+
+	public boolean isModify() {
+		return isModify;
+	}
+
+	public void setModify(boolean isModify) {
+		this.isModify = isModify;
+	}
+
+	public String getItemRevision() {
+		return itemRevision;
+	}
+
+	public void setItemRevision(String itemRevision) {
+		this.itemRevision = itemRevision;
+	}
+
+	public String getItemName() {
+		return itemName;
+	}
+
+	public void setItemName(String itemName) {
+		this.itemName = itemName;
+	}
+
+	public boolean isReleased() {
+		return isReleased;
+	}
+
+	public void setReleased(boolean isReleased) {
+		this.isReleased = isReleased;
+	}
+
+	public String getLineId() {
+		return lineId;
+	}
+
+	public void setLineId(String lineId) {
+		this.lineId = lineId;
+	}
+
+	public void setIsSub(boolean isSub) {
+		this.isSub = isSub;
+	}
+	
+	public boolean getIsSub() {
+		return isSub;
+	}
+
+}

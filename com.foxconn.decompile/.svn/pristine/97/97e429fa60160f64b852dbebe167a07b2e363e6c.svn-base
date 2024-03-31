@@ -1,0 +1,128 @@
+package com.teamcenter.rac.workflow.commands.newprocess;
+
+import com.foxconn.decompile.service.CustomPnService;
+import com.foxconn.decompile.service.SecondSourceService;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.TCConstants;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplate;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.FilterDocument;
+import com.teamcenter.rac.util.HorizontalLayout;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.PropertyLayout;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.util.Separator;
+import com.teamcenter.rac.util.UIUtilities;
+import com.teamcenter.rac.util.VerticalLayout;
+import com.teamcenter.rac.util.iTextArea;
+import com.teamcenter.rac.util.iTextField;
+import com.teamcenter.rac.util.combobox.iComboBox;
+import com.teamcenter.rac.workflow.commands.adhoc.AdhocSignoffsPanel;
+import com.teamcenter.rac.workflow.commands.assignmentlist.AssignAllTasksPanel;
+import com.teamcenter.rac.workflow.common.taskproperties.TaskAttachmentsPanel;
+import com.teamcenter.rac.workflow.processdesigner.ProcessDesignerApplicationPanel;
+
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.io.PrintStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import javax.swing.ButtonGroup;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.border.EtchedBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
+public class UserNewProcessDialog extends UserExtNewProcessDialog {
+	private TCSession session = null;
+	private PrintStream printStream = null;
+	Registry reg = null;
+	TCComponentTaskTemplate taskTemplate = null;
+	private TCComponent target;
+	AbstractAIFUIApplication app;
+	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+	public UserNewProcessDialog(NewProcessCommand paramNewProcessCommand) {
+		super(paramNewProcessCommand);
+
+		System.out.println("UserNewProcessDialog");
+		this.session = ((TCSession) AIFUtility.getCurrentApplication().getSession());
+		this.app = AIFUtility.getCurrentApplication();
+		this.target = ((TCComponent) this.app.getTargetComponent());
+//		System.out.println("paramNewProcessCommand ==" + paramNewProcessCommand);
+	}
+
+	@Override
+	public void startCommandOperation() {
+		// TODO Auto-generated method stub
+		System.out.println("startCommandOperation");						
+		super.startCommandOperation();
+					
+	}
+
+	public TCComponent getCreatorTask() {
+//		System.out.println("super.getCreatorTask() ==" + super.getCreatorTask());
+		return super.getCreatorTask();
+	}
+
+	public void getProcListAll() {
+		super.getProcListAll();
+	}
+	
+	@Override
+	public void endOperation() {
+		super.endOperation();
+		String s=getProcessName();
+		//自编料号重抛流程
+		if(s!=null&&s.startsWith("FXN37_MNT")) {
+			try {
+				InterfaceAIFComponent[] tmps=this.pasteTargets;
+				TCComponent[] coms=new TCComponent[tmps.length];
+				for(int i=0;i<tmps.length;i++) {
+					coms[i]=(TCComponent)tmps[i];
+				}
+			    new CustomPnService().applyCustomPn(session,coms,null);
+			}catch(Exception e) {}
+		}
+	
+	}
+	public String getProcessDescription() {
+//		System.out.println("super.getProcessDescription() ==" + super.getProcessDescription());
+		return super.getProcessDescription();
+	}
+
+	public String getProcessName() {
+//		System.out.println("super.getProcessName() ==" + super.getProcessName());
+		return super.getProcessName();
+	}
+
+	public Object getProcessTemplate() {
+//		System.out.println("super.getProcessTemplate() ==" + super.getProcessTemplate());
+		return super.getProcessTemplate();
+	}
+
+}

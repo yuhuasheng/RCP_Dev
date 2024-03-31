@@ -1,0 +1,8 @@
+performCommand_EPMDoTask=com.teamcenter.rac.workflow.commands.dotask.UserDoTaskCommand
+performCommand_EPMPerformSignoffTask=com.teamcenter.rac.workflow.commands.newperformsignoff.UserNewPerformSignoffCommand
+EPMDoTask.VIEWPANEL=com.teamcenter.rac.workflow.commands.dotask.UserDoTaskPanel
+resumeAction=com.teamcenter.rac.workflow.common.actions.UserResumeAction
+resumeCommand=com.teamcenter.rac.workflow.commands.resume.UserResumeCommand
+
+
+                         

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy 2 elements to &apos;com.foxconn.electronics/lib&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.TCFunctionDemo&apos;&#x0D;&#x0A;- Destination element: &apos;com.foxconn.electronics/lib&apos;&#x0D;&#x0A;- Original elements:&#x0D;&#x0A;     D9SoaCustRac_14000.2.0.jar&#x0D;&#x0A;     D9SoaCustStrong_14000.2.0.jar" description="Copy files" destination="=com.foxconn.electronics/&lt;lib" element1="lib/D9SoaCustRac_14000.2.0.jar" element2="lib/D9SoaCustStrong_14000.2.0.jar" files="2" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1705131284333" units="0" version="1.0"/>
+</session>

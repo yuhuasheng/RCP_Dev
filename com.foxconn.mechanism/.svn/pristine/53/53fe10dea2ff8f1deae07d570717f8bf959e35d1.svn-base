@@ -1,0 +1,478 @@
+package com.foxconn.mechanism.dtpac.matmaintain.listener;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MouseAdapter;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.ShellAdapter;
+import org.eclipse.swt.events.ShellEvent;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.widgets.Text;
+
+import com.foxconn.mechanism.dtpac.matmaintain.dialog.PACMatMaintainDialog;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainBean;
+import com.foxconn.mechanism.dtpac.matmaintain.domain.MatMaintainConstant;
+import com.foxconn.mechanism.dtpac.matmaintain.util.TableTools;
+import com.foxconn.tcutils.util.CommonTools;
+import com.foxconn.tcutils.util.TCPropertes;
+import com.foxconn.tcutils.util.TCUtil;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentFnd0TableRow;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.util.Registry;
+
+public class ButtonSelectionListener extends SelectionAdapter {
+	
+	private Shell shell = null;
+	private TCSession session = null;
+	private Registry reg = null;
+	private TCComponentBOMLine bomLine = null;
+	private Label label = null;
+	private Text text = null;
+	private TableViewer tv = null;	
+	private Label typeLabel = null;
+	private Label nameLabel = null;
+	private Combo typeCombo = null;
+	private Combo nameCombo = null;
+	private Composite tableComposite = null;
+	private PACMatMaintainDialog dialog = null;
+	private static final int[] sortColumnIndexArray = {0}; // 记录需要重新排序的列
+	
+	public ButtonSelectionListener(Shell shell, TCSession session, Registry reg, TableViewer tv, Label typeLabel, Combo typeCombo, Label nameLabel, Combo nameCombo, 
+			Composite tableComposite, TCComponentBOMLine bomLine, Label label, Text text, PACMatMaintainDialog dialog) {
+		super();
+		this.shell = shell;
+		this.session = session;
+		this.reg = reg;
+		this.tv = tv;
+		this.typeLabel = typeLabel;
+		this.typeCombo = typeCombo;
+		this.nameLabel = nameLabel;
+		this.nameCombo = nameCombo;
+		this.tableComposite = tableComposite;
+		this.bomLine = bomLine;
+		this.label = label;
+		this.text = text;
+		this.dialog = dialog;
+		addListener();
+	}
+
+
+
+	@Override
+	public void widgetSelected(SelectionEvent e) {
+		System.out.println("开始执行");
+		Button button = (Button) e.getSource();
+		String buttonName = button.getText();
+		System.out.println("==>> buttonName: " + buttonName);
+		if (reg.getString("AddBtn.LABEL").equals(buttonName)) {
+			add();
+		} else if (reg.getString("SaveBtn.LABEL").equals(buttonName)) {
+			save();
+		} else if (reg.getString("CancelBtn.LABEL").equals(buttonName)) {
+			cancel();
+		}
+	}
+
+
+
+	private void addListener() {
+		
+		Table table = tv.getTable();
+		
+		addSortListener(table); // 排序分组监听
+		
+		
+		typeCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				TableItem[] items = table.getItems(); // 获取table表记录
+				if (!dialog.getCurMatType().equals(text)) {
+					boolean flag = false;
+					if (CommonTools.isNotEmpty(items)) {
+						flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + typeLabel.getText() 
+						+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					} 				
+					if (flag || CommonTools.isEmpty(items)) { // 点击了是或者table表数据为空
+						nameCombo.removeAll();
+						List<String> matNameLovList = dialog.getLovValue(partType, text, null, null);
+						dialog.setComboValues(nameCombo, matNameLovList, 0);
+						
+						dialog.setCurMatType(text);
+						dialog.setCurMatName(nameCombo.getText());
+						
+						List<String> typeList = dialog.getLovValue(partType, text, nameCombo.getText(), null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+						
+						dialog.getTotalMatCostText().setText(""); // 将界面的总物料成本清空
+					} else {
+						List<String> lovList = new ArrayList<String>(Arrays.asList(typeCombo.getItems()));
+						typeCombo.select(dialog.getIndex(lovList, dialog.getCurMatType()));
+					}					
+				}
+				
+			}
+		});	
+		
+		nameCombo.addSelectionListener(new SelectionAdapter() {			
+			public void widgetSelected(SelectionEvent e) {
+				String partType = dialog.getPartType();
+				Combo source = (Combo) e.getSource();
+				String text = source.getText();
+				TableItem[] items = table.getItems(); // 获取table表记录
+				
+				if (!dialog.getCurMatName().equals(text)) { // 点击了是或者table表数据为空
+					boolean flag = false;
+					if (CommonTools.isNotEmpty(items)) {
+						flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("ComboSwitch.Warn").split("\\&")[0] + nameLabel.getText() 
+						+ reg.getString("ComboSwitch.Warn").split("\\&")[1] + text + " " + reg.getString("ComboSwitch.Warn").split("\\&")[2]);
+					}					
+					
+					if (flag || CommonTools.isEmpty(items)) {
+						dialog.setCurMatName(text);
+						List<String> typeList = dialog.getLovValue(partType, typeCombo.getText(), text, null);
+						dialog.setTypeList(typeList);
+						
+						TableTools.clearTableRow(tv, dialog); // 清空table表记录
+						
+						dialog.getTotalMatCostText().setText(""); // 将界面的总物料成本清空
+					} else {
+						nameCombo.setText(dialog.getCurMatName());
+					}				
+					
+				}
+				
+			}
+		});	
+		
+		
+		table.addMouseListener(new MouseAdapter() {
+
+			@Override
+			public void mouseDown(MouseEvent e) {			
+				
+		        Point point = new Point(e.x, e.y); // 获取鼠标点击坐标
+		        TableItem item = table.getItem(point);     
+		        
+		        if (item == null) {	// 判断是否点击了空白区域（没有选中的行）	            
+		            table.deselectAll(); // 取消选择
+		        }
+			}
+			
+		});	
+	
+		addPaintItemListener(table); // 添加PaintItem监听事件
+		
+		shell.addShellListener(new ShellAdapter() {
+
+			@Override
+			public void shellClosed(ShellEvent e) {
+				boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("CloseTip.MSG"));
+				System.out.println("==>> flag: " + flag);
+				e.doit = flag == true;
+				if (e.doit) {
+					shell.dispose();
+				}
+			}			
+		});
+	}
+
+	
+	private void addSortListener(Table table) {
+		for (int columnIndex : sortColumnIndexArray) {
+			TableColumn column = tv.getTable().getColumn(columnIndex);
+			column.addSelectionListener(new SelectionAdapter() {
+			    @Override
+			    public void widgetSelected(SelectionEvent event) {		    	
+			        TableColumn clickedColumn = (TableColumn) event.widget; // 获取当前排序方向
+			        boolean reverseOrder = tv.getTable().getSortColumn() == clickedColumn && tv.getTable().getSortDirection() == SWT.UP;		        
+			        
+			        sortData(reverseOrder); // 执行排序操作
+			        
+			        tv.getTable().setSortColumn(clickedColumn); // 更新表格排序方向
+			        tv.getTable().setSortDirection(reverseOrder ? SWT.DOWN : SWT.UP);
+			    }
+			});
+		}
+	}
+	
+	
+	private void sortData(boolean reverseOrder) {
+		List<MatMaintainBean> dataList =  (List<MatMaintainBean>) tv.getInput();  // 获取表格绑定的数据列表
+		Comparator<MatMaintainBean> comparator = (data1, data2) -> { // 使用自定义比较器进行排序
+	        // 根据需要的列和排序顺序实现比较逻辑
+	        // 这里假设 MyData 类有相应的 getter 方法来获取对应列的值
+	        Comparable value1 = data1.getIndex();
+	        Comparable value2 = data2.getIndex();
+	        return reverseOrder ? value2.compareTo(value1) : value1.compareTo(value2);
+	    };
+	    
+	    Collections.sort(dataList, comparator); // 对数据列表进行排序
+	    
+	    tv.setInput(dataList); // 更新 TableViewer 的输入数据
+	}
+	
+	
+ 	private void addPaintItemListener(Table table) {
+        table.addListener(SWT.PaintItem, event -> {         	
+        	TableItem item = (TableItem) event.item;
+        	MatMaintainBean bean = (MatMaintainBean) item.getData();			
+        	if (bean == null) {
+				return;
+			}
+        	if (!bean.isSelect()) {
+				return;
+			}
+//        	table.redraw();
+        	if (bean.isDelete()) {
+//        		table.redraw(); // 需要更新删除线的显示状态，需要调用表格的redraw()方法来触发重绘
+        		event.gc.setForeground(event.display.getSystemColor(SWT.COLOR_RED));
+                event.gc.setLineStyle(SWT.LINE_SOLID); 
+                
+                Rectangle bounds = item.getBounds();
+                int y = bounds.y + bounds.height / 2;
+                for (int columnIndex = 0; columnIndex < table.getColumnCount(); columnIndex++) {
+                    Rectangle cellBounds = item.getBounds(columnIndex);
+                    int x1 = cellBounds.x;
+                    int y1 = y;
+                    int x2 = cellBounds.x + cellBounds.width - 1;
+                    int y2 = y;
+                    event.gc.drawLine(x1, y1, x2, y2);
+                }
+        	} else { 
+        		table.redraw();
+        		event.detail &= ~SWT.HOT; // 取消删除线    
+			}
+        });        
+        
+	}
+	
+	private void save() {
+		
+		List<MatMaintainBean> list = checkData(dialog.getCacheDataList());
+		
+		if (CommonTools.isEmpty(list)) {
+			return;
+		}
+		
+		
+		Table table = tv.getTable();
+		table.setRedraw(false); // 关闭绘制，避免闪烁
+		
+		dialog.setUpStatusBar(tableComposite, reg.getString("ProgressBar2.TITLE"), true);
+		
+		dialog.updateProgressBarBySave(list);
+		
+		table.setRedraw(true); // 打开绘制，避免闪烁
+	}
+	
+	/**
+	 * 重新设置partType, 物料类型，物料名称等属性值
+	 * @param totalList
+	 */
+	public void resetPartTypeParams(List<MatMaintainBean> totalList) {
+		for (MatMaintainBean bean : totalList) {
+			bean.setPartType(dialog.getPartType());
+			bean.setMatType(dialog.getCurMatType());
+			bean.setMatName(dialog.getCurMatName());
+		}
+	}
+	
+	
+	
+	public List<MatMaintainBean> checkData(List<MatMaintainBean> list) {
+		if (CommonTools.isEmpty(list)) {
+			TCUtil.warningMsgBox(reg.getString("SaveWarn2.MSG"), reg.getString("WARNING.MSG"));
+			return null;
+		}
+		
+		List<MatMaintainBean> totalList = new ArrayList<MatMaintainBean>();
+		for (MatMaintainBean bean : list) {
+			totalList.add(bean);
+		}
+		
+		totalList.removeIf(e -> CommonTools.isEmpty(e.getRow()) && e.isDelete() == true); // 表格行记录是新增并且是需要删除的记录直接进行删除即可
+		if (CommonTools.isEmpty(totalList)) {
+			TCUtil.warningMsgBox(reg.getString("SaveWarn3.MSG"), reg.getString("WARNING.MSG"));
+			return null;
+		}
+		
+		
+		totalList.removeIf(e -> CommonTools.isNotEmpty(e.getRow()) && e.isHasModify() == false && e.isDelete() == false); // 表格行记录存在,但是没有发生修改的记录也不需要保存, 并且当前记录不为需要删除
+		
+		if (CommonTools.isEmpty(totalList)) {
+			TCUtil.warningMsgBox(reg.getString("SaveWarn4.MSG"), reg.getString("WARNING.MSG"));
+			return null;
+		}
+		
+		List<String> msgResult = checkRequired();
+		if (CommonTools.isNotEmpty(msgResult)) {
+			TCUtil.warningMsgBox(reg.getString(msgResult.stream().collect(Collectors.joining("\n"))), reg.getString("WARNING.MSG"));
+			return null;
+		}
+		
+		return totalList;
+	}
+	
+	
+	
+	private List<String> checkRequired() {
+		List<String> msgResult = new ArrayList<String>();
+		List<MatMaintainBean> input = (List<MatMaintainBean>) tv.getInput();
+		try {
+			for (MatMaintainBean bean : input) {
+				if (bean.isDelete()) { // 添加删除线的行不校验
+					continue;
+				}				
+				
+				int index = getIndex(bean);
+				
+				Field[] fields = bean.getClass().getDeclaredFields();
+				List<Field> fieldList = new ArrayList<Field>(Arrays.asList(fields));
+				fieldList.removeIf(field -> field.getAnnotation(TCPropertes.class) == null);
+				fieldList.removeIf(field -> field.getType() == boolean.class);
+				fieldList.removeIf(field -> field.getAnnotation(TCPropertes.class).required() == false); // 移除不是必填字段
+				for (Field field : fieldList) {
+					field.setAccessible(true);
+					TCPropertes tcProp = field.getAnnotation(TCPropertes.class);
+					String columnName = tcProp.columnName();
+					Object value = field.get(bean); // 获取原始值					
+					if (value == null || "".equals(value)) {
+						msgResult.add(reg.getString("SaveWarn1.MSG").split("&&")[0] + (index) + reg.getString("SaveWarn1.MSG").split("&&")[1] + columnName + "," + reg.getString("SaveWarn1.MSG").split("&&")[2]);
+					}					
+				}
+			}	
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+		return msgResult;
+	}
+	
+	
+	private int getIndex(MatMaintainBean bean) {
+		List<MatMaintainBean> input = (List<MatMaintainBean>) tv.getInput();
+		Optional<MatMaintainBean> findAny = input.stream().filter(e -> e.getUUID().equals(bean.getUUID())).findAny();
+		if (findAny.isPresent()) {
+			return findAny.get().getIndex();
+		}
+		
+		return -1;
+	}
+	
+	
+	
+	/**
+	 * 保存数据
+	 * @param totalList
+	 * @return
+	 */
+	public boolean saveData(List<MatMaintainBean> totalList) {
+		boolean flag = true;
+		TCUtil.setBypass(session); // 开启旁路
+		try {
+			TCComponentItemRevision itemRev = dialog.getSelectBomLine().getItemRevision();
+			ListIterator listIterator = totalList.listIterator(); 
+			while (listIterator.hasNext()) {
+				MatMaintainBean bean  = (MatMaintainBean) listIterator.next();				
+				TCComponentFnd0TableRow row = bean.getRow();
+				if (CommonTools.isNotEmpty(row)) {
+					if (bean.isDelete()) {
+						itemRev.remove(MatMaintainConstant.D9_PACMATERIALTABLE, row); // 移除table行某一条记录
+					} else {
+						row.setProperties(getStrProps(TableTools.getTCStrPropMap(bean, "TCComponentFnd0TableRow"))); // 更行属性值
+					}					
+					listIterator.remove();
+				} else {
+					continue;
+				}
+			}			
+			
+			itemRev.refresh();
+			TCComponent[] relatedComponents = itemRev.getRelatedComponents(MatMaintainConstant.D9_PACMATERIALTABLE);
+			int length = relatedComponents.length;
+			
+			
+			if (CommonTools.isEmpty(totalList)) {
+				return flag;
+			}
+			
+			TableTools.updateTotalCost(totalList, dialog.getSelectBomLine(), dialog.getTotalMatCostLabel(), dialog.getTotalMatCostText()); // 重新计算物料总成本
+			itemRev.setProperties(getStrProps(TableTools.getTCStrPropMap(totalList.get(0), "ItemRevision"))); // 保存partType, 物料类型，物料名称等字段属性值
+			
+			List<Map<String, Object>> newList = new ArrayList<Map<String,Object>>();
+			for (MatMaintainBean e : totalList) {
+				newList.add(TableTools.getTCStrPropMap(e, "TCComponentFnd0TableRow"));
+			}
+			
+			// 批量创建Table Row对象
+			TCComponent[] createObjects = TCUtil.createObjects(session, MatMaintainConstant.D9_PACMATERIALTABLEROW, newList); // 批量创建Row对象
+			if (CommonTools.isNotEmpty(createObjects)) {
+				itemRev.add(MatMaintainConstant.D9_PACMATERIALTABLE, createObjects, length);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			flag = false;
+			TCUtil.errorMsgBox(e.getLocalizedMessage(), reg.getString("ERROR.MSG"));
+		}
+		
+		TCUtil.closeBypass(session); // 开启旁路
+		return flag;
+	}
+	
+	
+	private Map<String, String> getStrProps(Map<String, Object> map) {
+		Map<String, String> strMap = new HashMap<String, String>();
+		map.forEach((key, value) -> {
+			if (value instanceof String) {
+				strMap.put(key, value == null ? "" : value.toString());
+			} 
+		});
+		
+		return strMap;
+	}
+	
+	
+	private void add() {
+		TableTools.addRow(tv, dialog, bomLine, label, text, reg);
+	}
+	
+	private void cancel() {
+		boolean flag = MessageDialog.openQuestion(shell, reg.getString("INFORMATION.MSG"), reg.getString("CloseTip.MSG"));
+		System.out.println("==>> flag: " + flag);
+		if (flag) {
+			shell.dispose();
+		}
+	}
+}

@@ -1,0 +1,6 @@
+1675907919901	Rename package 'com.foxconn.electronics.matrixbom.handler.dialog'
+1675909228029	Copy file
+1675909251545	Copy file
+1675990186587	Rename type 'ProductLineBean'
+1676013008292	Extract method 'handlerProductLineBOM'
+1676013145203	Extract method 'handlerSeriesBOM'

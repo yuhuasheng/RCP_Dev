@@ -1,0 +1,22 @@
+output.. = bin/
+bin.includes = plugin.xml,\
+               META-INF/,\
+               icons/,\
+               .,\
+               lib/logback-classic-1.2.3.jar,\
+               lib/logback-core-1.2.3.jar,\
+               lib/slf4j-api-1.7.32.jar,\
+               plugin.properties,\
+               plugin_zh_CN.properties,\
+               plugin_zh_TW.properties,\
+               lib/mysql-connector-java-8.0.15.jar,\
+               lib/TcSoaAdministrationStrong_14000.2.0.jar,\
+               lib/TcSoaCadLoose_14000.2.0.jar,\
+               lib/TcSoaCommon_14000.2.0.jar,\
+               lib/TcSoaCoreLoose_14000.2.0.jar,\
+               lib/TcSoaCoreStrong_14000.2.0.jar,\
+               lib/TcSoaQueryLoose_14000.2.0.jar,\
+               lib/TcSoaQueryStrong_14000.2.0.jar,\
+               lib/TcSoaStrongModel_14000.2.0.jar
+source.. = src/
+javacDefaultEncoding.. = UTF-8

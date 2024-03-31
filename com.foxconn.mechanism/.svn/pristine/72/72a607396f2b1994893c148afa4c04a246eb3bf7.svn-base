@@ -1,0 +1,79 @@
+package com.foxconn.mechanism.dtpac.matmaintain.MatrixFactory;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+
+import cn.hutool.core.util.NumberUtil;
+
+public class MatrixFatory {
+	
+	
+	public static void calculateCost(ExcelBean bean) {
+		switch (bean.getMatType()) {
+		case "纸箱类":
+			if("套箱".equals(bean.getMatName())) {
+				switch (bean.getType()) {
+				case "RSC箱":
+					new RscBoxMatrix(bean).calculateCost();
+					break;
+				case "HSC箱":
+					new HscBoxMatrix(bean).calculateCost();
+					break;
+				case "围板":
+					new CoamingMatrix(bean).calculateCost();
+					break;
+				case "天地盖":
+					new CoamingMatrix(bean).calculateCost();
+					break;
+				case "纸刀卡":
+				case "纸隔板":
+					new BoxMatrix(bean).calculateCost();
+					break;
+				case "EPE隔板":
+					new PartitionMatrix(bean).calculateCost();
+					break;
+				default:
+					break;
+				}
+			}else {
+				new RscBoxMatrix(bean).calculateCost();
+			}
+			break;
+		case "袋类":
+			if("静电屏蔽袋".equals(bean.getMatName())) {
+				new ShieldingBagMatrix(bean).calculateCost();
+			}else {
+				new MembraneBagMatrix(bean).calculateCost();
+			}
+			break;
+		case "附件盒类":
+			new BoxMatrix(bean).calculateCost();
+			break;
+		case "缓冲材类":
+			new BufferMatrix(bean).calculateCost();
+			break;
+		case "打包类":
+			switch (bean.getMatName()) {
+			case "纸隔板":
+				new BoxMatrix(bean).calculateCost();
+				break;
+			case "纸护角":
+				new PaperCornerMatrix(bean).calculateCost();
+				break;
+			default:
+				bean.setCost(NumberUtil.roundStr(NumberUtil.mul(bean.getQty(),bean.getCostFactor()).doubleValue(), 2));
+				break;
+			}
+			break;
+		case "标签类":
+			new BoxMatrix(bean).calculateCost();
+			break;
+		case "栈板类":
+		case "Manual类":
+			bean.setCost(NumberUtil.roundStr(NumberUtil.mul(bean.getQty(),bean.getCostFactor()).doubleValue(), 2));
+			break;
+		default:
+			break;
+		}
+	}
+
+}

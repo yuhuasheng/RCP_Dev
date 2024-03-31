@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   	<extension point="org.eclipse.ui.commands">
+		<command name="%BatchEditorEbom.LABEL" id="com.foxconn.sdebom.commands.BatchEditorEbomCommand"/> 
+		<command name="%DtL5Ebom.LABEL" id="com.foxconn.sdebom.commands.DtL5EbomCommand"/>
+		<command name="%HPEbomExport.LABEL" id="com.foxconn.sdebom.commands.HPEBomCommand"/> 
+	</extension>
+	
+	<extension point="org.eclipse.ui.handlers">
+      <handler commandId="com.foxconn.sdebom.commands.BatchEditorEbomCommand" class="com.foxconn.sdebom.batcheditorebom.handler.BatchEditorEbomHandler" />
+      <handler commandId="com.foxconn.sdebom.commands.DtL5EbomCommand" class="com.foxconn.sdebom.dtl5ebom.handler.DtL5EbomHandler" />
+      <handler commandId="com.foxconn.sdebom.commands.HPEBomCommand" class="com.foxconn.sdebom.export.HPEBOMExportHandler" />  
+   	</extension>
+   
+   
+   	<extension point="org.eclipse.ui.menus">
+   		<menuContribution locationURI="menu:com.foxconn.menus.BOM">	     	
+	     	<command
+                	commandId="com.foxconn.sdebom.commands.BatchEditorEbomCommand"
+                	id="com.foxconn.sdebom.commands.BatchEditorEbomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.BatchEditorEbomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>
+    		<command
+                	commandId="com.foxconn.sdebom.commands.DtL5EbomCommand"
+                	id="com.foxconn.sdebom.commands.DtL5EbomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.DtL5EbomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>   
+    		<command
+                	commandId="com.foxconn.sdebom.commands.HPEBomCommand"
+                	id="com.foxconn.sdebom.commands.HPEBomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.sdebom.commands.HPEBomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+    		</command>
+		</menuContribution>
+   	</extension>
+</plugin>

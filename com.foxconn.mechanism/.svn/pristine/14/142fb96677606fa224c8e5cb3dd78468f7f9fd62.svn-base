@@ -1,0 +1,27 @@
+package com.foxconn.mechanism.dtpac.matmaintain.MatrixFactory;
+
+import java.math.BigDecimal;
+
+import com.foxconn.mechanism.dtpac.matmaintain.domain.ExcelBean;
+
+import cn.hutool.core.util.NumberUtil;
+
+/**
+ * 圍板計算方式
+ * @author MW00442
+ *
+ */
+public class CoamingMatrix extends ExcelBean implements MatrixInterfance{
+
+	@Override
+	public void calculateCost() {
+		BigDecimal num1 = NumberUtil.add(this.getLength() , this.getWidth());
+		double price = NumberUtil.div(NumberUtil.mul(num1.toString(),this.getHeight()).doubleValue() * 2 , 1000000D);
+		BigDecimal total = NumberUtil.mul(String.valueOf(price),this.getQty());
+		BigDecimal costDecimal = NumberUtil.mul(total.toString(),this.getCostFactor());
+		this.setCost(NumberUtil.roundStr(costDecimal.doubleValue(), 2));
+	}
+	
+	
+
+}

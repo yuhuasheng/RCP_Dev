@@ -1,0 +1,10 @@
+Release Notes
+  
+  版本 1.0.0 (Build 1)
+-发行时间 2023/7/19
+-新增功能
+   1.DCN 图号信息抛转SAP Dispatcher服务  --dev:余华胜 --SA:Leo 
+-解决问题
+        1、 修改获取的BOMLine数量栏位值为，数量 * 1000 --dev:余华胜 --SA:Leo
+-升级/优化    
+   -N/A

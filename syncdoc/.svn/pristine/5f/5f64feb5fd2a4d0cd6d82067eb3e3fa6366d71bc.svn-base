@@ -1,0 +1,15 @@
+#UAT
+uat.host=http://10.203.163.231:7001/tc
+uat.username=dev
+uat.password=plmdev
+
+#PRD
+prd.host=http://10.203.163.192:7001/tc
+prd.username=dev
+prd.password=plmdev
+
+VirtualProjects=v1001,v1002
+
+#poc \u90ae\u7bb1\u670d\u52a1\u5730\u5740
+poc.mail=http://10.203.163.43:80
+prd.mail=http://10.203.163.184:80

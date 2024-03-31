@@ -1,0 +1,3442 @@
+package com.teamcenter.rac.workflow.commands.newprocess;
+
+import com.foxconn.decompile.util.CommonTools;
+import com.foxconn.decompile.util.FileStreamUtil;
+import com.foxconn.decompile.util.SPASUser;
+import com.foxconn.decompile.util.TCUtil;
+import com.foxconn.decompile.util.WorkGroup;
+import com.foxconn.tcutils.constant.DatasetEnum;
+import com.foxconn.tcutils.constant.GroupEnum;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.teamcenter.rac.aif.AbstractAIFOperation;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.commands.namedreferences.ExportFilesOperation;
+import com.teamcenter.rac.common.TCConstants;
+import com.teamcenter.rac.common.TCTreeNode;
+import com.teamcenter.rac.kernel.KernelPlugin;
+import com.teamcenter.rac.kernel.ResourceMember;
+import com.teamcenter.rac.kernel.TCAttachmentScope;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentPerson;
+import com.teamcenter.rac.kernel.TCComponentProfile;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentResourcePool;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplate;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplateType;
+import com.teamcenter.rac.kernel.TCComponentTcFile;
+import com.teamcenter.rac.kernel.TCComponentType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+import com.teamcenter.rac.util.Cookie;
+import com.teamcenter.rac.util.FilterDocument;
+import com.teamcenter.rac.util.HorizontalLayout;
+import com.teamcenter.rac.util.MessageBox;
+import com.teamcenter.rac.util.OSGIUtil;
+import com.teamcenter.rac.util.PropertyLayout;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.util.Separator;
+import com.teamcenter.rac.util.UIUtilities;
+import com.teamcenter.rac.util.VerticalLayout;
+import com.teamcenter.rac.util.iTextArea;
+import com.teamcenter.rac.util.iTextField;
+import com.teamcenter.rac.util.combobox.iComboBox;
+import com.teamcenter.rac.util.log.Debug;
+import com.teamcenter.rac.workflow.commands.constant.ConstantRemark;
+import com.teamcenter.rac.workflow.commands.newprocess.UserAssignmentListPanel.AssignmentListHelper;
+import com.teamcenter.rac.workflow.common.taskproperties.TaskAttachmentsPanel;
+import com.teamcenter.rac.workflow.processdesigner.ProcessDesignerApplicationPanel;
+import com.teamcenter.rac.workflow.processdesigner.plugin.Activator;
+
+import cn.hutool.core.io.IoUtil;
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
+
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.beans.PropertyChangeEvent;
+import java.io.File;
+import java.io.PrintStream;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Vector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.border.EtchedBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.table.TableModel;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.CharsetUtils;
+import org.apache.http.util.EntityUtils;
+
+public class UserExtNewProcessDialog extends AbstractProcessDialog {
+	// private static final Logger logger =
+	// Logger.getLogger(NewProcessDialog.class);
+	public static String WORKSPACE_DEFAULT_TEMPLATE = "WorkspaceObject_default_workflow_template";
+	public static String DEFAULT_WORKFLOW_TEMPLATE_SUFFIX = "default_workflow_template";
+	public static final String D9_ALLOW_ASSIGNMORE_WORKFLOW_TEMPLATE = "D9_Allow_AssignMore_Workflow_Template";
+	public static final String D9_AUTO_ASSIGN_WORKFLOW_TEMPLATE = "D9_Auto_Assign_Workflow_Template";
+	public JPanel templatePanel;
+	public JPanel inputPanel;
+	public JLabel processFilterLabel;
+	public JLabel processNameLabel;
+	public JLabel processDescLabel;
+	public JLabel processDefinitionLabel;
+	public iTextField processNameTextField;
+	public iTextArea processDescTextArea;
+	public JScrollPane processDescScrollPane;
+	public iComboBox processDefinitionComboBox;
+	public ButtonGroup filterRadioButtonGroup;
+	public JRadioButton allRadioButton;
+	public JRadioButton assignedRadioButton;
+	public JCheckBox switchOffUCCheckBox;
+	public boolean currentSelection = true;
+	public boolean switchOffUCTemplates = false;
+	public boolean onlyAssigned = false;
+	public JTabbedPane tabPanel;
+	public TaskAttachmentsPanel attachmentsPanel;
+	TCComponent[] attachments = null;
+	public ProcessDesignerApplicationPanel processDesignerPanel;
+	public ImageIcon attachmentTabIcon;
+	public ImageIcon processDesignerTabIcon;
+	public Vector procListAll = new Vector();
+	public Vector procList = new Vector();
+	public Vector procListAssigned = new Vector();
+	
+	// recompile 20220323143000 : START
+	// public NewProcessOperation newProcessOp;
+	public UserNewProcessOperation newProcessOp;
+	// 20220323143000 : END
+	public LoadProcDefsOperation loadOp;
+	protected UserAssignAllTasksPanel assignPanel = null;
+	public int radioButtonFlag = 1;
+	public int curSelTemplateIndex = -1;
+	public boolean Is_Assign_All_Tasks_Updated_On_Attachment_Changed = false;
+	public TCSession session = null;
+	protected ResourceMember[] selResourceList = null;
+	public InterfaceAIFComponent[] pasteTargets = null;
+	public ITemplateFilter filterInstancer = null;
+	static final int ALL = 1;
+	static final int NONE = 2;
+	static final int ASSIGNED = 3;
+	static final String UC_COOKIE = "undConstructTemplates";
+	private static final String m_procNameColon = " : ";
+	Cookie m_ckUndConstruct = Cookie.getCookie("undConstructTemplates");
+	public JCheckBox inheritTargetsCheckBox;
+	TCComponent creatorTask = null;
+	TCComponent[] creatorTaskTargets = null;
+	boolean inheritTargetsEnabled = false;
+	boolean inheritTargetsSelected = false;
+	private String m_value_CR_allow_alternate_procedures = null;
+	private PrintStream printStream = null;
+	Registry reg = null;
+	TCComponentTaskTemplate taskTemplate = null;
+	private TCComponent target;
+	AbstractAIFUIApplication app;
+	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+	// recompile 20220323143000 : START
+	protected PublicAccountPanel publicAccountPanel;
+	protected static Map<String, Map<String, List<String>>> m_wkInfoMap = null;
+	protected List<String> m_userInfoLst = null;
+	protected Map<String, List<String>> m_pubMailMap = null;
+	private List<String> _workflowNoMailLst = null;
+	protected boolean _blnPublicMail = true;
+	// 20220323143000 : END
+	
+	public static HashMap<String,WorkGroup> workUser;
+	public final static String tempPath = System.getProperty("java.io.tmpdir");
+	public static List<SPASUser> users;
+	public static String actualUserIds = "";
+	public static String projectId = "";
+	public static String actualUserIds_dcn = "";
+	public static ArrayList<SPASUser> teamRosterUsers = null;	
+	protected static String[] autoAssignWorkflowTemplates = null;
+	protected static String[] allowAssignMoreWorkflowTemplates = null;
+	protected static List<String> comboxList = null;
+	
+	public static String group = null;
+	
+	private void setUndConstructCookieValue(boolean paramBoolean) {
+		try {
+			int i = paramBoolean ? 1 : 0;
+			this.m_ckUndConstruct.setString("undConstructTemplates", i);
+			this.m_ckUndConstruct.close();
+		} catch (Exception localException) {
+			localException.printStackTrace();
+			// logger.warn("Error while setting value for cookie undConstructTemplates",
+			// localException);
+		}
+	}
+
+	private boolean getUndConstructCookieValue() {
+		boolean bool = false;
+		try {
+			if (this.m_ckUndConstruct.exists()) {
+				int i = 0;
+				i = this.m_ckUndConstruct.getNumber("undConstructTemplates");
+				bool = (i > 0);
+			}
+		} catch (Exception exception) {
+			exception.printStackTrace();
+			// logger.warn("Error while getting value for cookie undConstructTemplates",
+			// exception);
+		}
+		return bool;
+	}
+
+	private String[] createRenderIcons(Vector paramVector) {
+		String[] arrayOfString = null;
+		int i = paramVector.size();
+		if (i > 0) {
+			arrayOfString = new String[i];
+			String[] arrayOfString1 = { "template_stage", "object_name" };
+			try {
+				TCProperty[][] arrayOfTCProperty = TCComponentType.getTCPropertiesSet(paramVector, arrayOfString1);
+				for (int b = 0; b < i; b++) {
+					int j = arrayOfTCProperty[b][0].getIntValue();
+					if (j == 2) {
+						arrayOfString[b] = "blank";
+					} else if (j == 1) {
+						arrayOfString[b] = "underconstruction";
+					}
+				}
+			} catch (Exception exception) {
+				MessageBox messageBox = new MessageBox(exception);
+				messageBox.setVisible(true);
+			}
+		}
+		return arrayOfString;
+	}
+
+	public UserExtNewProcessDialog(NewProcessCommand paramNewProcessCommand) {
+		super(paramNewProcessCommand.parentFrame, paramNewProcessCommand, Boolean.FALSE);
+		System.out.println("UserExtNewProcessDialog");
+		this.session = paramNewProcessCommand.session;
+		this.app = AIFUtility.getCurrentApplication();
+		this.target = ((TCComponent) this.app.getTargetComponent());
+		this.switchOffUCTemplates = getUndConstructCookieValue();
+		this.pasteTargets = paramNewProcessCommand.targetArray;
+		this.m_value_CR_allow_alternate_procedures = paramNewProcessCommand.m_value_CR_allow_alternate_procedures;
+		
+		try {
+			TCComponentGroup currentGroup = session.getCurrentGroup();
+			group = currentGroup.getProperty("full_name");
+			System.out.println("group = "+group);
+//			if(group.contains("dba")) {
+			if(group.contains("Monitor") || group.contains("dba")) {
+				getActualUserIdsProjectId();
+				System.out.println("actualUserIds_dcn = "+actualUserIds_dcn+",actualUserIds = "+actualUserIds+",projectId = "+projectId);
+				
+				if(!projectId.equals("")) {
+					System.out.println("访问TeamRoster");
+					teamRosterUsers = loadTeamRosterData(session,projectId.toLowerCase());
+					System.out.println("访问TeamRoster完毕");
+					
+					if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+						for (SPASUser user:teamRosterUsers) {
+							String workId = user.getWorkId();
+							String sectionName = user.getSectionName();
+				
+							if(("CE".equals(sectionName))&&("C0103270".equals(workId)||"C0105693".equals(workId))) {
+								user.setSectionName("BOM");
+							}
+						}
+					}
+				}
+
+				System.out.println("读取Excel");
+				//读取Excel
+				List<List<Object>> readLists = getExcel(session);
+				workUser = new HashMap<String, WorkGroup>();
+				if(readLists != null && readLists.size() > 0) {
+					HashMap<String,WorkGroup> mapWorkGroup = getWorkGroup(readLists);
+					workUser = getWorkUser(readLists, mapWorkGroup);
+				}
+				System.out.println("读取Excel结束");
+				
+			}
+			
+			if (group.contains("dba") || group.toUpperCase().contains(GroupEnum.Desktop.groupName())) {
+				
+				autoAssignWorkflowTemplates = TCUtil.getArrayByPreference(session, TCPreferenceService.TC_preference_site, D9_AUTO_ASSIGN_WORKFLOW_TEMPLATE);
+				if (CommonTools.isEmpty(autoAssignWorkflowTemplates)) {
+					com.foxconn.tcutils.util.TCUtil.warningMsgBox("首选项: D9_Auto_Assign_Workflow_Template不存在，请联系管理员处理" , "警告");
+					return;
+				}
+				
+				allowAssignMoreWorkflowTemplates = TCUtil.getArrayByPreference(session, TCPreferenceService.TC_preference_site, D9_ALLOW_ASSIGNMORE_WORKFLOW_TEMPLATE);
+				if (CommonTools.isEmpty(allowAssignMoreWorkflowTemplates)) {
+					com.foxconn.tcutils.util.TCUtil.warningMsgBox("首选项: D9_Allow_AssignMore_Workflow_Template不存在，请联系管理员处理" , "警告");
+					return;
+				}
+				getDTDefaultInfo();
+			} 			
+			
+		} catch (TCException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		// recompile 20220323143000 : START
+		_workflowNoMailLst = Arrays.asList(
+				TCUtil.getArrayByPreference(session, TCPreferenceService.TC_preference_site, "D9_Workflow_No_Mail"));
+		clearStaticData();
+		// 20220323143000 : END
+		
+		TCComponent tCComponent = null;
+		Boolean bool = (Boolean) Activator.getDefault().getToggleProperty("subProcessToggleProperty");
+		if (bool != null && bool.booleanValue()) {
+			InterfaceAIFComponent[] arrayOfInterfaceAIFComponent = Activator.getDefault().getSelectionMediatorService()
+					.getTargetComponents();
+			for (int b = 0; b < arrayOfInterfaceAIFComponent.length; b++) {
+				if (arrayOfInterfaceAIFComponent[b] instanceof TCComponentTask) {
+					tCComponent = (TCComponent) arrayOfInterfaceAIFComponent[b];
+					break;
+				}
+			}
+		}
+		Activator.getDefault().setToggleProperty("subProcessToggleProperty", false, this);
+		if (tCComponent != null) {
+			this.creatorTask = tCComponent;
+			String str = null;
+			TCPreferenceService tCPreferenceService = null;
+			if (this.session != null) {
+				tCPreferenceService = this.session.getPreferenceService();
+				str = tCPreferenceService.getStringValue("EPM_multiple_processes_targets");
+			}
+			if (str != null && str.length() != 0 && str.trim().toLowerCase().equals("on")) {
+				this.inheritTargetsEnabled = true;
+				str = tCPreferenceService.getStringValue("EPM_sub_process_target_inheritance");
+				if (str != null && str.length() != 0 && str.trim().toLowerCase().equals("on"))
+					this.inheritTargetsSelected = true;
+			}
+		}
+		if (SwingUtilities.isEventDispatchThread()) {
+			System.out.println("Init ui 1");
+			initUI();
+			System.out.println("Init ui 1--");
+		} else {
+			SwingUtilities.invokeLater(new Runnable() {
+				public void run() {
+					System.out.println("Init ui 2");
+					UserExtNewProcessDialog.this.initUI();
+				}
+			});
+		}
+		
+	}
+
+	public void initUI() {
+		super.initUI();
+		Registry registry = Registry.getRegistry(this);
+		setPersistentDisplay(true);
+		if (this.creatorTask == null) {
+			setTitle(registry.getString("command.TITLE"));
+		} else {
+			setTitle(registry.getString("subprocess_command.TITLE"));
+		}
+		this.mainPanel.setLayout(new VerticalLayout());
+		this.inputPanel = new JPanel(new PropertyLayout());
+		this.templatePanel = new JPanel(new HorizontalLayout());
+		this.dialogIcon.setIcon(registry.getImageIcon("newProcess.ICON"));
+		if (this.creatorTask == null) {
+			this.processNameLabel = new JLabel(registry.getString("name"));
+		} else {
+			this.processNameLabel = new JLabel(registry.getString("subprocess_name"));
+		}
+		String str = TCSession.getServerEncodingName(this.session);
+		int i = TCConstants.getDefaultMaxNameSize(this.session);
+		FilterDocument filterDocument = new FilterDocument(i, str);
+		this.processNameTextField = new iTextField(filterDocument, "", 50, i, true, this.inputPanel);
+		this.processNameTextField.setBorder(new EtchedBorder());
+		this.processDescLabel = new JLabel(registry.getString("description"));
+		filterDocument = new FilterDocument(240, str);
+		this.processDescTextArea = new iTextArea(filterDocument, "", 1, 50, this.inputPanel);
+		this.processDescTextArea.setLengthLimit(240);
+		this.processDescTextArea.setLineWrap(true);
+		this.processDescTextArea.setWrapStyleWord(true);
+		this.processDescScrollPane = new JScrollPane(this.processDescTextArea);
+		this.processDefinitionLabel = new JLabel(registry.getString("processDefinition"));
+		this.processDefinitionComboBox = new iComboBox();
+		this.processDefinitionComboBox.getTextField().addFocusListener(new FocusAdapter() {
+			public void focusGained(FocusEvent param1FocusEvent) {
+				Object object = param1FocusEvent.getSource();
+				if (object instanceof JTextField)
+					((JTextField) object).setCaretPosition(0);
+			}
+		});
+		this.processDefinitionComboBox.setAutoCompleteSuggestive(false);
+		this.processDefinitionComboBox.setMaximumRowCount(10);
+		this.processDefinitionComboBox.getTextField().setColumns(32);
+		this.processDefinitionComboBox.getTextField().setCaretPosition(0);
+		this.processDefinitionComboBox.addKeyListener(new KeyListener() {
+			public void keyReleased(KeyEvent param1KeyEvent) {
+			}
+
+			public void keyPressed(KeyEvent param1KeyEvent) {
+				if (UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItemCount() < 1)
+					return;
+				Object object = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItem();
+				if (object != null && object instanceof TCComponentTaskTemplate) {
+					Registry registry = Registry.getRegistry(this);
+					TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) object;
+					int i = UserExtNewProcessDialog.this.tabPanel.getSelectedIndex();
+					String str = UserExtNewProcessDialog.this.tabPanel.getTitleAt(i);
+					if (str.equals(registry.getString("process"))) {
+						UserExtNewProcessDialog.this.processDesignerPanel.open(tCComponentTaskTemplate);
+						UserExtNewProcessDialog.this.processDesignerPanel.revalidate();
+					} else if (str.equals(registry.getString("assignAllTasks"))) {
+						int j = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedIndex();
+						if (UserExtNewProcessDialog.this.curSelTemplateIndex != j) {
+							UserExtNewProcessDialog.this.curSelTemplateIndex = j;
+							UserExtNewProcessDialog.this.assignPanel.open(tCComponentTaskTemplate);
+						}
+					}
+					UserExtNewProcessDialog.this.updateProcessNameOnTemplateSelection();
+				}
+			}
+
+			public void keyTyped(KeyEvent param1KeyEvent) {
+			}
+		});
+		this.processDefinitionComboBox.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent param1ActionEvent) {
+				if (UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItemCount() < 1)
+					return;
+				Object object = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItem();
+				if (object instanceof TCComponentTaskTemplate) {
+					Registry registry = Registry.getRegistry(this);
+					TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) object;
+					// recompile 20220323143000 : START
+					try {
+						if (_workflowNoMailLst.contains(tCComponentTaskTemplate.getName())) {
+							if (4 == tabPanel.getTabCount()) {
+								tabPanel.remove(3);
+								_blnPublicMail = false;
+							}
+						} else {
+							if (3 == tabPanel.getTabCount()) {
+								publicAccountPanel = new PublicAccountPanel(session, assignPanel, getProjectId());
+								tabPanel.addTab("指派實際工程師", publicAccountPanel);
+								_blnPublicMail = true;
+							}
+						}
+					} catch (TCException e) {
+						e.printStackTrace();
+					}
+					// 20220323143000 : END
+					int i = UserExtNewProcessDialog.this.tabPanel.getSelectedIndex();
+					String str = UserExtNewProcessDialog.this.tabPanel.getTitleAt(i);
+					if (str.equals(registry.getString("process"))) {
+						UserExtNewProcessDialog.this.processDesignerPanel.open(tCComponentTaskTemplate);
+						UserExtNewProcessDialog.this.processDesignerPanel.revalidate();
+					} else if (str.equals(registry.getString("assignAllTasks"))) {
+						int j = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedIndex();
+						if (UserExtNewProcessDialog.this.curSelTemplateIndex != j) {
+							UserExtNewProcessDialog.this.curSelTemplateIndex = j;
+							UserExtNewProcessDialog.this.assignPanel.open(tCComponentTaskTemplate);
+						}
+					}
+					if (UserExtNewProcessDialog.this.creatorTask == null)
+						UserExtNewProcessDialog.this.updateProcessName(tCComponentTaskTemplate);
+					UserExtNewProcessDialog.this.assignPanel.open(tCComponentTaskTemplate);
+				}
+				UserExtNewProcessDialog.this.processNameTextField.requestFocusInWindow();
+				UserExtNewProcessDialog.this.processDefinitionComboBox.getTextField().requestFocusInWindow();
+			}
+		});
+		this.switchOffUCCheckBox = new JCheckBox(registry.getString("uctemplates"));
+		this.switchOffUCCheckBox.setSelected(!this.switchOffUCTemplates);
+		this.switchOffUCCheckBox.setEnabled(false);
+		boolean bool = false;
+		try {
+			TCComponentUser tCComponentUser = this.session.getUser();
+			bool = tCComponentUser.getTCProperty("is_member_of_dba").getLogicalValue();
+		} catch (Exception exception) {
+			MessageBox.post(this.parentFrame, exception);
+			return;
+		}
+		if (bool) {
+			this.switchOffUCCheckBox.setEnabled(true);
+		} else {
+			this.switchOffUCCheckBox.setVisible(false);
+		}
+		this.switchOffUCCheckBox.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent param1ItemEvent) {
+				if (param1ItemEvent.getStateChange() == 1) {
+					UserExtNewProcessDialog.this.switchOffUCTemplates = false;
+				} else {
+					UserExtNewProcessDialog.this.switchOffUCTemplates = true;
+				}
+				UserExtNewProcessDialog.this
+						.setUndConstructCookieValue(UserExtNewProcessDialog.this.switchOffUCTemplates);
+				UserExtNewProcessDialog.this.procListAll.clear();
+				UserExtNewProcessDialog.this.procList.clear();
+				UserExtNewProcessDialog.this.procListAssigned.clear();
+				UserExtNewProcessDialog.this.populateProcessDefList(new int[0]);
+			}
+		});
+		this.processFilterLabel = new JLabel(registry.getString("processFilter"));
+		this.allRadioButton = new JRadioButton(registry.getString("all"), this.currentSelection);
+		this.allRadioButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent param1ActionEvent) {
+				if (!UserExtNewProcessDialog.this.currentSelection) {
+					UserExtNewProcessDialog.this.populateProcessDefList(new int[0]);
+					UserExtNewProcessDialog.this.currentSelection = true;
+				}
+			}
+		});
+		this.assignedRadioButton = new JRadioButton(registry.getString("assigned"), !this.currentSelection);
+		this.assignedRadioButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent param1ActionEvent) {
+				if (UserExtNewProcessDialog.this.currentSelection) {
+					UserExtNewProcessDialog.this.populateProcessDefList(new int[0]);
+					UserExtNewProcessDialog.this.currentSelection = false;
+				}
+			}
+		});
+		this.filterRadioButtonGroup = new ButtonGroup();
+		this.filterRadioButtonGroup.add(this.allRadioButton);
+		this.filterRadioButtonGroup.add(this.assignedRadioButton);
+		this.tabPanel = new JTabbedPane();
+		if (this.pasteTargets != null) {
+			int j = this.pasteTargets.length;
+			this.attachments = new TCComponent[j];
+			for (int b = 0; b < j; b++)
+				this.attachments[b] = (TCComponent) this.pasteTargets[b];
+		}
+		this.attachmentsPanel = new TaskAttachmentsPanel(this.session, this.attachments,
+				this.desktop.getCurrentApplication());
+		this.attachmentsPanel.addAttachmentChangeListener(this);
+		this.attachmentsPanel.setPreferredSize(new Dimension(350, 250));
+		if (this.creatorTask != null) {
+			this.inheritTargetsCheckBox = new JCheckBox(registry.getString("inherit_targets"));
+			this.inheritTargetsCheckBox.setEnabled(this.inheritTargetsEnabled);
+			if (this.inheritTargetsEnabled) {
+				this.inheritTargetsCheckBox.setSelected(this.inheritTargetsSelected);
+				if (this.inheritTargetsSelected)
+					addInheritedTargets();
+			}
+			this.inheritTargetsCheckBox.addItemListener(new ItemListener() {
+				public void itemStateChanged(ItemEvent param1ItemEvent) {
+					if (param1ItemEvent.getStateChange() == 1) {
+						UserExtNewProcessDialog.this.inheritTargetsSelected = true;
+						UserExtNewProcessDialog.this.addInheritedTargets();
+					} else {
+						UserExtNewProcessDialog.this.inheritTargetsSelected = false;
+						UserExtNewProcessDialog.this.removeInheritedTargets();
+					}
+					if (UserExtNewProcessDialog.this.assignedRadioButton.isSelected()
+							|| UserExtNewProcessDialog.this.onlyAssigned)
+						UserExtNewProcessDialog.this.populateProcessDefList(new int[0]);
+				}
+			});
+		}
+		this.processDesignerPanel = new ProcessDesignerApplicationPanel(this.session);
+		this.processDesignerPanel.initializeDisplay();
+		this.attachmentTabIcon = registry.getImageIcon("attachments.ICON");
+		this.processDesignerTabIcon = registry.getImageIcon("process.ICON");
+		this.tabPanel.addTab(registry.getString("attachments"), this.attachmentTabIcon, this.attachmentsPanel);
+		this.tabPanel.addTab(registry.getString("process"), this.processDesignerTabIcon, this.processDesignerPanel);
+		this.assignPanel = new UserAssignAllTasksPanel(this.session);
+		if (!this.inheritTargetsSelected) {
+			this.assignPanel.setTargetObjects(this.attachments);
+		} else {
+			int j = 0;
+			int b = 0;
+			if (this.attachments != null)
+				j += this.attachments.length;
+			if (this.creatorTaskTargets != null)
+				j += this.creatorTaskTargets.length;
+			TCComponent[] arrayOfTCComponent = new TCComponent[j];
+			if (this.attachments != null)
+				for (int b1 = 0; b1 < this.attachments.length; b1++)
+					arrayOfTCComponent[b++] = this.attachments[b1];
+			if (this.creatorTaskTargets != null)
+				for (int b1 = 0; b1 < this.creatorTaskTargets.length; b1++)
+					arrayOfTCComponent[b++] = this.creatorTaskTargets[b1];
+			this.assignPanel.setTargetObjects(arrayOfTCComponent);
+		}
+		this.tabPanel.addTab(registry.getString("assignAllTasks"), this.assignPanel);
+		// recompile 20220323143000 : START
+		publicAccountPanel = new PublicAccountPanel(session, assignPanel, getProjectId());
+
+		tabPanel.addTab("指派實際工程師", publicAccountPanel);	
+
+		// 20220323143000 : END
+		this.tabPanel.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent param1ChangeEvent) {
+				Registry registry = Registry.getRegistry(this);
+				int i = ((JTabbedPane) param1ChangeEvent.getSource()).getSelectedIndex();
+				String str = UserExtNewProcessDialog.this.tabPanel.getTitleAt(i);
+				if (UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItemCount() < 1)
+					return;
+				Object object = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItem();
+				if (object instanceof TCComponentTaskTemplate) {
+					TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) object;
+					if (str.equals(registry.getString("process"))) {
+						UserExtNewProcessDialog.this.processDesignerPanel.open(tCComponentTaskTemplate);
+						UserExtNewProcessDialog.this.processDesignerPanel.revalidate();
+					} else if (str.equals(registry.getString("assignAllTasks"))) {
+						int j = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedIndex();
+						if (UserExtNewProcessDialog.this.curSelTemplateIndex != j
+								|| UserExtNewProcessDialog.this.Is_Assign_All_Tasks_Updated_On_Attachment_Changed) {
+							UserExtNewProcessDialog.this.curSelTemplateIndex = j;
+							UserExtNewProcessDialog.this.assignPanel.open(tCComponentTaskTemplate);
+							UserExtNewProcessDialog.this.Is_Assign_All_Tasks_Updated_On_Attachment_Changed = false;
+						}
+					}
+					// recompile 20220323143000 : START
+					if (3 == i) {
+						iniPubMailPanel();
+					}
+					
+					// 20220323143000 : END
+				}
+			}
+		});
+		this.inputPanel.add("1.1.right.top.preferred.preferred", this.processNameLabel);
+		this.inputPanel.add("1.2.center.center.preferred.preferred", this.processNameTextField);
+		this.inputPanel.add("2.1.right.top.preferred.preferred", this.processDescLabel);
+		this.inputPanel.add("2.2.center.center.preferred.preferred", this.processDescScrollPane);
+		this.inputPanel.add("3.1.right.top.preferred.preferred", this.processDefinitionLabel);
+		this.inputPanel.add("3.2.center.center", this.processDefinitionComboBox);
+		this.templatePanel.add("left.bind.center.center", this.switchOffUCCheckBox);
+		this.templatePanel.add("right.bind.center.center", this.assignedRadioButton);
+		this.templatePanel.add("right.bind.center.center", this.allRadioButton);
+		this.templatePanel.add("right.bind.center.center", this.processFilterLabel);
+		this.applyButton.setVisible(false);
+		this.mainPanel.add("top.bind.center.center", this.inputPanel);
+		this.mainPanel.add("top.bind.center.center", this.templatePanel);
+		if (this.creatorTask != null)
+			this.mainPanel.add("top.bind.center.center", this.inheritTargetsCheckBox);
+		this.mainPanel.add("top.bind", new Separator());
+		this.mainPanel.add("unbound.bind.center.top", this.tabPanel);
+		// recompile 20220323143000 : START
+		// this.mainPanel.setPreferredSize(new Dimension(750, 650));
+		// setMinimumSize(new Dimension(600, 600));
+		this.mainPanel.setPreferredSize(new Dimension(1250, 650));
+		setMinimumSize(new Dimension(1250, 650));
+		// 20220323143000 : END
+		TCComponent tCComponent = null;
+		if (this.pasteTargets != null) {
+			tCComponent = (TCComponent) this.pasteTargets[0];
+		} else if (this.creatorTaskTargets != null && this.creatorTaskTargets.length > 0) {
+			tCComponent = this.creatorTaskTargets[0];
+		}
+		if (tCComponent != null) {
+			String str1 = tCComponent.toString();
+			str1 = FilterDocument.getValidByteLenthString(i, str1, str);
+			this.processNameTextField.setText(str1);
+			validate();
+		}
+		setModal(false);
+		pack();
+		UIUtilities.centerToScreen(this, 1.1D, 1.0D);
+		startLoadProcDefsOperation();
+	}
+
+	public void updateProcessName(TCComponentTaskTemplate paramTCComponentTaskTemplate) {
+		String str = new String();
+		try {
+			TCPreferenceService tCPreferenceService = null;
+			boolean bool = true;
+			if (this.session != null) {
+				tCPreferenceService = this.session.getPreferenceService();
+				try {
+					bool = tCPreferenceService.getLogicalValue("WRKFLW_add_template_name_for_new_process")
+							.booleanValue();
+				} catch (Exception exception) {
+					bool = true;
+				}
+			}
+			if (bool)
+				str = paramTCComponentTaskTemplate.getName();
+			int[] arrayOfInt = { 1, 10 };
+			TCComponent[] arrayOfTCComponent = getAttachmentComponentsByTypes(arrayOfInt);
+			TCComponent tCComponent = null;
+			if (arrayOfTCComponent != null && arrayOfTCComponent.length > 0)
+				tCComponent = arrayOfTCComponent[0];
+			if (!str.isEmpty()) {
+				if (tCComponent != null)
+					str = (str = String.valueOf(str) + " : ").valueOf(str) + tCComponent.toString();
+				int i = TCConstants.getDefaultMaxNameSize(this.session);
+				String str1 = TCSession.getServerEncodingName(this.session);
+				str = FilterDocument.getValidByteLenthString(i, str, str1);
+				this.processNameTextField.setText(str);
+				System.out.println("---------------============>" + str);
+			}
+			
+		} catch (TCException tCException) {
+			str = "";
+			tCException.printStackTrace();
+			// logger.error(tCException.getLocalizedMessage(), tCException);
+		}
+	}
+
+	public void updateProcessNameOnTemplateSelection() {
+		if (this.processDefinitionComboBox.getSelectedItemCount() < 1)
+			return;
+		Object object = this.processDefinitionComboBox.getSelectedItem();
+		this.processDefinitionComboBox.getTextField();
+		if (object instanceof TCComponentTaskTemplate) {
+			TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) object;
+			updateProcessName(tCComponentTaskTemplate);
+		}
+	}
+
+	public void stopPressed() {
+	}
+
+	public void setPerformable(boolean paramBoolean) {
+		this.okButton.setEnabled(paramBoolean);
+	}
+
+	public boolean isPerformable() {
+		boolean bool = false;
+		if (this.processNameTextField.getText().length() > 0 && this.processDefinitionComboBox.isEnabled()
+				&& this.processDefinitionComboBox.getSelectedObject() != null)
+			bool = true;
+		return bool;
+	}
+
+	public boolean showCloseButton() {
+		return false;
+	}
+
+	public void startCommandOperation() {
+		Registry registry = Registry.getRegistry(this);
+		try {
+			this.selResourceList = this.assignPanel.getSelectedResources();
+			this.assignPanel.saveModifyAssignmentList();
+			// recompile 20220323143000 : START
+			m_userInfoLst = getUserInfo();
+
+			List<String> msgList = checkAssignTreeNode(registry);
+			if (CommonTools.isNotEmpty(msgList)) {
+				String msg = "";
+				for (String str : msgList) {
+					msg += str + "\n";
+				}
+				
+				Object[] options = {"是", "否"};
+				int option = JOptionPane.showOptionDialog(assignPanel.getParent(), msg, "提示", JOptionPane.YES_NO_OPTION,	JOptionPane.QUESTION_MESSAGE,
+		        null, options, options[1]);
+				if (option == javax.swing.JOptionPane.NO_OPTION) {					
+					return;
+				}
+
+			}
+			// this.newProcessOp = (NewProcessOperation)
+			// registry.newInstanceFor("newProcessOperation", new Object[] { this });
+			this.newProcessOp = new UserNewProcessOperation(assignPanel.getProcessTreeView(), this);
+
+			// 20220323143000 : END
+			this.newProcessOp.addOperationListener(this);
+			this.newProcessOp.addPropertyChangeListener(this);
+			this.session.queueOperation(this.newProcessOp);
+			
+		} catch (Exception exception) {
+			exception.printStackTrace();
+			Debug.printStackTrace("NEWPROCESS", exception);
+			MessageBox.post(this.parentFrame, exception);
+		}
+	}
+
+	public void startOperation(String paramString) {
+		super.startOperation(paramString);
+		this.processNameTextField.setEnabled(false);
+		this.processDefinitionComboBox.setEnabled(false);
+		this.processDescTextArea.setEnabled(false);
+		validate();
+	}
+
+	public void endOperation() {
+		if (this.newProcessOp == null)
+			return;
+		this.newProcessOp.removeOperationListener(this);
+		if (!this.newProcessOp.isAbortRequested()) {
+			SwingUtilities.invokeLater(new Runnable() {
+				public void run() {
+					if (UserExtNewProcessDialog.this.validateTimer != null)
+						UserExtNewProcessDialog.this.validateTimer.start();
+					UserExtNewProcessDialog.this.okButton.setVisible(true);
+					UserExtNewProcessDialog.this.cancelButton.setVisible(true);
+					UserExtNewProcessDialog.this.applyButton.setVisible(false);
+					UserExtNewProcessDialog.this.processNameTextField.setEnabled(true);
+					UserExtNewProcessDialog.this.processDefinitionComboBox.setEnabled(true);
+					UserExtNewProcessDialog.this.processDescTextArea.setEnabled(true);
+					UserExtNewProcessDialog.this.processNameTextField.requestFocus();
+					UserExtNewProcessDialog.this.processNameTextField.selectAll();
+					UserExtNewProcessDialog.this.validate();
+					if (UserExtNewProcessDialog.this.newProcessOp.getSuccessFlag()) {
+						UserExtNewProcessDialog.this.okButton.setVisible(false);
+						UserExtNewProcessDialog.this.disposeDialog();
+					}
+					if (UserExtNewProcessDialog.this.attachments != null)
+						for (int b = 0; b < UserExtNewProcessDialog.this.attachments.length; b++)
+							UserExtNewProcessDialog.this.attachments[b].clearCache("checked_out_user");
+				}
+			});
+			if (this.newProcessOp.getSuccessFlag())
+				this.attachmentsPanel.removeAttachmentChangeListener(this);
+		} else {
+			if (Debug.isOn("NEWPROCESSUI")) {
+				Debug.println("------------------------------------------------");
+				Debug.println("====> Before cleaning up the process endOperation()...");
+				Debug.println("------------------------------------------------");
+			}
+			this.newProcessOp.cleanUp();
+		}
+	}
+
+	public String getProcessName() {
+		return this.processNameTextField.getText();
+	}
+
+	public String getProcessDescription() {
+		return this.processDescTextArea.getText();
+	}
+
+	public String getProcessDefinition() {
+		return this.processDefinitionComboBox.getSelectedItem().toString();
+	}
+
+	public Object getProcessTemplate() {
+		return this.processDefinitionComboBox.getSelectedItem();
+	}
+
+	public TCComponent[] getAttachmentComponents() {
+		return this.attachmentsPanel.getAttachments();
+	}
+
+	public TCComponent[] getAttachmentComponentsByTypes(int[] paramArrayOfInt) {
+		return this.attachmentsPanel.getAttachmentsByTypes(paramArrayOfInt);
+	}
+
+	public int[] getAttachmentTypes() {
+		return this.attachmentsPanel.getAttachmentTypes();
+	}
+
+	public TCSession getSession() {
+		return this.session;
+	}
+
+	public TCComponent getCreatorTask() {
+		return this.creatorTask;
+	}
+
+	private void addInheritedTargets() {
+		if (!this.inheritTargetsEnabled || !this.inheritTargetsSelected)
+			return;
+		try {
+			if (this.creatorTaskTargets == null)
+				this.creatorTaskTargets = ((TCComponentTask) this.creatorTask).getAttachments(TCAttachmentScope.GLOBAL,
+						1);
+			if (this.creatorTaskTargets.length > 0)
+				this.attachmentsPanel.insertTargetComponents(this.creatorTaskTargets);
+		} catch (Exception exception) {
+			MessageBox messageBox = new MessageBox(exception);
+			messageBox.setVisible(true);
+		}
+	}
+
+	private void removeInheritedTargets() {
+		try {
+			if (this.creatorTaskTargets == null)
+				this.creatorTaskTargets = ((TCComponentTask) this.creatorTask).getAttachments(TCAttachmentScope.GLOBAL,
+						1);
+			if (this.creatorTaskTargets.length > 0)
+				this.attachmentsPanel.removeTargetComponents(this.creatorTaskTargets);
+		} catch (Exception exception) {
+			MessageBox messageBox = new MessageBox(exception);
+			messageBox.setVisible(true);
+		}
+	}
+
+	public TCComponent[] getAttachmentComponentsOfType(int paramInt) {
+		TCComponent[] arrayOfTCComponent = getAttachmentComponents();
+		int[] arrayOfInt = getAttachmentTypes();
+		if (arrayOfTCComponent == null || arrayOfTCComponent.length == 0)
+			return null;
+		Vector vector = new Vector();
+		for (int b = 0; b < arrayOfTCComponent.length; b++) {
+			if (arrayOfInt[b] == paramInt)
+				vector.addElement(arrayOfTCComponent[b]);
+		}
+		return (TCComponent[]) vector.toArray(new TCComponent[vector.size()]);
+	}
+
+	public ResourceMember[] getSelectedResources() {
+		return this.selResourceList;
+	}
+
+	public void populateProcessDefList(int... paramVarArgs) {
+		this.processDefinitionComboBox.removeAllItems();
+		this.curSelTemplateIndex = -1;
+		if (this.allRadioButton.isSelected() && !this.onlyAssigned) {
+			int i = this.procListAll.size();
+			if (i < 1) {
+				getProcList(Boolean.valueOf(false), paramVarArgs);
+				i = this.procListAll.size();
+			}
+			if (i < 1) {
+				this.processDefinitionComboBox.setEnabled(true);
+				Registry registry = Registry.getRegistry(this);
+				MessageBox.post(registry.getString("noProcessTemplateDefined"), registry.getString("error.TITLE"), 2);
+				return;
+			}
+			String[] arrayOfString = createRenderIcons(this.procListAll);
+			this.processDefinitionComboBox.addItems(this.procListAll.toArray(), arrayOfString);
+			if (Debug.isOn("NEWPROCESSUI")) {
+				Debug.println("------------------------------------------------");
+				Debug.println("====> ALL option: Set Selected Index ...");
+				Debug.println("------------------------------------------------");
+			}
+		} else if (this.assignedRadioButton.isSelected() || this.onlyAssigned) {
+			int i = this.procListAssigned.size();
+			if (i < 1) {
+				getProcList(Boolean.valueOf(true), paramVarArgs);
+				i = this.procListAssigned.size();
+			}
+			if (i > 0) {
+				String[] arrayOfString = createRenderIcons(this.procListAssigned);
+				this.processDefinitionComboBox.addItems(this.procListAssigned.toArray(), arrayOfString);
+				if (Debug.isOn("NEWPROCESSUI")) {
+					Debug.println("------------------------------------------------");
+					Debug.println("====> ASSIGNED option num > 0 : Set Selected Index ...");
+					Debug.println("------------------------------------------------");
+				}
+			}
+			Vector vector = filterTemplates();
+			if (this.filterInstancer != null)
+				if (vector != null) {
+					int j = vector.size();
+					// logger.debug("Number of templates returned are ");
+					// logger.debug(Integer.valueOf(j));
+					this.processDefinitionComboBox.removeAllItems();
+					for (int b = 0; b < j; b++) {
+						if (vector.get(b) != null)
+							this.processDefinitionComboBox.addItem(vector.get(b));
+					}
+				} else {
+					// logger.info("No templates returned");
+					this.processDefinitionComboBox.removeAllItems();
+				}
+		}
+		this.processDefinitionComboBox.setAutoCompleteSuggestive(false);
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				if (UserExtNewProcessDialog.this.processDefinitionComboBox.getItemCount() <= 0) {
+					UserExtNewProcessDialog.this.assignPanel.clearPanel();
+				} else {
+					UserExtNewProcessDialog.this.processDefinitionComboBox.setSelectedIndex(0);
+					UserExtNewProcessDialog.this.processDefinitionComboBox.updateSelections();
+				}
+			}
+		});
+	}
+
+	public void propertyChange(PropertyChangeEvent paramPropertyChangeEvent) {
+		if (paramPropertyChangeEvent.getSource() == this.attachmentsPanel
+				&& paramPropertyChangeEvent.getPropertyName() == "attachment_changed") {
+			this.procListAssigned.removeAllElements();
+			if (this.assignedRadioButton.isSelected() || this.onlyAssigned) {
+				final Object selected = this.processDefinitionComboBox.getSelectedItem();
+				int[] arrayOfInt = { 1, 10 };
+				populateProcessDefList(arrayOfInt);
+				SwingUtilities.invokeLater(new Runnable() {
+					public void run() {
+						Object[] arrayOfObject = UserExtNewProcessDialog.this.processDefinitionComboBox.getItems();
+						if (arrayOfObject != null) {
+							boolean bool = false;
+							int b;
+							for (b = 0; b < arrayOfObject.length; b++) {
+								if (arrayOfObject[b] == selected) {
+									bool = true;
+									break;
+								}
+							}
+							if (bool) {
+								UserExtNewProcessDialog.this.processDefinitionComboBox.setSelectedItem(selected);
+								UserExtNewProcessDialog.this.curSelTemplateIndex = b;
+								UserExtNewProcessDialog.this.Is_Assign_All_Tasks_Updated_On_Attachment_Changed = true;
+							} else {
+								UserExtNewProcessDialog.this.processDefinitionComboBox.setSelectedIndex(0);
+							}
+							UserExtNewProcessDialog.this.processDefinitionComboBox.updateSelections();
+							Object object = UserExtNewProcessDialog.this.processDefinitionComboBox.getSelectedItem();
+							if (UserExtNewProcessDialog.this.creatorTask == null
+									&& object instanceof TCComponentTaskTemplate) {
+								TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) object;
+								UserExtNewProcessDialog.this.updateProcessName(tCComponentTaskTemplate);
+							}
+						}
+					}
+				});
+			}
+		}
+	}
+
+	public void getProcList(Boolean paramBoolean, int... paramVarArgs) {
+		TCComponentTaskTemplate[] arrayOfTCComponentTaskTemplate = null;
+		try {
+			TCComponentTaskTemplateType tCComponentTaskTemplateType = (TCComponentTaskTemplateType) this.session
+					.getTypeComponent("EPMTaskTemplate");
+			if (tCComponentTaskTemplateType != null)
+				if (!paramBoolean.booleanValue()) {
+					this.procListAll.clear();
+					arrayOfTCComponentTaskTemplate = tCComponentTaskTemplateType.getProcessTemplates(
+							!this.switchOffUCTemplates, paramBoolean.booleanValue(), null, null, null);
+					if (arrayOfTCComponentTaskTemplate != null && arrayOfTCComponentTaskTemplate.length > 0) {
+						arrayOfTCComponentTaskTemplate = sortTemplateListForDefaultTemplate(
+								arrayOfTCComponentTaskTemplate);
+						this.procListAll.addAll(Arrays.asList(arrayOfTCComponentTaskTemplate));
+					}
+				} else {
+					this.procListAssigned.clear();
+					TCComponent[] arrayOfTCComponent = null;
+					if (paramVarArgs.length > 0) {
+						arrayOfTCComponent = getAttachmentComponentsByTypes(paramVarArgs);
+					} else {
+						arrayOfTCComponent = getAttachmentComponents();
+					}
+					arrayOfTCComponentTaskTemplate = tCComponentTaskTemplateType.getProcessTemplates(
+							!this.switchOffUCTemplates, paramBoolean.booleanValue(), arrayOfTCComponent, null, null);
+					if (arrayOfTCComponentTaskTemplate != null && arrayOfTCComponentTaskTemplate.length > 0)
+						this.procListAssigned.addAll(Arrays.asList(arrayOfTCComponentTaskTemplate));
+				}
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+			// logger.error(tCException.getClass().getName(), tCException);
+			MessageBox.post(this.parentFrame, tCException);
+			return;
+		}
+	}
+
+	private TCComponentTaskTemplate[] sortTemplateListForDefaultTemplate(
+			TCComponentTaskTemplate[] paramArrayOfTCComponentTaskTemplate) {
+		String str1 = "";
+		if (this.pasteTargets != null && this.pasteTargets.length > 0)
+			str1 = this.pasteTargets[0].getType();
+		TCPreferenceService tCPreferenceService = (TCPreferenceService) OSGIUtil.getService(KernelPlugin.getDefault(),
+				TCPreferenceService.class);
+		String str2 = tCPreferenceService.getString(0, String.valueOf(str1) + "_" + DEFAULT_WORKFLOW_TEMPLATE_SUFFIX);
+		String str3 = tCPreferenceService.getString(0, WORKSPACE_DEFAULT_TEMPLATE);
+		if (str2 == null || str2 == "")
+			str2 = str3;
+		int b1 = 0;
+		for (int b2 = 0; b2 < paramArrayOfTCComponentTaskTemplate.length; b2++) {
+			TCComponentTaskTemplate tCComponentTaskTemplate = paramArrayOfTCComponentTaskTemplate[b2];
+			String str = "";
+			try {
+				str = tCComponentTaskTemplate.getName();
+			} catch (TCException tCException) {
+				tCException.printStackTrace();
+				// Logger.getLogger(NewProcessDialog.class).error(tCException.getLocalizedMessage(),
+				// tCException);
+			}
+			if (str.equals(str2)) {
+				b1 = b2;
+				break;
+			}
+		}
+		TCComponentTaskTemplate[] arrayOfTCComponentTaskTemplate = new TCComponentTaskTemplate[paramArrayOfTCComponentTaskTemplate.length];
+		arrayOfTCComponentTaskTemplate[0] = paramArrayOfTCComponentTaskTemplate[b1];
+		int b3 = 1;
+		for (int b4 = 0; b4 < arrayOfTCComponentTaskTemplate.length; b4++) {
+			if (b4 != b1) {
+				arrayOfTCComponentTaskTemplate[b3] = paramArrayOfTCComponentTaskTemplate[b4];
+				b3++;
+			}
+		}
+		return arrayOfTCComponentTaskTemplate;
+	}
+
+	@Deprecated
+	public void getProcListAll() {
+		TCComponentTaskTemplate[] arrayOfTCComponentTaskTemplate = null;
+		try {
+			TCComponentTaskTemplateType tCComponentTaskTemplateType = (TCComponentTaskTemplateType) this.session
+					.getTypeComponent("EPMTaskTemplate");
+			if (tCComponentTaskTemplateType != null) {
+				try {
+					arrayOfTCComponentTaskTemplate = tCComponentTaskTemplateType
+							.getProcessTemplates(!this.switchOffUCTemplates, false, null, null, null);
+				} catch (TCException tCException) {
+					MessageBox.post(this.parentFrame, tCException);
+				}
+				int i = 0;
+				if (arrayOfTCComponentTaskTemplate != null)
+					i = arrayOfTCComponentTaskTemplate.length;
+				this.procListAll.clear();
+				for (int b = 0; b < i; b++)
+					this.procListAll.addElement(arrayOfTCComponentTaskTemplate[b]);
+			}
+		} catch (TCException tCException) {
+			MessageBox.post(this.parentFrame, tCException);
+		}
+	}
+
+	@Deprecated
+	public void getProcListAssigned() {
+		try {
+			TCComponent[] arrayOfTCComponent = getAttachmentComponents();
+			int[] arrayOfInt = this.attachmentsPanel.getAttachmentTypes();
+			if (arrayOfTCComponent == null)
+				return;
+			int i = arrayOfTCComponent.length;
+			if (i == 0)
+				return;
+			HashSet hashSet = new HashSet();
+			for (int b = 0; b < i; b++) {
+				if (arrayOfInt[b] == 1)
+					hashSet.add(arrayOfTCComponent[b].getType());
+			}
+			String[] arrayOfString = new String[hashSet.size()];
+			hashSet.toArray(arrayOfString);
+			TCComponentGroup tCComponentGroup = this.session.getGroup();
+			String str = tCComponentGroup.getFullName();
+			TCComponentTaskTemplate[] arrayOfTCComponentTaskTemplate = null;
+			TCComponentTaskTemplateType tCComponentTaskTemplateType = (TCComponentTaskTemplateType) this.session
+					.getTypeComponent("EPMTaskTemplate");
+			if (tCComponentTaskTemplateType != null)
+				arrayOfTCComponentTaskTemplate = tCComponentTaskTemplateType
+						.getProcessTemplates(!this.switchOffUCTemplates, true, null, arrayOfString, str);
+			int j = 0;
+			if (arrayOfTCComponentTaskTemplate != null)
+				j = arrayOfTCComponentTaskTemplate.length;
+			if (j > 0) {
+				this.procListAssigned.clear();
+				for (int b1 = 0; b1 < j; b1++)
+					this.procListAssigned.addElement(arrayOfTCComponentTaskTemplate[b1]);
+			}
+		} catch (Exception exception) {
+			MessageBox.post(this.parentFrame, exception);
+			return;
+		}
+	}
+
+	public void initProcessDefList() {
+		int b = 1;
+		if (this.m_value_CR_allow_alternate_procedures != null
+				&& this.m_value_CR_allow_alternate_procedures.length() > 0)
+			if (this.m_value_CR_allow_alternate_procedures.equalsIgnoreCase("ANY")) {
+				b = 1;
+			} else if (this.m_value_CR_allow_alternate_procedures.equalsIgnoreCase("none")) {
+				b = 2;
+			} else if (this.m_value_CR_allow_alternate_procedures.equalsIgnoreCase("Assigned")) {
+				b = 3;
+			}
+		if (b == 1) {
+			this.allRadioButton.doClick();
+			getProcList(Boolean.valueOf(false), new int[0]);
+			int i = this.procListAll.size();
+			this.procList.clear();
+			for (int b1 = 0; b1 < i; b1++)
+				this.procList.addElement(this.procListAll.elementAt(b1));
+		} else if (b == 2) {
+			this.processFilterLabel.setVisible(false);
+			this.allRadioButton.setVisible(false);
+			this.assignedRadioButton.setVisible(false);
+			getProcList(Boolean.valueOf(true), new int[0]);
+			int i = this.procListAssigned.size();
+			this.onlyAssigned = true;
+			this.procList.clear();
+			for (int b1 = 0; b1 < i; b1++)
+				this.procList.addElement(this.procListAssigned.elementAt(b1));
+		} else if (b == 3) {
+			this.processFilterLabel.setVisible(true);
+			this.allRadioButton.setVisible(true);
+			this.assignedRadioButton.setVisible(true);
+			this.assignedRadioButton.doClick();
+			getProcList(Boolean.valueOf(true), new int[0]);
+			int i = this.procListAssigned.size();
+			this.procList.clear();
+			for (int b1 = 0; b1 < i; b1++)
+				this.procList.addElement(this.procListAssigned.elementAt(b1));
+			this.radioButtonFlag = 3;
+		}
+		revalidate();
+		repaint();
+	}
+
+	public void startLoadProcDefsOperation() {
+		this.loadOp = new LoadProcDefsOperation(Registry.getRegistry(this).getString("loadingDefTemplates"));
+		this.session.queueOperation(this.loadOp);
+	}
+
+	public Vector filterTemplates() {
+		Vector vector1 = null;
+		Vector vector2 = new Vector();
+		TemplateFilterService templateFilterService = TemplateFilterService.getInstance();
+		this.filterInstancer = templateFilterService.getTemplateFilter();
+		Registry registry = Registry.getRegistry(this);
+		if (this.filterInstancer != null) {
+			getProcList(Boolean.valueOf(false), new int[0]);
+			try {
+				vector1 = this.filterInstancer.getFilteredTemplates(this.procListAll, this.procListAssigned,
+						this.pasteTargets, this.session);
+			} catch (Exception exception) {
+				exception.printStackTrace();
+				if (exception instanceof NoCustomFilteringRequiredException) {
+					// logger.debug("Custom Filtering is not required. Passing the OOTB filtered
+					// templates for display");
+					return this.procListAssigned;
+				}
+				// logger.error("Exception passed by the custom code", exception);
+				MessageBox.post(registry.getString("customCodeException"), registry.getString("error.TITLE"), 1);
+				return null;
+			}
+			try {
+				if (vector1 != null) {
+					int i = vector1.size();
+					for (int b = 0; b < i; b++) {
+						if (vector1.get(b) != null && !vector2.contains(vector1.get(b)))
+							vector2.add(vector1.get(b));
+					}
+				}
+				if (vector2.size() > 0) {
+					boolean bool = this.procListAll.containsAll(vector2);
+					if (bool)
+						return vector2;
+					if (!bool) {
+						// logger.error("Templates returned from custom code are invalid");
+						MessageBox.post(registry.getString("templatesNotInDatabase"), registry.getString("error.TITLE"),
+								1);
+						return null;
+					}
+				}
+			} catch (Exception exception) {
+				exception.printStackTrace();
+				// logger.error("Exception", exception);
+				MessageBox.post(this.parentFrame, exception);
+				return null;
+			}
+		}
+		return vector2;
+	}
+
+	private class LoadProcDefsOperation extends AbstractAIFOperation {
+		public LoadProcDefsOperation(String param1String) {
+			super(param1String);
+		}
+
+		public void executeOperation() {
+			try {
+				UserExtNewProcessDialog.this.initProcessDefList();
+				if (isAbortRequested())
+					return;
+			} catch (Exception exception) {
+				Registry registry = Registry.getRegistry(this);
+				MessageBox.post(UserExtNewProcessDialog.this.parentFrame, registry.getString("loadProcDefsError"), "",
+						registry.getString("error.TITLE"), 1);
+				return;
+			}
+			boolean bool = false;
+			try {
+				if (UserExtNewProcessDialog.this.m_value_CR_allow_alternate_procedures != null
+						&& UserExtNewProcessDialog.this.m_value_CR_allow_alternate_procedures.length() > 0
+						&& UserExtNewProcessDialog.this.m_value_CR_allow_alternate_procedures
+								.equalsIgnoreCase("Assigned"))
+					bool = true;
+			} catch (Exception exception) {
+				MessageBox.post(UserExtNewProcessDialog.this.parentFrame, exception);
+			}
+			if (!bool)
+				UserExtNewProcessDialog.this.populateProcessDefList(new int[0]);
+			UserExtNewProcessDialog.this.currentSelection = (UserExtNewProcessDialog.this.radioButtonFlag != 3);
+		}
+	}
+
+	// recompile 20220323143000 : START
+	protected LinkedHashMap<String, Map<String, List<String>>> getWKInfo() {
+		LinkedHashMap<String, Map<String, List<String>>> retMap = new LinkedHashMap<String, Map<String, List<String>>>();
+		try {
+			TCTreeNode tCTreeNode = (TCTreeNode) this.assignPanel.resourcesPanel.processTreeView.getRootNode();
+			int fCount = tCTreeNode.getChildCount();
+			for (int fi = 0; fi < fCount; fi++) {
+				TCTreeNode fTCTreeNode1 = (TCTreeNode) tCTreeNode.getChildAt(fi);
+				TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) fTCTreeNode1.getComponent();
+				int sCount = fTCTreeNode1.getChildCount();
+				Map<String, List<String>> userMap = new LinkedHashMap<String, List<String>>();
+				if (sCount > 0) {
+					for (int si = 0; si < sCount; si++) {
+						TCTreeNode sTCTreeNode1 = (TCTreeNode) fTCTreeNode1.getChildAt(si);						
+						Object object1 = sTCTreeNode1.getUserObject();
+						if (object1 instanceof AssignmentListHelper) {
+							AssignmentListHelper assignmentListHelper1 = (AssignmentListHelper) object1;
+							if (null == assignmentListHelper1)
+								continue;
+							TCComponent component1 = assignmentListHelper1.getNodeComponent();
+							if (component1 != null && component1 instanceof TCComponentGroupMember) {
+								getUserInfoLst(userMap, component1);
+							} else {
+								if (null == assignmentListHelper1.getNodeTitle())
+									continue;
+								// if ("USERS".equals(assignmentListHelper1.getNodeTitle().toUpperCase())) {
+								int tCount = sTCTreeNode1.getChildCount();
+								if (tCount > 0) {
+									for (int ti = 0; ti < tCount; ti++) {
+										TCTreeNode tTCTreeNode1 = (TCTreeNode) sTCTreeNode1.getChildAt(ti);
+										Object object2 = tTCTreeNode1.getUserObject();
+										if (object2 instanceof AssignmentListHelper) {
+											AssignmentListHelper assignmentListHelper2 = (AssignmentListHelper) object2;
+											TCComponent component2 = assignmentListHelper2.getNodeComponent();
+											getUserInfoLst(userMap, component2);
+										} else if (tTCTreeNode1.getUserObject() instanceof TCComponentProfile) {
+											int tCount2 = tTCTreeNode1.getChildCount();
+											for (int tj = 0; tj < tCount2; tj++) {
+												TCTreeNode tTCTreeNode2 = (TCTreeNode) tTCTreeNode1.getChildAt(tj);
+												Object object3 = tTCTreeNode2.getUserObject();
+												if (object3 instanceof AssignmentListHelper) {
+													AssignmentListHelper assignmentListHelper3 = (AssignmentListHelper) object3;
+													TCComponent component3 = assignmentListHelper3.getNodeComponent();
+													getUserInfoLst(userMap, component3);
+												}
+											}
+										}
+									}
+								}
+								// }
+							}
+						}
+					}
+				}
+				retMap.put(tCComponentTaskTemplate.getName(), (0 == sCount) ? getLoginUserInfo() : userMap);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return retMap;
+	}
+
+	
+	// recompile 2023/01/13 : START
+		protected LinkedHashMap<String, Map<String, List<String>>> getNeedUserWKInfo() {
+			LinkedHashMap<String, Map<String, List<String>>> retMap = new LinkedHashMap<String, Map<String, List<String>>>();
+			try {
+				TCTreeNode tCTreeNode = (TCTreeNode) this.assignPanel.resourcesPanel.processTreeView.getRootNode();
+				int fCount = tCTreeNode.getChildCount();
+				for (int fi = 0; fi < fCount; fi++) {
+					TCTreeNode fTCTreeNode1 = (TCTreeNode) tCTreeNode.getChildAt(fi);
+					TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) fTCTreeNode1.getComponent();
+					int sCount = fTCTreeNode1.getChildCount();
+					Map<String, List<String>> userMap = new LinkedHashMap<String, List<String>>();
+					if (sCount > 0) {
+						for (int si = 0; si < sCount; si++) {
+							TCTreeNode sTCTreeNode1 = (TCTreeNode) fTCTreeNode1.getChildAt(si);
+							Object object1 = sTCTreeNode1.getUserObject();
+							if (object1 instanceof AssignmentListHelper) {
+								AssignmentListHelper assignmentListHelper1 = (AssignmentListHelper) object1;
+								if (null == assignmentListHelper1)
+									continue;
+								TCComponent component1 = assignmentListHelper1.getNodeComponent();
+								if (component1 != null && component1 instanceof TCComponentGroupMember) {
+									getUserInfoLst(userMap, component1);
+								} else {
+									if (null == assignmentListHelper1.getNodeTitle())
+										continue;
+									// if ("USERS".equals(assignmentListHelper1.getNodeTitle().toUpperCase())) {
+									int tCount = sTCTreeNode1.getChildCount();
+									if (tCount > 0) {
+										for (int ti = 0; ti < tCount; ti++) {
+											TCTreeNode tTCTreeNode1 = (TCTreeNode) sTCTreeNode1.getChildAt(ti);
+											Object object2 = tTCTreeNode1.getUserObject();
+											if (object2 instanceof AssignmentListHelper) {
+												AssignmentListHelper assignmentListHelper2 = (AssignmentListHelper) object2;
+												TCComponent component2 = assignmentListHelper2.getNodeComponent();
+												getUserInfoLst(userMap, component2);
+											} else if (tTCTreeNode1.getUserObject() instanceof TCComponentProfile) {
+												int tCount2 = tTCTreeNode1.getChildCount();
+												for (int tj = 0; tj < tCount2; tj++) {
+													TCTreeNode tTCTreeNode2 = (TCTreeNode) tTCTreeNode1.getChildAt(tj);
+													Object object3 = tTCTreeNode2.getUserObject();
+													if (object3 instanceof AssignmentListHelper) {
+														AssignmentListHelper assignmentListHelper3 = (AssignmentListHelper) object3;
+														TCComponent component3 = assignmentListHelper3.getNodeComponent();
+														getUserInfoLst(userMap, component3);
+													}
+												}
+											}
+										}
+									}
+									// }
+								}
+							}
+						}
+						retMap.put(tCComponentTaskTemplate.getName(), userMap);
+					}
+					
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			return retMap;
+		}
+		// recompile 2023/01/13 : END	
+		
+	protected void iniPubMailPanel() {
+		if (m_wkInfoMap != null && m_wkInfoMap.size() > 0)
+			m_wkInfoMap.clear();
+		m_wkInfoMap = getWKInfo();
+//		m_wkInfoMap = getNeedUserWKInfo();
+		this.publicAccountPanel.publicMailPanel.initializePanel();
+//		this.publicAccountPanel.teamRosterPanel.
+		
+		try {
+			TCComponentGroup currentGroup = session.getCurrentGroup();
+			String group = currentGroup.getProperty("full_name");
+			System.out.println("group = "+group);
+			
+//			if(group.contains("dba")) {
+			if(group.contains("Monitor") || group.contains("dba") ) {
+				getpubMailPanel();
+			}
+			
+			if(group.contains("dba") || group.toUpperCase().contains(GroupEnum.Desktop.groupName())) {
+				setFromJComboBox();
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+	}
+
+	
+	
+	protected boolean checkIsExistNode(Map<String, Map<String, List<String>>> wkInfoMap, List<String> startNodeLst) {
+		try {
+			for (String startNode : startNodeLst) {
+				if (wkInfoMap.containsKey(startNode)) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	protected void getNextNode(Map<String, Map<String, List<String>>> wkInfoMap,
+			TCComponentTaskTemplate[] tcNodeTemplateArr, List<String> nextNodeLst) {
+		try {
+			for (TCComponentTaskTemplate tcNodeTemplate : tcNodeTemplateArr) {
+				List<String> nodeLst = Arrays.asList(tcNodeTemplate.getProperty("successors").split(","));
+				for (String node : nodeLst) {
+					if (wkInfoMap.containsKey(node)) {
+						nextNodeLst.add(node);
+					}
+				}
+			}
+			if (0 == nextNodeLst.size()) {
+				for (TCComponentTaskTemplate tcNodeTemplate : tcNodeTemplateArr) {
+					getNextNode(wkInfoMap, tcNodeTemplate.getStartSuccessors(), nextNodeLst);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	protected boolean checkPublicMailInfo(List<String> startNodeLst) {
+		try {
+			int rowCount = this.publicAccountPanel.publicMailPanel.table.getRowCount();
+			if (0 == rowCount || (1 == rowCount
+					&& "".equals(this.publicAccountPanel.publicMailPanel.tableModel.getValueAt(0, 0).toString())))
+				return false;
+			for (String startNode : startNodeLst) {
+				for (int i = 0; i < rowCount; i++) {
+					if (startNode.equals(this.publicAccountPanel.publicMailPanel.tableModel.getValueAt(i, 0).toString())
+							&& "".equals(
+									this.publicAccountPanel.publicMailPanel.tableModel.getValueAt(i, 3).toString())) {
+						return false;
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return true;
+	}
+
+	protected void savePublicMailInfo() {
+		try {
+			m_pubMailMap = new LinkedHashMap<String, List<String>>();
+			int rowCount = this.publicAccountPanel.publicMailPanel.table.getRowCount();
+			int colCount = this.publicAccountPanel.publicMailPanel.table.getColumnCount();
+			if (rowCount > 0) {
+				FileStreamUtil fileStreamUtil = null;
+				String fullFilePath = "";
+				for (int i = 0; i < rowCount; i++) {
+					List<String> pubMailLst = new ArrayList<String>();
+					if (colCount > 0) {
+						for (int j = 0; j < colCount; j++) {
+							pubMailLst.add(
+									this.publicAccountPanel.publicMailPanel.tableModel.getValueAt(i, j).toString());
+						}
+						String key = this.publicAccountPanel.publicMailPanel.tableModel.getValueAt(i, 0).toString();
+						if (m_pubMailMap.containsKey(key)) {
+							List<String> valueLst = m_pubMailMap.get(key);
+							if (4 == pubMailLst.size() && 4 == valueLst.size()) {
+								valueLst.set(1, valueLst.get(1) + "," + pubMailLst.get(1));
+								valueLst.set(2, valueLst.get(2) + "," + pubMailLst.get(2));
+								valueLst.set(3, valueLst.get(3) + "," + pubMailLst.get(3));
+								m_pubMailMap.put(key, valueLst);
+							}
+						} else {
+							m_pubMailMap.put(key, pubMailLst);
+						}
+					}
+				}
+				if (m_pubMailMap != null && m_pubMailMap.size() > 0) {
+					fileStreamUtil = new FileStreamUtil();
+					fullFilePath = fileStreamUtil.getTempPath("publicMail");
+					if (fileStreamUtil.existFile(fullFilePath))
+						fileStreamUtil.deleteFile(fullFilePath);
+					PrintStream printStream = fileStreamUtil.openStream(fullFilePath);
+					String taskName = "";
+					String projectNames = getProjectName();
+					String itemNames = getItemName();
+					String publicUser = "";
+					String realUser = "";
+					String publicMail = "";
+					// List<String> msgLst = new ArrayList<String>();
+					for (Map.Entry<String, List<String>> entry : m_pubMailMap.entrySet()) {
+						// msgLst.add(entry.getKey() + "[" +
+						// entry.getValue().stream().collect(Collectors.joining(",")) + "]");
+						List<String> tableInfoLst = entry.getValue();
+						if (4 == tableInfoLst.size()) {
+							taskName = tableInfoLst.get(0);
+							publicUser = tableInfoLst.get(1);
+							realUser = tableInfoLst.get(2);
+							publicMail = tableInfoLst.get(3);
+						}
+						StringBuilder contextLst = new StringBuilder();
+						contextLst.append(taskName);
+						contextLst.append("=");
+						contextLst.append(projectNames);
+						contextLst.append(";");
+						contextLst.append(itemNames);
+						contextLst.append(";");
+						contextLst.append(publicUser);
+						contextLst.append("##");
+						contextLst.append(realUser);
+						contextLst.append("%%");
+						contextLst.append(publicMail);
+						fileStreamUtil.writeData(printStream, contextLst.toString() + "\n\r");
+					}
+					if (fileStreamUtil != null && printStream != null)
+						fileStreamUtil.close(printStream);
+				}
+				if (this.pasteTargets != null) {
+					for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+						TCComponent targetComp = (TCComponent) tcIAComponent;
+						TCUtil.linkDataSet(session, targetComp, "IMAN_external_object_link", fullFilePath,
+								fileStreamUtil.getFilename());
+					}
+					fileStreamUtil.deleteFile(fullFilePath);
+				}
+			}
+			if (this.publicAccountPanel.publicMailPanel != null) {
+				if (m_wkInfoMap != null && m_wkInfoMap.size() > 0)
+					m_wkInfoMap.clear();
+				this.publicAccountPanel.publicMailPanel.initializePanel();
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private String getProjectId() {
+		try {
+			if (this.pasteTargets != null) {
+				List<String> prjIdLst = new ArrayList<String>();
+				int targetCount = this.pasteTargets.length;
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					TCComponentItemRevision itemRev = null;
+					if (targetComp instanceof TCComponentItem) {
+						itemRev = ((TCComponentItem) targetComp).getLatestItemRevision();
+					}
+					if (targetComp instanceof TCComponentItemRevision) {
+						itemRev = (TCComponentItemRevision) targetComp;
+					}
+					for (TCComponent prjComp : TCUtil.getProjects(itemRev)) {
+						// 获取项目信息
+						TCComponentProject prjOfItemRev = (TCComponentProject) prjComp;
+						if (null == prjOfItemRev) {
+							continue;
+						}
+						TCProperty propOfItemRev = prjOfItemRev.getTCProperty("project_id");
+						prjIdLst.add(propOfItemRev.getStringValue());
+					}
+				}
+				
+				prjIdLst = prjIdLst.stream().filter(CommonTools.distinctByKey(str -> str)).collect(Collectors.toList()); // 移除相同的专案ID
+				return prjIdLst.stream().collect(Collectors.joining(","));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	protected String getProjectName() {
+		try {
+			if (this.pasteTargets != null) {
+				List<String> prjNameLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					TCComponentItemRevision itemRev = null;
+					if (targetComp instanceof TCComponentItem) {
+						itemRev = ((TCComponentItem) targetComp).getLatestItemRevision();
+					}
+					if (targetComp instanceof TCComponentItemRevision) {
+						itemRev = (TCComponentItemRevision) targetComp;
+					}
+					for (TCComponent prjComp : TCUtil.getProjects(itemRev)) {
+						// 获取项目信息
+						TCComponentProject prjOfItemRev = (TCComponentProject) prjComp;
+						if (null == prjOfItemRev) {
+							continue;
+						}
+
+						// TCProperty propOfItemRev = prjOfItemRev.getTCProperty("object_name");
+						TCProperty propOfItemRev = prjOfItemRev.getTCProperty("project_id");						
+						System.out.println(prjOfItemRev.getTCProperty("object_name").getStringValue());
+//						prjNameLst.add(propOfItemRev.getStringValue());
+						prjNameLst.add(prjOfItemRev.getTCProperty("object_name").getStringValue());
+
+					}
+				}
+				return prjNameLst.stream().collect(Collectors.joining(","));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	protected String getItemName() {
+		try {
+			if (this.pasteTargets != null) {
+				List<String> itemNameLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+//					itemNameLst.add(targetComp.getProperty("object_name"));
+					itemNameLst.add(targetComp.getProperty("item_id") + "|" + targetComp.getProperty("object_name"));
+				}
+				return itemNameLst.stream().collect(Collectors.joining(","));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	protected String getItemId() {
+		try {
+			if (this.pasteTargets != null) {
+				List<String> itemNameLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					itemNameLst.add(targetComp.getProperty("item_id"));
+				}
+				return itemNameLst.stream().collect(Collectors.joining(","));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	protected String getItemUid() {
+		try {
+			if (this.pasteTargets != null) {
+				List<String> itemNameLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					itemNameLst.add(targetComp.getUid());
+				}
+				return itemNameLst.stream().collect(Collectors.joining(","));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	protected String getItemActualUserIds() {
+		String actualUserIds = ""; 
+		try {
+			if (this.pasteTargets != null) {
+				List<String> itemActualUserIdLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					
+					String d9_ActualUserID = targetComp.getProperty("d9_ActualUserID");
+					if(d9_ActualUserID.contains("(") && d9_ActualUserID.contains(")") ) {
+						actualUserIds = d9_ActualUserID.substring(d9_ActualUserID.indexOf("(") + 1, d9_ActualUserID.indexOf(")"));
+					} else {
+						actualUserIds = d9_ActualUserID;
+					}
+					
+//					itemActualUserIdLst.add(targetComp.getProperty("d9_ActualUserID"));
+				}
+				
+//				itemActualUserIdLst.removeIf(str -> "".equals(str) || str == null);
+//				if (itemActualUserIdLst != null && itemActualUserIdLst.size() > 0)
+//					return itemActualUserIdLst.stream().map(e -> e.substring(e.indexOf("(") + 1, e.indexOf(")")))
+//							.collect(Collectors.joining(","));
+//				else
+//					return "";
+				
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return actualUserIds;
+	}
+
+	private void clearStaticData() {
+		if (m_wkInfoMap != null && m_wkInfoMap.size() > 0) {
+			m_wkInfoMap.clear();
+		}
+		PublicMailPanel.clearData();
+		UserAssignmentListPanel.pubMail = "";
+		UserAssignmentListPanel.taskName = "";
+	}
+
+	private void getUserInfoLst(Map<String, List<String>> userMap, TCComponent component) {
+		try {
+			if (component != null && component instanceof TCComponentGroupMember) {
+				TCComponent tcCompUser = component.getReferenceProperty("user");
+				if (tcCompUser != null && tcCompUser instanceof TCComponentUser) {
+					boolean blnFlag = true;
+					if (blnFlag) {
+						TCComponent tcCompPerson = tcCompUser.getReferenceProperty("person");
+						if (tcCompPerson != null && tcCompPerson instanceof TCComponentPerson) {
+							List<String> userInfoLst = new ArrayList<String>();
+							userInfoLst.add(tcCompPerson.getProperty("user_name"));
+							userInfoLst.add(tcCompPerson.getProperty("PA9"));
+							userMap.put(tcCompUser.getProperty("user_id"), userInfoLst);
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private Map<String, List<String>> getLoginUserInfo() {
+		Map<String, List<String>> retMap = new LinkedHashMap<String, List<String>>();
+		try {
+			TCComponentUser currentUser = RACUIUtil.getTCSession().getUser();
+			if (currentUser != null) {
+				boolean blnFlag = true;
+				String itemActualUserId = getItemActualUserIds();
+				if (!TCUtil.isNull(itemActualUserId)) {
+					List<SPASUser> actualUserLst = TCUtil.getActualUserInfo(RACUIUtil.getTCSession(), itemActualUserId);
+					if (null == actualUserLst || 0 == actualUserLst.size()) {
+						blnFlag = true;
+					} else {
+						blnFlag = false;
+						List<String> userInfoLst = new ArrayList<String>();
+						userInfoLst.add(actualUserLst.get(0).getName());
+						userInfoLst.add(actualUserLst.get(0).getNotes());
+						retMap.put(currentUser.getProperty("user_id"), userInfoLst);
+					}
+				}
+				if (blnFlag) {
+					TCComponent tcCompPerson = currentUser.getReferenceProperty("person");
+					if (tcCompPerson != null && tcCompPerson instanceof TCComponentPerson) {
+						List<String> userInfoLst = new ArrayList<String>();
+						userInfoLst.add(tcCompPerson.getProperty("user_name"));
+						userInfoLst.add(tcCompPerson.getProperty("PA9"));
+						retMap.put(currentUser.getProperty("user_id"), userInfoLst);
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return retMap;
+	}
+
+	
+	
+	protected void getStartNode(List<String> startNodeLst, List<TCComponent> retLst) {
+		try {
+			TCComponentTaskTemplate tcProcessTemplate = (TCComponentTaskTemplate) getProcessTemplate();
+			;
+			if (tcProcessTemplate != null) {
+				for (String startNode : startNodeLst) {
+					TCComponent[] tcCompNodeArr = tcProcessTemplate.getReferenceListProperty("start_successors");
+					for (TCComponent tcCompNode : tcCompNodeArr) {
+						if (!startNode.equals(tcCompNode.getProperty("object_name"))) {
+							List<TCComponent> nodeLst = new ArrayList<TCComponent>();
+							getNode(startNode, tcCompNode, nodeLst);
+							if (nodeLst != null && 1 == nodeLst.size())
+								retLst.add(nodeLst.get(0));
+						} else {
+							retLst.add(tcCompNode);
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void getNode(String startNode, TCComponent tcComp, List<TCComponent> nodeLst) {
+		try {
+			TCComponent[] tcCompNodeArr = tcComp.getReferenceListProperty("successors");
+			for (TCComponent tcCompNode : tcCompNodeArr) {
+				if (startNode.equals(tcCompNode.getProperty("object_name"))) {
+					nodeLst.add(tcCompNode);
+				} else {
+					getNode(startNode, tcCompNode, nodeLst);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	protected TCComponent getNextNodeByValidateTask(TCComponent tcCompStartNode, TCComponent[] pasteTargets) {
+		try {
+			String OR_STR = "or";
+			String NOT_OR_STR = "notor";
+			Map<String, TCComponent> nextNodeMap = new HashMap<String, TCComponent>();
+			TCComponent[] nextNodeArr = tcCompStartNode.getReferenceListProperty("successors");
+			for (TCComponent nextNode : nextNodeArr) {
+				String taskType = nextNode.getProperty("task_type");
+				if ("Or Task Template".equals(taskType) || "「或」任務範本".equals(taskType) || "「或」任务模板".equals(taskType)) {
+					TCComponent[] next2NodeArr = nextNode.getReferenceListProperty("successors");
+					for (TCComponent next2Node : next2NodeArr) {
+						nextNodeMap.put(OR_STR, next2Node);
+					}
+				} else {
+					nextNodeMap.put(NOT_OR_STR, nextNode);
+				}
+			}
+			if (nextNodeMap != null && nextNodeMap.size() > 1) {
+				for (TCComponent targetComp : pasteTargets) {
+					String simulationType = targetComp.getProperty("d9_SimulationType");
+
+					if ("Structural".equals(simulationType) || "結構".equals(simulationType)
+							|| "结构".equals(simulationType)) {
+
+						return nextNodeMap.containsKey(NOT_OR_STR) ? nextNodeMap.get(NOT_OR_STR) : null;
+					} else {
+						return nextNodeMap.containsKey(OR_STR) ? nextNodeMap.get(OR_STR) : null;
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	protected List<String> getUserInfo() {
+
+        List<String> retLst = new ArrayList<String>();
+        try {
+            TCTreeNode tCTreeNode = (TCTreeNode) this.assignPanel.resourcesPanel.processTreeView.getRootNode();
+            int fCount = tCTreeNode.getChildCount();
+            for (int fi = 0; fi < fCount; fi++) {
+                TCTreeNode fTCTreeNode1 = (TCTreeNode) tCTreeNode.getChildAt(fi);
+                TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) fTCTreeNode1.getComponent();
+                int sCount = fTCTreeNode1.getChildCount();
+                boolean isUsers = false;
+                boolean isMember = false;
+                {
+                    for (int si = 0; si < sCount; si++) {
+                        TCTreeNode sTCTreeNode1 = (TCTreeNode) fTCTreeNode1.getChildAt(si);
+                        Object object1 = sTCTreeNode1.getUserObject();
+                        if (object1 instanceof AssignmentListHelper) {
+                            AssignmentListHelper assignmentListHelper1 = (AssignmentListHelper) object1;
+                            if (null == assignmentListHelper1)
+                                continue;
+                            TCComponent component1 = assignmentListHelper1.getNodeComponent();
+                            String title = assignmentListHelper1.getNodeTitle();
+                            if ("users".equalsIgnoreCase(title) || "profiles".equalsIgnoreCase(title)) {
+                                isUsers = true;
+                                continue;
+                            }
+                            if (component1 != null && (component1 instanceof TCComponentGroupMember)
+                                    || component1 instanceof TCComponentResourcePool) {
+                                isMember = true;
+                            }
+                        }
+                    }
+                }
+                if (isUsers && isMember) {
+                    retLst.add("请在【" + tCComponentTaskTemplate.getName() + "】流程节点的用户下选择人员");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return retLst;
+    }
+	// 20220323143000 : END
+
+	// recomple 2023/01/17 start
+	private List<String> checkAssignTreeNode(Registry registry) {
+		List<String> msgList = new ArrayList<String>();
+		try {
+			TCTreeNode tCTreeNode = (TCTreeNode) this.assignPanel.resourcesPanel.processTreeView.getRootNode();
+			tCTreeNode.refresh();
+			int fCount = tCTreeNode.getChildCount();
+			for (int fi = 0; fi < fCount; fi++) {
+				boolean profileFlag = false;
+				TCTreeNode fTCTreeNode1 = (TCTreeNode) tCTreeNode.getChildAt(fi);
+				TCComponentTaskTemplate tCComponentTaskTemplate = (TCComponentTaskTemplate) fTCTreeNode1.getComponent();
+				int sCount = fTCTreeNode1.getChildCount();
+				for (int si = 0; si < sCount; si++) {
+					TCTreeNode sTCTreeNode1 = (TCTreeNode) fTCTreeNode1.getChildAt(si);
+					Object object1 = sTCTreeNode1.getUserObject();
+					if (object1 instanceof AssignmentListHelper) {
+						AssignmentListHelper assignmentListHelper1 = (AssignmentListHelper) object1;
+						if (null == assignmentListHelper1) {
+							continue;
+						}
+
+						TCComponent component1 = assignmentListHelper1.getNodeComponent();
+						if (component1 != null && component1 instanceof TCComponentGroupMember) {
+							continue;
+						} else {
+							if (null == assignmentListHelper1.getNodeTitle()) {
+								continue;
+							}
+
+							int tCount = sTCTreeNode1.getChildCount();														
+							if (tCount > 0) {
+								int tNum = 0;
+								for (int ti = 0; ti < tCount; ti++) {
+									TCTreeNode tTCTreeNode1 = (TCTreeNode) sTCTreeNode1.getChildAt(ti);
+									Object object2 = tTCTreeNode1.getUserObject();
+									if (object2 instanceof AssignmentListHelper) {
+										AssignmentListHelper assignmentListHelper2 = (AssignmentListHelper) object2;
+										TCComponent component2 = assignmentListHelper2.getNodeComponent();
+										if (component2 != null && component2 instanceof TCComponentGroupMember) {
+											tNum++;
+										}
+//                                        if (!checkUserInfo(component2)) {
+//            								msgList.add(tCComponentTaskTemplate.getName() + "流程节点未选择人;");
+//            							}
+									} else if (tTCTreeNode1.getUserObject() instanceof TCComponentProfile) {
+										profileFlag = true; // 一旦节点含有概要表，将此标识设置为true，作为不对含有用户节点是否选人进行判断
+										int kCount = tTCTreeNode1.getChildCount();
+										if (kCount == 0) {
+											msgList.add(tCComponentTaskTemplate.getName() + "流程節點概要表未選擇人");
+										} else {
+											int kNum = 0;
+											for (int ki = 0; ki < kCount; ki++) {
+												TCTreeNode kTCTreeNode1 = (TCTreeNode) tTCTreeNode1.getChildAt(ki);
+												Object object3 = kTCTreeNode1.getUserObject();
+												if (object3 instanceof AssignmentListHelper) {													
+													AssignmentListHelper assignmentListHelper3 = (AssignmentListHelper) object3;
+													TCComponent component3 = assignmentListHelper3.getNodeComponent();
+													if (component3 != null && component3 instanceof TCComponentGroupMember) {
+														kNum++;
+													}													
+												}
+											}
+											
+											if (kCount != kNum) {
+												msgList.add(tCComponentTaskTemplate.getName() + "流程節點概要表未選擇人");
+											}
+										}
+									}
+								}
+								
+								if (tCount != tNum && !profileFlag) {
+									msgList.add(tCComponentTaskTemplate.getName() + "流程節點用戶未選擇人");
+								}
+							} else {
+								if (!profileFlag) {
+									msgList.add(tCComponentTaskTemplate.getName() + "流程節點用戶未選擇人");
+								}								
+							}							
+
+						}
+					}
+
+				}
+				
+				if (profileFlag) { // 如果节点含有对概要表的判断，需要将对流程节点的处理删除
+					msgList.removeIf(str -> str.contains("流程節點用戶未選擇人"));
+				}
+
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		if (CommonTools.isNotEmpty(msgList)) {
+			msgList = msgList.stream().filter(CommonTools.distinctByKey(str -> str.trim())).collect(Collectors.toList());
+		}		
+		return msgList;
+	}
+	
+	// recomple 2023/01/17 end
+	
+	private ArrayList<SPASUser> loadTeamRosterData(TCSession session, String platformFoundIds) {
+		ArrayList<SPASUser> teamRosterUsers = null;
+		try {
+			
+//			System.out.println("============loadTeamRosterData===============");
+			String result = "";
+			HashMap httpmap = new HashMap();
+			httpmap.put("platformFoundIds", platformFoundIds);
+			String springUrl = session.getPreferenceService().getString(TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+			
+			String url = springUrl + "/tc-integrate/spas/getTeamRoster";
+//			url = "http://127.0.0.1:8068" + "/spas/getTeamRoster";
+//			HttpClient httpClient = new DefaultHttpClient();
+			CloseableHttpClient httpClient = HttpClients.createDefault();
+			HttpPost httpPost = new HttpPost(url);
+			
+			
+			
+			// setConnectTimeout: 设置连接超时时间，单位为毫秒，此处设为5秒
+			// setConnectionRequestTimeout： 设置从connect Manager获取Connection超时时间，单位为毫秒，这个属性是新加的属性，因为目前版本是可以共享连接池的，此处设置为5秒
+			// setSocketTimeout: 请求获取数据的超时时间，单位为毫秒，如果访问一个接口，多少时间无法返回数据，就直接放弃此次调用，此处设置为10秒
+			RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(5000).setConnectionRequestTimeout(5000)
+					.setSocketTimeout(10000).build();
+			httpPost.setConfig(requestConfig);
+			
+			Gson gson = new Gson();
+			String params = gson.toJson(httpmap);
+			StringBody contentBody = new StringBody(params, Charset.defaultCharset());
+			MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+			builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+			builder.addPart("data", contentBody).setCharset(CharsetUtils.get("UTF-8")).build();
+			HttpEntity entity = builder.build();
+			httpPost.setEntity(entity);
+			CloseableHttpResponse response = httpClient.execute(httpPost);			
+			if (HttpStatus.SC_OK == response.getStatusLine().getStatusCode()) {
+				result = EntityUtils.toString(response.getEntity(), "utf-8");
+			} 
+			
+			httpClient.getConnectionManager().shutdown();
+			if (!result.equals("")) {
+				Gson gson1 = new Gson();
+				teamRosterUsers = gson1.fromJson(result, new TypeToken<List<SPASUser>>() {
+				}.getType());
+				
+			} else {
+				System.out.println("SPAS集成查询失败.");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("SPAS集成查询超时，请联系系统管理员");
+		}
+		return teamRosterUsers;
+
+	}
+
+	public static List<List<Object>> getExcel(TCSession session) throws TCException {
+		String filePath = "";
+		List<List<Object>> readLists = null;
+		
+		String dir = CommonTools.getFilePath("MNT workgroup signature for TC_V6");
+		filePath = dir+"\\MNT workgroup signature for TC_V6.xls";
+		
+		File file = new File(filePath);
+		if(!file.exists()) {
+			String preference = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site, "D9_MNT_WorkgroupFor_TC");
+			System.out.println("preference = "+preference);
+			if(CommonTools.isNotEmpty(preference)) {
+				TCComponent tcComponent = session.getComponentManager().getTCComponent(preference);
+				if(tcComponent instanceof TCComponentDataset) {
+					tcComponent.refresh();
+					
+					TCComponentDataset dataset = (TCComponentDataset) tcComponent;
+					String type = tcComponent.getType();
+					String fileExtensions = null;
+					String refName = null;
+					if(DatasetEnum.MSExcel.type().equals(type)) {
+						fileExtensions = DatasetEnum.MSExcel.fileExtensions();
+						refName = DatasetEnum.MSExcel.refName();
+					} else if (DatasetEnum.MSExcelX.type().equals(type)) {
+						fileExtensions = DatasetEnum.MSExcelX.fileExtensions();
+						refName = DatasetEnum.MSExcel.refName();
+					}
+					 if (CommonTools.isNotEmpty(fileExtensions) && CommonTools.isNotEmpty(refName)) {
+						 filePath = TCUtil.downloadFile(dataset, dir, fileExtensions, refName, "", false);
+					}
+					
+//					TCComponentTcFile[] tcfiles = ((TCComponentDataset) tcComponent).getTcFiles();
+//					if (tcfiles != null && tcfiles.length > 0) {
+//						String type = tcComponent.getType();
+//						if("MSExcel".equals(type)) {
+//							String fileName = tcfiles[0].toString();
+//							ExportFilesOperation expTemp = new ExportFilesOperation((TCComponentDataset) tcComponent, tcfiles, tempPath, null);
+//							expTemp.executeOperation();
+//							filePath = System.getProperty("java.io.tmpdir") + "\\" + fileName;
+//							
+//							System.out.println("filePath = "+filePath);
+//						}
+//					}
+					 
+					 
+				}
+			} else {
+				filePath = "";
+			}
+		} 
+		
+
+		
+		if(!"".equals(filePath)) {
+			try {
+				ExcelReader reader = ExcelUtil.getReader(filePath, 0);
+				readLists = reader.read();
+				for (int i = 0; i < readLists.size(); i++) {
+					readLists.get(i).set(0,"MNT RD");
+				}
+				readLists.remove(0);
+				IoUtil.close(reader);
+				
+				users = new ArrayList<SPASUser>();
+				ExcelReader reader1 = ExcelUtil.getReader(filePath, 1);
+				List<List<Object>> readLists1 = reader1.read();
+				for (int i = 0; i < readLists1.size(); i++) {
+					readLists1.get(i).set(0, "MNT PM");
+				}
+				readLists1.remove(0);
+				IoUtil.close(reader1);
+				readLists.addAll(readLists1);
+				
+				ExcelReader reader2 = ExcelUtil.getReader(filePath, 2);
+				List<List<Object>> readLists2 = reader2.read();
+				readLists2.remove(0);
+				IoUtil.close(reader2);
+				
+				for (List<Object> read:readLists2) {
+					String workId = (String) read.get(2);
+					String name = (String) read.get(3);
+					String group = (String) read.get(5);
+					String notes = (String) read.get(7);
+					
+					SPASUser spasUser = new SPASUser("MNT MFG", group, workId, name, notes);
+					users.add(spasUser);
+				}
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return readLists;
+	}
+	
+	public void getDTDefaultInfo() throws TCException {
+		String filePath = "";
+//		List<List<Object>> readLists = null;
+		List<List<Object>> readLists = new ArrayList<List<Object>>();
+		String dir = CommonTools.getFilePath("DT workgroup for TC"); // 查找保存DT Lenovo Thermal Matrix文件的文件夹
+		System.out.println("【INFO】 dir: " + dir);		
+		try {
+			CommonTools.deletefile(dir); // 删除文件夹下面的所有文件
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		} 		
+		
+//		filePath = tempPath+"\\DT workgroup signature for TC_V6.xls";
+//		File file = new File(filePath);
+//		if (file.exists()) {
+//			file.delete();
+//		}
+		
+		String preference = TCUtil.getPreference(RACUIUtil.getTCSession(), TCPreferenceService.TC_preference_site, "D9_DT_WorkgroupFor_TC");
+		System.out.println("preference = "+preference);
+		if(CommonTools.isNotEmpty(preference)) {
+			TCComponent tcComponent = session.getComponentManager().getTCComponent(preference);
+			if(tcComponent instanceof TCComponentDataset) {
+				tcComponent.refresh();
+				TCComponentDataset dataset = (TCComponentDataset) tcComponent;
+				String type = tcComponent.getType();
+				String fileExtensions = null;
+				String refName = null;
+				if(DatasetEnum.MSExcel.type().equals(type)) {
+					fileExtensions = DatasetEnum.MSExcel.fileExtensions();
+					refName = DatasetEnum.MSExcel.refName();
+				} else if (DatasetEnum.MSExcelX.type().equals(type)) {
+					fileExtensions = DatasetEnum.MSExcelX.fileExtensions();
+					refName = DatasetEnum.MSExcel.refName();
+				}
+				 if (CommonTools.isNotEmpty(fileExtensions) && CommonTools.isNotEmpty(refName)) {
+					 filePath = TCUtil.downloadFile(dataset, dir, fileExtensions, refName, "", false);
+				}
+				
+//				TCComponentTcFile[] tcfiles = ((TCComponentDataset) tcComponent).getTcFiles();
+//				if (tcfiles != null && tcfiles.length > 0) {					
+//					if(DatasetEnum.MSExcel.type().equals(type) || DatasetEnum.MSExcelX.type().equals(type)) {
+//						String fileName = tcfiles[0].toString();
+//						ExportFilesOperation expTemp = new ExportFilesOperation((TCComponentDataset) tcComponent, tcfiles, tempPath, null);
+//						expTemp.executeOperation();
+//					
+//						filePath = tempPath + "\\" + fileName;
+//					}
+//				}
+			}
+		}
+		
+		if (CommonTools.isEmpty(filePath)) {
+			System.out.println("==>> 首选项为: " + preference + ", 下载DT workgroup signture for TC_V6.xlsx文件失败");
+			return;
+		}
+		
+		if (comboxList == null) {
+			comboxList = new ArrayList<String>();
+		} else {
+			comboxList.clear();
+		}
+		
+		Stream.of(allowAssignMoreWorkflowTemplates).forEach(str -> {
+			String[] splits = str.split("=")[1].split(",");
+			for (String value : splits) {
+				value = value.trim();
+				if (value.indexOf("##") != -1) {
+					comboxList.add(value.split("##")[1].trim());
+				}				
+			}
+		});
+		
+		comboxList = comboxList.stream().filter(CommonTools.distinctByKey(str -> str)).collect(Collectors.toList());; // 移除重复项
+		
+		try {
+			for (String str : comboxList) {
+				ExcelReader reader = ExcelUtil.getReader(filePath, str);
+				List<List<Object>> tempReadList = reader.read();
+				for (int i = 0; i < tempReadList.size(); i++) {
+					tempReadList.get(i).set(0,str);
+				}				
+				tempReadList.remove(0);
+				IoUtil.close(reader);
+				readLists.addAll(tempReadList);
+			}			
+			
+//			ExcelReader reader = ExcelUtil.getReader(filePath, ConstantRemark.DT_MFG);			
+//			readLists = reader.read();
+//			for (int i = 0; i < readLists.size(); i++) {
+//				readLists.get(i).set(0,ConstantRemark.DT_MFG);
+//			}
+//			readLists.remove(0);
+//			IoUtil.close(reader);
+//			
+//			ExcelReader reader1 = ExcelUtil.getReader(filePath, ConstantRemark.DT_SPM);
+//			List<List<Object>> readLists1 = reader1.read();
+//			for (int i = 0; i < readLists1.size(); i++) {
+//				readLists1.get(i).set(0, ConstantRemark.DT_SPM);
+//			}
+//			readLists1.remove(0);
+//			IoUtil.close(reader1);
+//			readLists.addAll(readLists1);
+			
+			
+			if (users == null) {
+				users = new ArrayList<SPASUser>();
+			} 
+			else {
+				users.clear();
+			}
+			
+			for (List<Object> read : readLists) {
+				String from = (String) read.get(0);
+				String workId = (String) read.get(2);
+				String name = (String) read.get(3);
+				String group = (String) read.get(4);
+				String notes = (String) read.get(7);
+				SPASUser spasUser = new SPASUser(from, group, workId, name, notes);
+				users.add(spasUser);
+			}
+			System.out.println("==>> user:" + users);			
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	public static HashMap<String, WorkGroup> getWorkUser(List<List<Object>> readLists,HashMap<String, WorkGroup> mapGroup) {
+		HashMap<String, WorkGroup> map = new HashMap<String, WorkGroup>();
+		
+		try {
+			if(users==null)
+				users = new ArrayList<SPASUser>();
+			
+			for (List<Object> read:readLists) {
+				String read1 = (String) read.get(1);
+				String read2 = (String) read.get(2);
+				
+				String dell = (String) read.get(3)==null?"":((String) read.get(3)).trim();
+				String hp = (String) read.get(4)==null?"":((String) read.get(4)).trim();
+				String lenovo = (String) read.get(5)==null?"":((String) read.get(5)).trim();
+				String g10 = (String) read.get(6)==null?"":((String) read.get(6)).trim();
+				String workId = read.get(7).toString();
+				String name = (String) read.get(8);
+				String doAW = (String) read.get(9);
+				String codeGroup = (String) read.get(10);
+				String tcGroup = (String) read.get(11);
+				String notes = (String) read.get(12);
+				
+				String from = (String) read.get(0);
+				
+				WorkGroup user = new WorkGroup(dell, hp, lenovo, g10, workId, name, doAW, codeGroup, tcGroup, notes,from);
+				
+				//SPASUser spasUser = new SPASUser("MNT RD",codeGroup, workId, name, notes);
+				SPASUser spasUser = new SPASUser(from,codeGroup, workId, name, notes);
+				users.add(spasUser);
+				
+				
+				WorkGroup wg = mapGroup.get(codeGroup);
+				if(wg!=null) {
+					WorkGroup approveRealityUser = wg.getApproveRealityUser();
+					user.setApproveRealityUser(approveRealityUser);
+					WorkGroup approveTcUser = wg.getApproveTcUser();
+					user.setApproveTcUser(approveTcUser);
+					WorkGroup reviewRealityUser = wg.getReviewRealityUser();
+					user.setReviewRealityUser(reviewRealityUser);
+					//V5新增，
+					if("ME".equals(tcGroup)) {
+						String key = codeGroup+dell+hp+lenovo+g10;
+						WorkGroup wgME = mapGroup.get(key);
+						if(wgME != null) {
+							reviewRealityUser = wgME.getReviewRealityUser();
+							user.setReviewRealityUser(reviewRealityUser);
+						}
+					}
+					
+					WorkGroup reviewTcUser = wg.getReviewTcUser();
+					user.setReviewTcUser(reviewTcUser);
+				}
+				
+				//if(!"A".equals(read1) && !"R".equals(read1) && !"A/R".equals(read1) && !"R/A".equals(read1) 
+				//	&& !"A".equals(read2) && !"R".equals(read2) && !"A/R".equals(read2) && !"R/A".equals(read2) ) {
+					WorkGroup workGroup = map.get(workId);
+					if(workGroup == null) {
+						map.put(workId, user);
+					}else {
+						if(!"A".equals(read1) && !"R".equals(read1) && !"A/R".equals(read1) && !"R/A".equals(read1) 
+							&& !"A".equals(read2) && !"R".equals(read2) && !"A/R".equals(read2) && !"R/A".equals(read2) ) {
+							map.remove(workId);
+							map.put(workId, user);
+						}
+						//System.out.println("-----------重复--------------"+workId);
+					}
+				//}
+			}
+		} catch (IndexOutOfBoundsException e) {
+			e.printStackTrace();
+		}
+		return map;
+	}
+	
+	public static HashMap<String, WorkGroup> getWorkGroup(List<List<Object>> readLists) {
+		HashMap<String, WorkGroup> map = new HashMap<String, WorkGroup>();
+		
+		try {
+			for (List<Object> read:readLists) {
+				
+				String read1 = (String) read.get(1);
+				String read2 = (String) read.get(2);
+				
+				String dell = (String) read.get(3)==null?"":((String) read.get(3)).trim();
+				String hp = (String) read.get(4)==null?"":((String) read.get(4)).trim();
+				String lenovo = (String) read.get(5)==null?"":((String) read.get(5)).trim();
+				String g10 = (String) read.get(6)==null?"":((String) read.get(6)).trim();
+				String workId = read.get(7).toString();
+				String name = (String) read.get(8);
+				String doAW = (String) read.get(9);
+				String codeGroup = (String) read.get(10);
+				String tcGroup = (String) read.get(11);
+				String notes = (String) read.get(12);
+				
+				String from = (String) read.get(0);
+				
+				WorkGroup user = new WorkGroup(dell, hp, lenovo, g10, workId, name, doAW, codeGroup, tcGroup, notes,from);
+				
+				//System.out.println("workId = "+workId+",codeGroup = "+codeGroup);
+				if("ME".equals(tcGroup)) {
+					if(read1 != null) {
+						if("A".equals(read1)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveRealityUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveRealityUser(user);
+							}
+						}else if("R".equals(read1)) {
+							//V5 新增
+							String key = codeGroup+dell+hp+lenovo+g10;
+							
+							WorkGroup wg = map.get(key);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setReviewRealityUser(user);
+								map.put(key, wg);
+							} else {
+								wg.setReviewRealityUser(user);
+							}
+							
+						}else if("A/R".equals(read1) || "R/A".equals(read1)) {
+
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveRealityUser(user);
+								wg.setReviewRealityUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveRealityUser(user);
+								wg.setReviewRealityUser(user);
+							}
+						}
+					}
+					
+					if(read2 != null) {
+						if("A".equals(read2)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveTcUser(user);
+							}
+						}else if("R".equals(read2)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setReviewTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setReviewTcUser(user);
+							}
+							
+						} else if("A/R".equals(read2) || "R/A".equals(read2)) {
+
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveTcUser(user);
+								wg.setReviewTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveTcUser(user);
+								wg.setReviewTcUser(user);
+							}
+						}
+					}
+				} else {
+					if(read1 != null) {
+						if("A".equals(read1)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveRealityUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveRealityUser(user);
+							}
+						}else if("R".equals(read1)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setReviewRealityUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setReviewRealityUser(user);
+							}
+							
+						}else if("A/R".equals(read1) || "R/A".equals(read1)) {
+
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveRealityUser(user);
+								wg.setReviewRealityUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveRealityUser(user);
+								wg.setReviewRealityUser(user);
+							}
+						}
+					}
+					
+					if(read2 != null) {
+						if("A".equals(read2)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveTcUser(user);
+							}
+						}else if("R".equals(read2)) {
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setReviewTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setReviewTcUser(user);
+							}
+							
+						}else if("A/R".equals(read2) || "R/A".equals(read2)) {
+
+							WorkGroup wg = map.get(codeGroup);
+							if(wg == null) {
+								wg = new WorkGroup();
+								wg.setApproveTcUser(user);
+								wg.setReviewTcUser(user);
+								map.put(codeGroup, wg);
+							} else {
+								wg.setApproveTcUser(user);
+								wg.setReviewTcUser(user);
+							}
+						}
+					}
+				}
+			}
+			
+		} catch (IndexOutOfBoundsException e) {
+			e.printStackTrace();
+		}
+
+		return map;
+	}
+
+	public void getpubMailPanel() throws TCException {
+		String userId = UserNewProcessDialog.actualUserIds;
+		userId = userId.toUpperCase();
+		String processName=getProcessName();
+		if(processName.contains("FXN02_Document Level2 Review Process") 
+				|| processName.contains("FXN03_Document Level3 Review Process") 
+				|| processName.contains("FXN06_Design Release Process")
+				|| processName.contains("FXN13_Design Mass production Release Process")
+				|| processName.contains("FXN15_Document Obsolete Level2 Process")
+				|| processName.contains("FXN27_MNT 2nd Source Recommended Process")
+				) {
+			FXN02_Document(userId);
+		} else if (processName.contains("FXN34_MNT Material Application Process")) {
+			FXN34_MNT(userId);
+		} else if(processName.contains("FXN08_MNT EE Schematic Release Process")) {
+			FXN08_MNT(userId);
+		} else if(processName.contains("FXN19_MNT DCN Process - Update") || processName.contains("FXN19_MNT DCN Process - Update for PSU") ) {
+			FXN19_MNT(userId);
+		} else if(processName.contains("FXN31_MNT BOM CoWork Process") || processName.contains("FXN31_MNT BOM CoWork Process for PSU")) {
+			FXN31_MNT(userId);
+		} else if(processName.contains("FXN35_MNT PCB Layout Boardfile Release Process")) {
+			FXN35_MNT(userId);
+		} else if(processName.contains("FXN38_MNT DCN Quick Released Process")) {
+			FXN38_MNT(userId);
+		} else if(processName.contains("FXN39_Design Obsolete Level1 Review Process") || processName.contains("FXN40_Design Obsolete Process")) {
+			FXN39_Design(userId);
+		}else if(processName.contains("FXN41_MNT PCBA BOM製作申請流程")) {
+			FXN41_MNT(userId);
+		}else if(processName.contains("FXN42_MNT Cable Design Release Process")) {
+			FXN42_MNT(userId);
+		} 
+	}
+	
+	public void setFromJComboBox() throws TCException {
+		String processName=getProcessName();
+		removeComboxIndex(comboxList); // 移除特定的下拉值
+		if (CommonTools.isNotEmpty(allowAssignMoreWorkflowTemplates) && checkProcessName(allowAssignMoreWorkflowTemplates, processName)) {
+			String value = getAssignMoreWorkflow(allowAssignMoreWorkflowTemplates, processName);
+			if (CommonTools.isNotEmpty(value)) {
+				List<String> assignMoreNodeNameList = new ArrayList<String>(Arrays.asList(value.trim().split("=")[1].split(",")));
+				for (String currentNode : assignMoreNodeNameList) {
+					String comBoxValue = null;
+					if (currentNode.indexOf("##") != -1) {
+						comBoxValue = currentNode.substring(currentNode.indexOf("##") + 2);
+						this.publicAccountPanel.teamRosterPanel.fromJComboBox.addItem(comBoxValue);
+					}
+				}
+			}			
+		}
+		
+		this.publicAccountPanel.teamRosterPanel.fromJComboBox.setSelectedIndex(0);
+	}
+	
+	
+	protected static String getAssignMoreWorkflow(String[] arrays, String processName) {
+		 Optional<String> findFirst = Stream.of(arrays).filter(str -> processName.contains(str.trim().split("=")[0])).findFirst();
+		 if (findFirst.isPresent()) {
+			return findFirst.get();
+		}
+		 return null;
+	}
+	
+	
+	protected static boolean checkProcessName(String[] arrays, String processName) {
+		System.out.println(processName);
+		return Stream.of(arrays).anyMatch(str -> processName.contains(str.trim().split("=")[0]));
+	}
+	
+	
+	private int checkComboxIndex() {
+		int index = -1;
+		JComboBox<String> fromJComboBox = this.publicAccountPanel.teamRosterPanel.fromJComboBox;		
+		int itemCount = fromJComboBox.getItemCount();
+		for (int i = 0; i < itemCount; i++) {
+			if (fromJComboBox.getItemAt(i).equals(ConstantRemark.DT_MFG)) {
+				index = i;
+				break;
+			}
+		}
+		
+		return index;
+	}
+	
+	/**
+	 * 移除特定索引值
+	 * @param value
+	 */
+	private void removeComboxIndex(List<String> list) {
+		if (CommonTools.isEmpty(list)) {
+			return;
+		}
+		
+		JComboBox<String> fromJComboBox = this.publicAccountPanel.teamRosterPanel.fromJComboBox;		
+		int itemCount = fromJComboBox.getItemCount();
+		for (int i = itemCount - 1 ; i > 0; i--) {
+			int index = -1;
+			String comboxValue = fromJComboBox.getItemAt(i);
+			boolean anyMatch = list.stream().anyMatch(str -> comboxValue.equals(str));
+			if (anyMatch) {
+				index = i;
+			}
+			
+			if (index > 0) {
+				this.publicAccountPanel.teamRosterPanel.fromJComboBox.removeItemAt(index);
+			}
+		}
+		
+//		for (int i = 0; i < itemCount; i++) {
+//			int index = -1;
+//			String comboxValue = fromJComboBox.getItemAt(i);
+//			boolean anyMatch = list.stream().anyMatch(str -> comboxValue.equals(str));
+//			if (anyMatch) {
+//				index = i;
+//			}
+//			
+//			if (index > 0) {
+//				this.publicAccountPanel.teamRosterPanel.fromJComboBox.removeItemAt(index);
+//			}
+//		}	
+				
+	}
+	
+	
+	public void FXN02_Document(String userId) {
+
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			//String valueAt1 = (String) tableModel.getValueAt(i, 1);
+			
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"Approve".equalsIgnoreCase(valueAt0) && !"Review".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if(workUser!=null && !"".equals(userId)) {
+				String valueAt1 = userId;
+				valueAt1 = valueAt1.toUpperCase();
+				WorkGroup workGroup = workUser.get(valueAt1);
+				
+				if(workGroup!=null) {
+					WorkGroup tcUser = null;
+					if("Approve".equalsIgnoreCase(valueAt0)) {
+						tcUser = workGroup.getApproveRealityUser();
+					}else if("Review".equalsIgnoreCase(valueAt0)) {
+						tcUser = workGroup.getReviewRealityUser();
+					}
+					
+					if(tcUser!=null) {
+						String workId = tcUser.getWorkId();
+						System.out.println("workId = "+workId);
+						String name = tcUser.getName();
+						String notes = tcUser.getNotes();
+						
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						
+//						String codeGroup = tcUser.getCodeGroup();
+//						SPASUser spasUser = new SPASUser(codeGroup, workId, name, notes);
+//						listModel.add(spasUser);
+					}
+				}
+			}
+		}
+	
+	}
+	
+	public void FXN34_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"OS Review".equalsIgnoreCase(valueAt0) && !"Lead Review".equalsIgnoreCase(valueAt0) && !"ME Receive".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if(workUser!=null && !"".equals(userId)) {
+				if("Lead Review".equalsIgnoreCase(valueAt0)) {
+					String valueAt1 = userId;
+					valueAt1 = valueAt1.toUpperCase();
+					WorkGroup workGroup = workUser.get(valueAt1);
+					if(workGroup!=null) {
+						WorkGroup tcUser = workGroup.getReviewRealityUser();
+						if(tcUser!=null) {
+							String workId = tcUser.getWorkId();
+							//System.out.println("workId = "+workId);
+							String name = tcUser.getName();
+							String notes = tcUser.getNotes();
+							
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							
+						}
+					}
+				} else if("OS Review".equalsIgnoreCase(valueAt0)) {
+					String valueAt1 = (String)tableModel.getValueAt(i, 1);
+					valueAt1 = valueAt1.toUpperCase();
+					WorkGroup workGroup = workUser.get(valueAt1);
+					if(workGroup!=null) {
+						WorkGroup tcUser = workGroup.getReviewRealityUser();
+						if(tcUser!=null) {
+							String workId = tcUser.getWorkId();
+							System.out.println("workId = "+workId);
+							String name = tcUser.getName();
+							String notes = tcUser.getNotes();
+							
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							
+						}
+					}
+				}else if("ME Receive".equalsIgnoreCase(valueAt0)) {
+					String valueAt1 = (String)tableModel.getValueAt(i, 1);
+					valueAt1 = valueAt1.toUpperCase();
+					
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(sectionName.contains("ME")) {
+							String meUser = user.getWorkId();
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			}
+		}
+	
+	}
+	
+	public void FXN08_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		int count = 1;
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"3-Layout審核".equalsIgnoreCase(valueAt0) && !"4-Safety審核".equalsIgnoreCase(valueAt0) && !"1-EE/PSU主管審核 & 2-ME上傳DXF".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if(workUser!=null && !"".equals(userId)) {
+				if("3-Layout審核".equalsIgnoreCase(valueAt0) || "4-Safety審核".equalsIgnoreCase(valueAt0)) {
+					if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+						for (SPASUser user:teamRosterUsers) {
+							String sectionName = user.getSectionName();
+							if(valueAt0.contains(sectionName)) {
+								String meUser = user.getWorkId();
+								String name = user.getName();
+								String notes = user.getNotes();
+								tableModel.setValueAt(name, i, 2);
+								tableModel.setValueAt(notes, i, 3);	
+								publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+										Arrays.asList(name, notes));
+								break;
+							}
+						}
+					}
+					
+				} else if("1-EE/PSU主管審核 & 2-ME上傳DXF".equalsIgnoreCase(valueAt0)) {
+					if(count == 1) {
+						count = count + 1;
+						WorkGroup workGroup = workUser.get(userId);
+						if(workGroup!=null) {
+							WorkGroup tcUser = workGroup.getReviewRealityUser();
+							if(tcUser!=null) {
+								String workId = tcUser.getWorkId();
+								System.out.println("workId = "+workId);
+								String name = tcUser.getName();
+								String notes = tcUser.getNotes();
+								
+								tableModel.setValueAt(name, i, 2);
+								tableModel.setValueAt(notes, i, 3);	
+								publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+										Arrays.asList(name, notes));
+								
+							}
+						}
+					} else {
+						for (SPASUser user:teamRosterUsers) {
+							String sectionName = user.getSectionName();
+							if(sectionName.contains("ME")) {
+								String meUser = user.getWorkId();
+								String name = user.getName();
+								String notes = user.getNotes();
+								tableModel.setValueAt(name, i, 2);
+								tableModel.setValueAt(notes, i, 3);	
+								publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+										Arrays.asList(name, notes));
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	public void FXN19_MNT(String userId) throws TCException {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		SPASUser spasUser = null;
+		for (int i = 0; i < rowCount; i++) {
+			
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"CE Review".equalsIgnoreCase(valueAt0) && !"Initial confirm".equalsIgnoreCase(valueAt0) 
+					&& !"Safety Review".equalsIgnoreCase(valueAt0) && !"Leader approve".equalsIgnoreCase(valueAt0) 
+					&& !"BOM Team Execute DCN".equalsIgnoreCase(valueAt0) && !"PSU Review".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			System.out.println("valueAt0 = "+valueAt0);
+			
+			if(workUser!=null && !"".equals(userId)) {
+				if("CE Review".equalsIgnoreCase(valueAt0) || "Safety Review".equalsIgnoreCase(valueAt0) || "BOM Team Execute DCN".equalsIgnoreCase(valueAt0)) {
+					if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+						for (SPASUser user:teamRosterUsers) {
+							String sectionName = user.getSectionName();
+							if(valueAt0.contains(sectionName)) {
+								spasUser = user;
+								String meUser = user.getWorkId();
+								String name = user.getName();
+								String notes = user.getNotes();
+								tableModel.setValueAt(name, i, 2);
+								tableModel.setValueAt(notes, i, 3);	
+								publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+										Arrays.asList(name, notes));
+								break;
+							}
+						}
+					}
+				} else if("Initial confirm".equalsIgnoreCase(valueAt0) || "PSU Review".equalsIgnoreCase(valueAt0)) {
+					String tc_user = userId;
+					
+					String userId_dcn = UserNewProcessDialog.actualUserIds_dcn;
+					if(!"".equals(userId_dcn)) {
+						WorkGroup workGroup_dcn = workUser.get(userId_dcn);
+						if(workGroup_dcn != null) {
+							String codeGroup = workGroup_dcn.getCodeGroup();
+							if(codeGroup.contains("EE") || codeGroup.contains("PSU") ) {
+								
+								System.out.println("userId_dcn = "+userId_dcn);
+								WorkGroup tcUser = workGroup_dcn.getReviewRealityUser();
+								if(tcUser!=null) {
+									String workId = tcUser.getWorkId();
+									System.out.println("workId = "+workId);
+									String name = tcUser.getName();
+									String notes = tcUser.getNotes();
+									
+									tableModel.setValueAt(name, i, 2);
+									tableModel.setValueAt(notes, i, 3);	
+									publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+											Arrays.asList(name, notes));
+									
+									continue;
+								}
+							} 
+						}
+					}
+					
+					tc_user = userId;
+					System.out.println("tc_user = "+tc_user);
+					WorkGroup workGroup = workUser.get(tc_user);
+					if(workGroup!=null) {
+						String workId = workGroup.getWorkId();
+						System.out.println("workId = "+workId);
+						String name = workGroup.getName();
+						String notes = workGroup.getNotes();
+						
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						
+					} 
+					
+				} else if("Leader approve".equalsIgnoreCase(valueAt0)) {
+					String tc_user = userId;
+					
+					String userId_dcn = UserNewProcessDialog.actualUserIds_dcn;
+					if(!"".equals(userId_dcn)) {
+						WorkGroup workGroup_dcn = workUser.get(userId_dcn);
+						if(workGroup_dcn != null) {
+							String codeGroup = workGroup_dcn.getCodeGroup();
+							if(codeGroup.contains("EE") || codeGroup.contains("PSU") ) {
+								tc_user = userId_dcn;
+								System.out.println("userId_dcn = "+userId_dcn);
+							}
+						}
+					}
+					
+					System.out.println("tc_user = "+tc_user);
+					
+					WorkGroup workGroup = workUser.get(tc_user);
+					if(workGroup!=null) {
+						WorkGroup tcUser = workGroup.getApproveRealityUser();
+						if(tcUser!=null) {
+							String workId = tcUser.getWorkId();
+							System.out.println("workId = "+workId);
+							String name = tcUser.getName();
+							String notes = tcUser.getNotes();
+							
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							
+						}
+					} 
+				}
+			}
+		}
+	}
+	
+	public void FXN31_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		SPASUser spasUser = null;
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"1-CE Review".equalsIgnoreCase(valueAt0) && !"2-EE Review".equalsIgnoreCase(valueAt0) && !"2-PSU Review".equalsIgnoreCase(valueAt0)
+					&& !"7-BOM Team Review".equalsIgnoreCase(valueAt0) && !"4-FW Review".equalsIgnoreCase(valueAt0) 
+					&& !"6-Safety Review".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			if("2-EE Review".equalsIgnoreCase(valueAt0)) {
+				//userId = session.getUser().getUid();
+				if(workUser!=null && !"".equals(userId)) {
+					WorkGroup workGroup = workUser.get(userId);
+					if(workGroup!=null) {
+						String workId = workGroup.getWorkId();
+						System.out.println("workId = "+workId);
+						String name = workGroup.getName();
+						String notes = workGroup.getNotes();
+						
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						
+					}
+				}
+				
+			} else if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+				for (SPASUser user:teamRosterUsers) {
+					String sectionName = user.getSectionName();
+					if(valueAt0.contains(sectionName)) {
+						spasUser = user;
+						String meUser = user.getWorkId();
+						String name = user.getName();
+						String notes = user.getNotes();
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	public void FXN35_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"1-Layout Review".equalsIgnoreCase(valueAt0) && !"2-EE Review".equalsIgnoreCase(valueAt0) 
+					&& !"3-Safety Review".equalsIgnoreCase(valueAt0) && !"4-ME Review".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if("4-ME Review".equalsIgnoreCase(valueAt0)) {
+				for (SPASUser user:teamRosterUsers) {
+					String sectionName = user.getSectionName();
+					if(sectionName.contains("ME")) {
+						String meUser = user.getWorkId();
+						String name = user.getName();
+						String notes = user.getNotes();
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						break;
+					}
+				}
+				
+			} else if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+				for (SPASUser user:teamRosterUsers) {
+					String sectionName = user.getSectionName();
+					if(valueAt0.contains(sectionName)) {
+						String meUser = user.getWorkId();
+						String name = user.getName();
+						String notes = user.getNotes();
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	public void FXN38_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"CE Check".equalsIgnoreCase(valueAt0) && !"BOMTeam Confirm".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			if("CE Check".equalsIgnoreCase(valueAt0)) {
+				if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(sectionName.equals("CE")) {
+							String meUser = user.getWorkId();
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			}else if("BOMTeam Confirm".equalsIgnoreCase(valueAt0)) {
+				if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(sectionName.equals("BOM")) {
+							String meUser = user.getWorkId();
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			}	
+		}
+	}
+	
+	public void FXN39_Design(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"Review".equalsIgnoreCase(valueAt0) && !"修改组件".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if("Review".equalsIgnoreCase(valueAt0)) {
+				WorkGroup workGroup = workUser.get(userId);
+				if(workGroup!=null) {
+					WorkGroup tcUser = workGroup.getReviewRealityUser();
+					if(tcUser!=null) {
+						String workId = tcUser.getWorkId();
+						System.out.println("workId = "+workId);
+						String name = tcUser.getName();
+						String notes = tcUser.getNotes();
+						
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						
+					}
+				}
+			} else if("修改组件".equalsIgnoreCase(valueAt0)) {
+				WorkGroup workGroup = workUser.get(userId);
+				if(workGroup!=null) {
+					String name = workGroup.getName();
+					String notes = workGroup.getNotes();
+					
+					tableModel.setValueAt(name, i, 2);
+					tableModel.setValueAt(notes, i, 3);	
+					publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+							Arrays.asList(name, notes));
+				}
+			}
+		}
+	
+	}
+	
+	public void FXN41_MNT(String userId) {
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"1-BOM Team申請PCBA&FW料號".equalsIgnoreCase(valueAt0) && !"4-BOMTeam拋轉SAP".equalsIgnoreCase(valueAt0)) {
+				continue;
+		    }
+			
+			if("1-BOM Team申請PCBA&FW料號".equalsIgnoreCase(valueAt0) || "4-BOMTeam拋轉SAP".equalsIgnoreCase(valueAt0) || "3-EE/PI製作EBOM".equalsIgnoreCase(valueAt0)) {
+				if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(valueAt0.contains(sectionName)) {
+							String meUser = user.getWorkId();
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			}
+//			else if("2-PM接收和審查".equalsIgnoreCase(valueAt0)) {
+//				WorkGroup workGroup = workUser.get(userId);
+//				if(workGroup!=null) {
+//					String name = workGroup.getName();
+//					String notes = workGroup.getNotes();
+//					
+//					tableModel.setValueAt(name, i, 2);
+//					tableModel.setValueAt(notes, i, 3);	
+//					publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+//							Arrays.asList(name, notes));
+//				}
+//			}
+		}
+	}
+	
+	
+	
+	public void FXN42_MNT(String userId) {
+
+		TableModel tableModel = publicAccountPanel.publicMailPanel.table.getModel();
+		int rowCount = tableModel.getRowCount();
+		for (int i = 0; i < rowCount; i++) {
+			String valueAt0 = (String)tableModel.getValueAt(i, 0);
+			Object valueAt1 = tableModel.getValueAt(i, 1);
+			Object valueAt2 = tableModel.getValueAt(i, 2);
+			Object valueAt3 = tableModel.getValueAt(i, 3);
+			
+			if(!"EE Manager Review".equalsIgnoreCase(valueAt0) && !"CE Manager Review".equalsIgnoreCase(valueAt0) && 
+					!"EE Spec check".equalsIgnoreCase(valueAt0) && !"ME Spec check".equalsIgnoreCase(valueAt0) && 
+					!"CE FXN Apply".equalsIgnoreCase(valueAt0) && !"EE Design(Rework)".equalsIgnoreCase(valueAt0) ) {
+				continue;
+		    }
+			if("EE Manager Review".equalsIgnoreCase(valueAt0)) {
+				WorkGroup workGroup = workUser.get(userId);
+				if(workGroup!=null) {
+					WorkGroup tcUser = workGroup.getApproveRealityUser();
+					if(tcUser!=null) {
+						String workId = tcUser.getWorkId();
+						System.out.println("workId = "+workId);
+						String name = tcUser.getName();
+						String notes = tcUser.getNotes();
+						
+						tableModel.setValueAt(name, i, 2);
+						tableModel.setValueAt(notes, i, 3);	
+						publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+								Arrays.asList(name, notes));
+						
+					}
+				}
+			}else if("CE Manager Review".equalsIgnoreCase(valueAt0)) {
+				WorkGroup workGroup = workUser.get("10486");
+				if(workGroup!=null) {
+					String workId = workGroup.getWorkId();
+					System.out.println("workId = "+workId);
+					String name = workGroup.getName();
+					String notes = workGroup.getNotes();
+					
+					tableModel.setValueAt(name, i, 2);
+					tableModel.setValueAt(notes, i, 3);	
+					publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+							Arrays.asList(name, notes));
+					
+				}
+			} else if("ME Spec check".equalsIgnoreCase(valueAt0) ) {
+				if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(sectionName.contains("ME")) {
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			} else if("CE FXN Apply".equalsIgnoreCase(valueAt0)) {
+				if(teamRosterUsers!=null && teamRosterUsers.size() > 0) {
+					for (SPASUser user:teamRosterUsers) {
+						String sectionName = user.getSectionName();
+						if(sectionName.equals("CE")) {
+							String name = user.getName();
+							String notes = user.getNotes();
+							tableModel.setValueAt(name, i, 2);
+							tableModel.setValueAt(notes, i, 3);	
+							publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+									Arrays.asList(name, notes));
+							break;
+						}
+					}
+				}
+			} else if("EE Spec check".equalsIgnoreCase(valueAt0) || "EE Design(Rework)".equals(valueAt0)) {
+				WorkGroup workGroup = workUser.get(userId);
+				if(workGroup!=null) {
+					String name = workGroup.getName();
+					String notes = workGroup.getNotes();
+					
+					tableModel.setValueAt(name, i, 2);
+					tableModel.setValueAt(notes, i, 3);	
+					publicAccountPanel.publicMailPanel.m_rowMap.put(valueAt0+""+valueAt1,
+							Arrays.asList(name, notes));
+				}
+			} 
+		}
+	}	
+	
+
+	private void getActualUserIdsProjectId() {
+		try {
+			if (pasteTargets != null) {
+				List<String> itemActualUserIdLst = new ArrayList<String>();
+				List<String> prjIdLst = new ArrayList<String>();
+				for (InterfaceAIFComponent tcIAComponent : pasteTargets) {
+					TCComponent targetComp = (TCComponent) tcIAComponent;
+					if (targetComp instanceof TCComponentItemRevision) {
+						TCComponentItemRevision itemRev = (TCComponentItemRevision) targetComp;
+						//itemRev.refresh();
+						
+						String propertyType = itemRev.getType();
+						
+						System.out.println("propertyType = "+propertyType);
+						if(propertyType.equals("D9_ChangeListRevision") || propertyType.equals("D9_PRT_DCNRevision")
+								|| propertyType.equals("D9_DT_DCNRevision") || propertyType.equals("D9_MNT_DCNRevision")) {
+							
+							String d9_ActualUserID_dcn = itemRev.getProperty("d9_ActualUserID");
+							if(d9_ActualUserID_dcn.contains("(") && d9_ActualUserID_dcn.contains(")") ) {
+								actualUserIds_dcn = d9_ActualUserID_dcn.substring(d9_ActualUserID_dcn.indexOf("(") + 1, d9_ActualUserID_dcn.indexOf(")"));
+							} else {
+								actualUserIds_dcn = d9_ActualUserID_dcn;
+							}
+							
+							String object_name = itemRev.getProperty("object_name");
+							if(CommonTools.isNotEmpty(object_name) && object_name.length() > 15) {
+								String substring = object_name.substring(0,15);
+								System.out.println("substring = "+substring);
+								
+								TCComponentItemRevision latestItemRevision = null;
+								TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件版本...",
+										new String[] { "items_tag.item_id" },
+										new String[] { substring});
+								if (executeQuery != null && executeQuery.length > 0) {
+									for (int i = 0; i < executeQuery.length; i++) {
+										if (executeQuery[i] instanceof TCComponentItemRevision)
+											latestItemRevision = (TCComponentItemRevision) executeQuery[i];
+									}
+								}
+								
+								if(latestItemRevision !=null ) {
+									AIFComponentContext[] whereReferenceds = latestItemRevision.whereReferenced();
+									if(whereReferenceds != null && whereReferenceds.length > 0) {
+										for (AIFComponentContext whereReferenced : whereReferenceds) {
+											InterfaceAIFComponent component = whereReferenced.getComponent();
+											if(component instanceof TCComponentItemRevision) {
+												TCComponentItemRevision revision = (TCComponentItemRevision)component;
+												
+												String item_id = revision.getProperty("item_id");
+												if(item_id.startsWith("EE-")) {
+													
+													TCComponentItemRevision latestRevision = revision.getItem().getLatestItemRevision();
+													latestRevision.refresh();
+													String d9_ActualUserID = latestRevision.getProperty("d9_ActualUserID");
+													if(d9_ActualUserID.contains("(") && d9_ActualUserID.contains(")") ) {
+														actualUserIds = d9_ActualUserID.substring(d9_ActualUserID.indexOf("(") + 1, d9_ActualUserID.indexOf(")"));
+													} else {
+														actualUserIds = d9_ActualUserID;
+													}
+													
+													break;
+												}
+											}
+										}
+									}
+								}
+							}
+							
+						} else {
+							String d9_ActualUserID = targetComp.getProperty("d9_ActualUserID");
+							if(d9_ActualUserID.contains("(") && d9_ActualUserID.contains(")") ) {
+								actualUserIds = d9_ActualUserID.substring(d9_ActualUserID.indexOf("(") + 1, d9_ActualUserID.indexOf(")"));
+							} else {
+								actualUserIds = d9_ActualUserID;
+							}
+						}
+					
+						for (TCComponent prjComp : TCUtil.getProjects(itemRev)) {
+							// 获取项目信息
+							TCComponentProject prjOfItemRev = (TCComponentProject) prjComp;
+							if (null == prjOfItemRev) {
+								continue;
+							}
+							TCProperty propOfItemRev = prjOfItemRev.getTCProperty("project_id");
+							prjIdLst.add(propOfItemRev.getStringValue());
+						}
+						
+					}
+				}
+				
+					
+				prjIdLst = prjIdLst.stream().filter(CommonTools.distinctByKey(str -> str)).collect(Collectors.toList()); // 移除相同的专案ID
+				projectId = prjIdLst.stream().collect(Collectors.joining(","));
+				
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+}

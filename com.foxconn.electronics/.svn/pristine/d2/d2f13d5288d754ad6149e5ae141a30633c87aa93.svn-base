@@ -1,0 +1,1477 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+	<extension point="org.eclipse.ui.commands">
+       	
+		<command name="%ConvertEBOM.LABEL" id="com.foxconn.electronics.commands.ConvertEBOMCommand"/>
+		<command name="%ManagementEBOM.LABEL" id="com.foxconn.electronics.ManagementebomCommand"/>
+		<command name="%MntBOMFileExport.LABEL" id="com.foxconn.electronics.MntBomExportCommand"/>
+        <command name="%AutomaticBOMConstruction.LABEL" id="com.foxconn.electronics.AutomaticBOMConstruction"/>
+        <command name="%PrtBOMFileExport.LABEL" id="com.foxconn.electronics.PrtBomExportCommand"/>
+        <command name="%DownLoadDataset.LABEL" id="com.foxconn.electronics.DownLoadDatasetCommand"/>
+        <command name="%CopyDownloadAddress.LABEL" id="com.foxconn.electronics.CopyDownloadAddressCommand"/>
+        <command name="%DocPlaceOnFile.LABEL" id="com.foxconn.electronics.DocPlaceOnFileCommand"/>
+        <command name="%ConnectorAndCable.LABEL" id="com.foxconn.electronics.ConnectorAndCableCommand"/>
+        <command name="%CreateCableMaterial.LABEL" id="com.foxconn.electronics.CreateCableMaterialCommand"/>
+        <command name="%ReplaceHHMaterial.LABEL" id="com.foxconn.electronics.ReplaceHHMaterialCommand"/>
+        <command name="%MaterialAssginProject.LABEL" id="com.foxconn.electronics.project.AssginCommand"/>
+        <command name="%ProjectReport.LABEL" id="com.foxconn.electronics.projectReport.ProjectReportCommand"/>
+        <command name="%DCNCostImpactEdit.LABEL" id="com.foxconn.electronics.commands.DCNCostImpactCommand"/>
+        <command name="%DCNReport.LABEL" id="com.foxconn.electronics.commands.DCNReportCommand"/>
+        <command name="%ProjectSummery.LABEL" id="com.foxconn.electronics.projectSummery.ProjectSummeryCommand"/>        
+        <command name="%WorkDayInfoImport.LABEL" id="com.foxconn.electronics.commands.WorkDayImportCommand"/>
+        <command name="%TCLiecnse.LABEL" id="com.foxconn.electronics.commands.TCLicenseReportCommand"/>
+        <command name="%TCLiecnse.phase.LABEL" id="com.foxconn.electronics.commands.TCLicensePhaseReportCommand"/>
+        <command name="%FTE.LABEL" id="com.foxconn.electronics.benefitreport.BenefitHandler"/>
+        <command name="%NonFTEDataImport.LABEL" id="com.foxconn.electronics.commands.NonFTEDataImportCommand"/>
+        <command name="%NonFTEReport.LABEL" id="com.foxconn.electronics.commands.NonFTEReportCommand"/>
+        <command name="%setMailGroup.LABEL" id="com.foxconn.electronics.setMailGroup.SetMailGroupHandler"/>
+        <command name="%MntChangeListImport.LABEL" id="com.foxconn.electronics.managementebom.dcnChange.export"/>
+        <command name="%setActualUser.LABEL" id="com.foxconn.electronics.dgkpi.DGKPIHandler"/>
+        <command name="%TcLicenseRealTimeReport.LABEL" id="com.foxconn.electronics.commands.TcLicenseRealTimeReportCommand"/>
+        <command name="%TcLicenseHistoryReport.LABEL" id="com.foxconn.electronics.commands.TcLicenseHistoryReportCommand"/>
+        <command name="%DrawCountReport.LABEL" id="com.foxconn.electronics.commands.DrawCountReportCommand"/>
+        <command name="%MatrixBOM.LABEL" id="com.foxconn.electronics.commands.MatrixBOMCommand"/>
+        <command name="%DBOMConvertEBOM.LABEL" id="com.foxconn.electronics.DBOMConvertEBOMCommand"/>
+        <command name="%CopyBOM.LABEL" id="com.foxconn.electronics.managementebom.copybomCommand"/>
+        <command name="%MatrixBOMImput.LABEL" id="com.foxconn.electronics.commands.MatrixBOMImputCommand"/>
+        <command name="%MatrixBOMExport.LABEL" id="com.foxconn.electronics.commands.MatrixBOMExportCommand"/>
+        <command name="%MatrixChangeListExport.LABEL" id="com.foxconn.electronics.commands.MatrixChangeListExportCommand"/>
+        <command name="%TCUserImport.LABEL" id="com.foxconn.electronics.commands.TCUserImportCommand"/>
+        <!-- <command name="CAD图纸导入" id="com.foxconn.electronics.commands.CADImportCommand"/> !-->>
+        <command name="%CerImport.LABEL" id="com.foxconn.electronics.certificateCommand"/>
+        <command name="%DCNCoverExport.LABEL" id="com.foxconn.electronics.commands.DCNCoverExportCommand"/>
+        <command name="%RelationFW.LABEL" id="com.foxconn.electronics.commands.ReLationFWCommand"/>
+        <command name="%FinishMatApply.LABEL" id="com.foxconn.electronics.commands.L10EbomApplyFormCommand"/>
+        <command name="%ExportEbomChangeList.LABEL" id="com.foxconn.electronics.managementebom.export.changelist.rf.ExportRfChangeListCommand"/>
+        <command name="%ExportFinishMatInfo.LABEL" id="com.foxconn.electronics.commands.ExportFinishMatInfoCommand">
+        	<commandParameter id="export_type" name="export_type" optional="true"/>
+        </command>
+        <command name="%ExportSemiFinishMatInfo.LABEL" id="com.foxconn.electronics.commands.ExportSemiFinishMatInfoCommand">
+        	<commandParameter id="export_type" name="export_type" optional="true"/>
+        </command>
+        <command name="%ExportFinishBOMInfo.LABEL" id="com.foxconn.electronics.commands.ExportFinishBOMInfoCommand">
+        	<commandParameter id="export_type" name="export_type" optional="true"/>
+        </command>
+        <command name="%EE3DDrawCountReport.LABEL" id="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportCommand"/>
+        <command name="%BatchEditorNewMoldFee" id="com.foxconn.electronics.dcnreport.batcheditornewmoldfee.BatchEditorNewMoldFeeCommand"/>
+         
+        <!-- 删除的菜单-->
+        <command name="%MntEBOMImport.LABEL" id="com.foxconn.electronics.MntEBomImportCommand"/>
+        <command name="%ExplodeBOM.Menu" id="com.foxconn.electronics.commands.ExplodeBOMCommand"/>
+		<command name="%ExportBOMFile.LABEL" id="com.foxconn.electronics.commands.ExportBOMFileCommand"/>
+        
+        
+    </extension>
+
+   <extension point="org.eclipse.ui.handlers">
+      <handler class="com.foxconn.electronics.matrixbom.handler.MatrixBOMImputHandler" commandId="com.foxconn.electronics.commands.MatrixBOMImputCommand"/>
+      <handler class="com.foxconn.electronics.matrixbom.handler.MatrixBOMExportHandler" commandId="com.foxconn.electronics.commands.MatrixBOMExportCommand"/>
+      <handler class="com.foxconn.electronics.matrixbom.handler.MatrixBOMExportHandler" commandId="com.foxconn.electronics.commands.MatrixChangeListExportCommand"/>
+      <handler class="com.foxconn.electronics.convertebom.ConvertEBOMHandler2" commandId="com.foxconn.electronics.commands.ConvertEBOMCommand"/>
+      <handler class="com.foxconn.electronics.managementebom.ManagementEBOMHandler" commandId="com.foxconn.electronics.ManagementebomCommand"/>
+      <handler class="com.foxconn.electronics.managementebom.export.bom.mnt.MntBomExportHandler" commandId="com.foxconn.electronics.MntBomExportCommand"/>
+      <handler class="com.foxconn.electronics.L10Ebom.handler.MntL10EBomHandler" commandId="com.foxconn.electronics.AutomaticBOMConstruction"/>
+      <handler class="com.foxconn.electronics.managementebom.export.bom.prt.PrtBomExportHandler" commandId="com.foxconn.electronics.PrtBomExportCommand"/>
+      <handler class="com.foxconn.electronics.download.DownLoadDatasetHandler" commandId="com.foxconn.electronics.DownLoadDatasetCommand"/>
+      <handler class="com.foxconn.electronics.download.CopyDownloadAddressHandler" commandId="com.foxconn.electronics.CopyDownloadAddressCommand"/>
+      <handler class="com.foxconn.electronics.document.DocPlaceOnFileHandler" commandId="com.foxconn.electronics.DocPlaceOnFileCommand"/>
+      <handler class="com.foxconn.electronics.ccmanage.ConnectorAndCableHandler" commandId="com.foxconn.electronics.ConnectorAndCableCommand"/>
+      <handler class="com.foxconn.electronics.cablematerial.CreateCableMaterialHandler" commandId="com.foxconn.electronics.CreateCableMaterialCommand"/>
+      <handler class="com.foxconn.electronics.project.Handler" commandId="com.foxconn.electronics.project.AssginCommand"/>
+      <handler commandId="com.foxconn.electronics.projectReport.ProjectReportCommand" class="com.foxconn.electronics.projectReport.ProjectReportHandler"/>
+      <handler commandId="com.foxconn.electronics.projectSummery.ProjectSummeryCommand" class="com.foxconn.electronics.projectSummery.ProjectSummeryHandler"/>
+      <handler commandId="com.foxconn.electronics.commands.DCNCostImpactCommand" class="com.foxconn.electronics.dcnreport.dcncostimpact.DCNCostImpactHandler" />
+      <handler commandId="com.foxconn.electronics.commands.DCNReportCommand" class="com.foxconn.electronics.dcnreport.DCNReportHandler" />
+      <handler commandId="com.foxconn.electronics.commands.WorkDayImportCommand" class="com.foxconn.electronics.tclicensereport.handler.WorkDayImportHandler" />
+      <handler commandId="com.foxconn.electronics.commands.TCLicenseReportCommand" class="com.foxconn.electronics.tclicensereport.handler.TcLicenseReportHandler" />      
+      <handler commandId="com.foxconn.electronics.commands.TCLicensePhaseReportCommand" class="com.foxconn.electronics.tclicensereport.handler.TcLicensePhaseReportHandler" />
+      <handler commandId="com.foxconn.electronics.benefitreport.BenefitHandler" class="com.foxconn.electronics.benefitreport.BenefitReportHandler"/>
+      <handler commandId="com.foxconn.electronics.commands.NonFTEDataImportCommand" class="com.foxconn.electronics.ftereport.handler.NonFTEDataImportHandler" />
+      <handler commandId="com.foxconn.electronics.commands.NonFTEReportCommand" class="com.foxconn.electronics.ftereport.handler.NonFTEReportHandler" />
+      <handler commandId="com.foxconn.electronics.setMailGroup.SetMailGroupHandler" class="com.foxconn.electronics.setMailGroup.SetMailGroupHandler"/>
+      <handler commandId="com.foxconn.electronics.managementebom.dcnChange.export" class="com.foxconn.electronics.managementebom.dcnChange.mnt.ChangeHandler" />
+      <handler commandId="com.foxconn.electronics.dgkpi.DGKPIHandler" class="com.foxconn.electronics.dgkpi.DGKPIHandler" />
+ 	  <handler class="com.foxconn.electronics.tclicensereport.handler.TcLicenseRealTimeReportHandle" commandId="com.foxconn.electronics.commands.TcLicenseRealTimeReportCommand"/>
+      <handler class="com.foxconn.electronics.tclicensereport.handler.TcLicenseHistoryReportHandle" commandId="com.foxconn.electronics.commands.TcLicenseHistoryReportCommand"/>
+      <handler class="com.foxconn.electronics.drawCountReport.DrawCountReportHandle" commandId="com.foxconn.electronics.commands.DrawCountReportCommand"/>
+ 	  <handler class="com.foxconn.electronics.matrixbom.handler.MatrixBOMHandler" commandId="com.foxconn.electronics.commands.MatrixBOMCommand"/>
+      <handler class="com.foxconn.electronics.dbomconvertebom.DBOMConvertEBOMHandler" commandId="com.foxconn.electronics.DBOMConvertEBOMCommand"/>
+      <handler class="com.foxconn.electronics.managementebom.copybom.CopyBOMHandler" commandId="com.foxconn.electronics.managementebom.copybomCommand"/>
+      <handler class="com.foxconn.electronics.replaceHHMaterial.ReplaceHHMaterialHandler" commandId="com.foxconn.electronics.ReplaceHHMaterialCommand"/>
+      <handler commandId="com.foxconn.electronics.commands.TCUserImportCommand" class="com.foxconn.electronics.tcuserimport.handler.TCUserImportHandler"/>
+      <!-- <handler commandId="com.foxconn.electronics.commands.CADImportCommand" class="com.foxconn.electronics.dgkpi.cadimport.handler.CADImportTCHandler"/> !-->
+      <handler commandId="com.foxconn.electronics.certificateCommand" class="com.foxconn.electronics.certificate.CerImportHandle"/>
+      <handler commandId="com.foxconn.electronics.commands.DCNCoverExportCommand" class="com.foxconn.electronics.dcnreport.export.handler.DCNCoverExportHandler"/>
+	  <handler commandId="com.foxconn.electronics.commands.ReLationFWCommand" class="com.foxconn.electronics.fw.handler.RelationFWHandler"/>
+  	  <handler commandId="com.foxconn.electronics.commands.L10EbomApplyFormCommand" class="com.foxconn.electronics.L10Ebom.handler.L10EBOMApplyFormHandler"/>
+  	  <handler class="com.foxconn.electronics.managementebom.export.changelist.rf.RfChangeListHandle" commandId="com.foxconn.electronics.managementebom.export.changelist.rf.ExportRfChangeListCommand"/>
+  	  <handler class="com.foxconn.electronics.L10Ebom.handler.ExportMNTL10BOMHandler" commandId="com.foxconn.electronics.commands.ExportFinishMatInfoCommand"/>
+  	  <handler class="com.foxconn.electronics.L10Ebom.handler.ExportMNTL10BOMHandler" commandId="com.foxconn.electronics.commands.ExportSemiFinishMatInfoCommand"/>
+  	  <handler class="com.foxconn.electronics.L10Ebom.handler.ExportMNTL10BOMHandler" commandId="com.foxconn.electronics.commands.ExportFinishBOMInfoCommand"/>
+	  <handler class="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportHandle" commandId="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportCommand"/>
+	  <handler class="com.foxconn.electronics.dcnreport.batcheditornewmoldfee.handler.BatchEditorNewMoldFeeHandler" commandId="com.foxconn.electronics.dcnreport.batcheditornewmoldfee.BatchEditorNewMoldFeeCommand"/>
+	
+      <!-- 删除的菜单-->
+      <handler class="com.foxconn.electronics.managementebom.Import.bom.mnt.handlers.MntEBOMImportHandlers" commandId="com.foxconn.electronics.MntEBomImportCommand"/>
+	  <handler class="com.foxconn.electronics.explodebom.ExplodeBOMHandler" commandId="com.foxconn.electronics.commands.ExplodeBOMCommand"/>
+	  <handler class="com.foxconn.electronics.explodebom.ExportBOMFileHandler" commandId="com.foxconn.electronics.commands.ExportBOMFileCommand"/>
+      
+   	  
+      
+   
+   </extension>
+   
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu id="com.foxconn.menus.D_Group">
+         	<menu label="BOM" id="com.foxconn.menus.BOM">
+         	  	<command
+                	commandId="com.foxconn.electronics.managementebom.copybomCommand"
+                	id="com.foxconn.electronics.managementebom.copybomCommand">
+               		<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            
+                          	<iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Monitor_RD_EEandPSU"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.managementebom.copybomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+            	</command>     		 
+         		
+            	<command
+                	commandId="com.foxconn.electronics.commands.ConvertEBOMCommand"
+                	id="com.foxconn.electronics.menus.ConvertEBOMCommand">
+                  	<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Monitor_RD_EEandPSU"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.commands.ConvertEBOMCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+            	</command>
+            	
+            	<command
+	            	commandId="com.foxconn.electronics.ReplaceHHMaterialCommand"
+	            	id="com.foxconn.electronics.ReplaceHHMaterialCommand"> 
+	              	<visibleWhen>
+	                    <and>
+	                        <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+	                        
+	                        <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Desktop_RD_DPD"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+	                        <with variable="rac_command_suppression">
+	                            <not>
+	                                <iterate operator="or">
+	                                    <equals value="com.foxconn.electronics.ReplaceHHMaterialCommand"/>
+	                                </iterate>
+	                            </not>
+	                        </with>
+	                    </and>
+	                </visibleWhen>                     
+	     		</command> 
+	     		
+            	<command
+                	commandId="com.foxconn.electronics.ManagementebomCommand"
+                	id="com.foxconn.electronics.ManagementebomCommand">
+                  	<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.ManagementebomCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+            	</command>  
+            
+				<command
+	            	commandId="com.foxconn.electronics.MntBomExportCommand"
+	            	id="com.foxconn.electronics.MntBomExportCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Monitor_EE_CE_PSU_ME"/>
+									</and>
+								</adapt>
+							</iterate>	                
+			            </and>
+		        	</visibleWhen>                        
+         		</command> 
+         		
+         		<command
+	            	commandId="com.foxconn.electronics.AutomaticBOMConstruction"
+	            	id="com.foxconn.electronics.MntBomExportCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_L10EBOMReqRevision"/>
+										<test forcePluginActivation="true" property="ghy.Monitor_EE_CE_PSU_ME"/>
+									</and>
+								</adapt>
+							</iterate>	                
+			            </and>
+		        	</visibleWhen>                        
+         		</command> 
+		 	
+          	   <command
+	            	commandId="com.foxconn.electronics.PrtBomExportCommand"
+	            	id="com.foxconn.electronics.PrtBomExportCommand"> 
+                  	<visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                            
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test forcePluginActivation="true" property="ghy.Printer_RD"/>
+									</and>
+								</adapt>
+							</iterate>
+							
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.PrtBomExportCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>                     
+         		</command>
+         		 <command
+                    commandId="com.foxconn.electronics.DBOMConvertEBOMCommand"
+                    id="com.foxconn.electronics.DBOMConvertEBOMCommand">
+                 <visibleWhen>
+                    <and>
+                       <reference
+                             definitionId="com.teamcenter.rac.pse.inMainView">
+                       </reference>
+                       
+                       <iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<or>
+									<test forcePluginActivation="true" property="ghy.Monitor_RD_ME"/>
+									<test forcePluginActivation="true" property="ghy.Desktop_RD_DPD_SD"/>
+								</or>
+							</adapt>
+						</iterate>
+						
+                       <with variable="rac_command_suppression">
+                          <not>
+                             <iterate operator="or">
+                                <equals
+                                      value="com.foxconn.electronics.commands.DBOMConvertEBOMCommand">
+                                </equals>
+                             </iterate>
+                          </not>
+                       </with>
+                    </and>
+                 </visibleWhen>
+              </command>
+         		<command
+	            	commandId="com.foxconn.electronics.commands.MatrixBOMCommand"
+	            	id="com.foxconn.electronics.commands.MatrixBOMCommand"> 
+		         	<visibleWhen>
+			            <and>
+			                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                
+							<iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_ProductLineRevision"/>
+										<test forcePluginActivation="true" property="ghy.propertyTesterMatrixBOM"/>
+									</and>
+								</adapt>
+							</iterate>
+							               
+			            </and>
+		        	</visibleWhen>                        
+         		</command>
+         		
+	           <command
+	                 commandId="com.foxconn.electronics.dgkpi.DGKPIHandler"
+	                 id="com.foxconn.electronics.dgkpi.DGKPIHandler">
+	              <visibleWhen>
+	                 <and>
+	                    <reference
+	                          definitionId="com.teamcenter.rac.pse.inMainView">
+	                    </reference>
+	                    
+	                    <iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test 
+										forcePluginActivation="true"
+										property="ghy.Desktop_RD_MFD">
+									</test>
+								</and>
+							</adapt>
+						</iterate>
+						
+	                    <with
+	                          variable="rac_command_suppression">
+	                       <not>
+	                          <iterate
+	                                operator="or">
+	                             <equals
+	                                   value="com.foxconn.electronics.dgkpi.DGKPIHandler">
+	                             </equals>
+	                          </iterate>
+	                       </not>
+	                    </with>
+	                 </and>
+	              </visibleWhen>
+	           </command>
+         		
+         	</menu>
+          <menu
+                id="com.foxconn.menus.dataimport"
+                label="Import">
+          </menu>
+          <menu
+                id="com.foxconn.menus.Parts"
+                label="Parts">
+          </menu>
+            	
+         	<menu label="%report.LABEL" id="com.foxconn.menus.Report">
+             <visibleWhen>
+                <and>
+	                <or>
+						<reference 
+							definitionId="com.teamcenter.rac.ui.inMainPerspective">
+						</reference>
+					</or>
+                </and>
+             </visibleWhen>
+			     
+          		 <command
+                        commandId="com.foxconn.electronics.projectReport.ProjectReportCommand"
+                        id="com.foxconn.electronics.menus.ProjectReportCommand">
+                            <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.projectReport.ProjectReportCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command>
+                
+                <command
+                        commandId="com.foxconn.electronics.projectSummery.ProjectSummeryCommand"
+                        id="com.foxconn.electronics.menus.ProjectSummeryCommand">
+                            <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.projectSummery.ProjectSummeryCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command>
+                
+                <menu label="%TCLiecnse.LABEL" id="com.foxconn.menus.TCLiecnse">
+	                <command
+                        commandId="com.foxconn.electronics.commands.WorkDayImportCommand"
+                        id="com.foxconn.electronics.menus.WorkDayImportCommand">
+                    	  <visibleWhen>
+                       		 <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                            
+							<iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.dba">
+										</test>
+									</and>
+								</adapt>
+							</iterate>
+                            <!--命令抑制 -->
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.commands.WorkDayImportCommand"/>
+                                    </iterate>
+                                </not>
+                    		</with> 
+                    			</and>
+                   		  </visibleWhen>
+               			</command> 
+               			
+               			 <command
+	                        commandId="com.foxconn.electronics.commands.TCLicenseReportCommand"
+	                        id="com.foxconn.electronics.menus.TCLicenseReportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.TCLicenseReportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	               	</command>  
+	               	
+	               	<command
+	                        commandId="com.foxconn.electronics.commands.TCLicensePhaseReportCommand"
+	                        id="com.foxconn.electronics.menus.TCLicensePhaseReportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.TCLicensePhaseReportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	               	</command>  
+	            </menu> 
+                <menu label="%TCLiecnse.BOARD" id="com.foxconn.menus.TCLiecnseBoard">
+               		<command
+	                        commandId="com.foxconn.electronics.commands.TcLicenseRealTimeReportCommand"
+	                        id="com.foxconn.electronics.menus.TcLicenseRealTimeReportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.TcLicenseRealTimeReportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	               	</command>
+	               	<command
+	                        commandId="com.foxconn.electronics.commands.TcLicenseHistoryReportCommand"
+	                        id="com.foxconn.electronics.menus.TcLicenseHistoryReportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.TcLicenseHistoryReportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	               	</command> 
+	            </menu>
+                
+                <command
+                        commandId="com.foxconn.electronics.commands.DCNReportCommand"
+                        id="com.foxconn.electronics.menus.DCNReportCommand">
+                            <visibleWhen>
+                        <and>
+                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                            
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Desktop_MFDandMonitor_MEandPrinter_ME">
+										</test>
+									</and>
+								</adapt>
+							</iterate>
+                            <with variable="rac_command_suppression">
+                                <not>
+                                    <iterate operator="or">
+                                        <equals value="com.foxconn.electronics.commands.DCNReportCommand"/>
+                                    </iterate>
+                                </not>
+                            </with>
+                        </and>
+                    </visibleWhen>
+                </command>
+	                 
+               
+                
+                <menu label="%Benefitreport.LABEL" id="com.foxconn.menus.FTE">
+                 	<visibleWhen>
+                        <and>
+                            <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Report">
+										</test>
+									</and>
+								</adapt>
+							</iterate>
+						</and>
+                	</visibleWhen>
+	                       
+	                <command
+	                        commandId="com.foxconn.electronics.benefitreport.BenefitHandler"
+	                        id="com.foxconn.electronics.benefitreport.BenefitHandler">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+	                            
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.benefitreport.BenefitHandler"/>
+	                                    </iterate>
+	                                </not>
+	                            </with>
+	                        </and>
+	                    </visibleWhen>
+	                </command>
+	                
+	                <menu label="%NonFTE.LABEL" id="com.foxconn.menus.NonFTE">
+	                	 <command
+	                        commandId="com.foxconn.electronics.commands.NonFTEDataImportCommand"
+	                        id="com.foxconn.electronics.menus.NonFTEDataImportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.NonFTEDataImportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	                </command> 
+	                
+	                 <command
+	                        commandId="com.foxconn.electronics.commands.NonFTEReportCommand"
+	                        id="com.foxconn.electronics.menus.NonFTEReportCommand">
+	                    <visibleWhen>
+	                        <and>
+	                            <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+	                            <!--命令抑制 -->
+	                            <with variable="rac_command_suppression">
+	                                <not>
+	                                    <iterate operator="or">
+	                                        <equals value="com.foxconn.electronics.commands.NonFTEReportCommand"/>
+	                                    </iterate>
+	                                </not>
+	                            </with> 
+	                        </and>
+	                    </visibleWhen>
+	               	</command> 
+	               	
+	               </menu>
+                </menu>
+	            
+	           <menu label="%Draw3DCountReport.LABEL" id="com.foxconn.menus.Draw3DCountReport">
+	            <command  commandId="com.foxconn.electronics.commands.DrawCountReportCommand" id="com.foxconn.electronics.menus.DrawCountReportCommand">
+                 <visibleWhen>
+                    <and>
+                        <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+                        <!--命令抑制 -->
+                        <with variable="rac_command_suppression">
+                            <not>
+                                <iterate operator="or">
+                                    <equals value="com.foxconn.electronics.commands.DrawCountReportCommand"/>
+                                </iterate>
+                            </not>
+                        </with> 
+                    </and>
+                   </visibleWhen>
+              	 </command> 
+              	<command  commandId="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportCommand" id="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportCommand">
+                 <visibleWhen>
+                    <and>
+                        <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>                           
+                        <!--命令抑制 -->
+                        <with variable="rac_command_suppression">
+                            <not>
+                                <iterate operator="or">
+                                    <equals value="com.foxconn.electronics.ee3dDrawCountReport.EE3DDrawCountReportCommand"/>
+                                </iterate>
+                            </not>
+                        </with> 
+                    </and>
+                   </visibleWhen>
+              	 </command> 
+           	     </menu> 
+              </menu> 
+         	
+         	 <command
+                commandId="com.foxconn.electronics.setMailGroup.SetMailGroupHandler"
+                id="com.foxconn.electronics.setMailGroup.SetMailGroupHandler">
+                    <visibleWhen>
+                	<and>
+                    	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                    	
+                    	<iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test 
+										forcePluginActivation="true"
+										property="ghy.Pool_CE">
+									</test>
+								</and>
+							</adapt>
+						</iterate>
+                    	
+                    	<with variable="rac_command_suppression">
+                   	 		<not>
+		                        <iterate operator="or">
+		                            <equals value="com.foxconn.electronics.setMailGroup.SetMailGroupHandler"/>
+		                        </iterate>
+                        	</not>
+                    	</with>
+                	</and>
+            	</visibleWhen>
+            </command>
+            
+                                                            
+              
+              
+         	<command
+            	commandId="com.foxconn.electronics.ConnectorAndCableCommand"
+            	id="com.foxconn.electronics.ConnectorAndCableCommand"> 
+              	<visibleWhen>
+                    <and>
+                        <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+                        
+	                        <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor_EE_CE_PSU_ME">
+										</test>
+									</and>
+								</adapt>
+							</iterate>
+                        
+                        <with variable="rac_command_suppression">
+                            <not>
+                                <iterate operator="or">
+                                    <equals value="com.foxconn.electronics.ConnectorAndCableCommand"/>
+                                </iterate>
+                            </not>
+                        </with>
+                    </and>
+                </visibleWhen>                     
+     		</command>
+     		
+     		<!-- MNT L10 BOM製作申請單  -->
+     		<menu label="%MNTL10MakeApply.LABEL" id="com.foxconn.menus.mntL10bommakeapply">
+                  <command
+	            	commandId="com.foxconn.electronics.commands.ExportFinishMatInfoCommand"
+	            	id="com.foxconn.electronics.commands.ExportFinishMatInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>
+							<with variable="rac_command_suppression">
+	                            <not>
+	                                <iterate operator="or">
+	                                    <equals value="com.foxconn.electronics.commands.ExportFinishMatInfoCommand"/>
+	                                </iterate>
+	                            </not>
+	                        </with>
+			            </and>
+		        	</visibleWhen>  
+		        	<parameter name="export_type" value="FinishMatInfo"/>                      
+         		</command>
+         		
+         		 <command
+	            	commandId="com.foxconn.electronics.commands.ExportSemiFinishMatInfoCommand"
+	            	id="com.foxconn.electronics.commands.ExportSemiFinishMatInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>	
+							<with variable="rac_command_suppression">
+	                            <not>
+	                                <iterate operator="or">
+	                                    <equals value="com.foxconn.electronics.commands.ExportSemiFinishMatInfoCommand"/>
+	                                </iterate>
+	                            </not>
+	                        </with>                
+			            </and>
+		        	</visibleWhen> 
+		        	<parameter name="export_type" value="SemiFinishMatInfo"/>                        
+         		</command> 
+         		
+         		 <command
+	            	commandId="com.foxconn.electronics.commands.ExportFinishBOMInfoCommand"
+	            	id="com.foxconn.electronics.commands.ExportFinishBOMInfoCommand"> 
+		         	<visibleWhen>
+			            <and>
+			            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                <iterate ifEmpty="false">
+								<adapt type="com.teamcenter.rac.kernel.TCComponent">
+									<and>
+										<test 
+											forcePluginActivation="true"
+											property="ghy.Monitor">
+										</test>
+									</and>
+								</adapt>
+							</iterate>	
+							<with variable="rac_command_suppression">
+	                            <not>
+	                                <iterate operator="or">
+	                                    <equals value="com.foxconn.electronics.commands.ExportFinishBOMInfoCommand"/>
+	                                </iterate>
+	                            </not>
+	                        </with>                
+			            </and>
+		        	</visibleWhen>   
+		        	<parameter name="export_type" value="FinishBOMInfo"/>                      
+         		</command>          		
+              </menu>  
+     		
+       	</menu>
+      </menuContribution>
+ 
+
+      <menuContribution locationURI="menu:com.foxconn.menus.dataimport">	     	
+		 	<command
+		    	commandId="com.foxconn.electronics.commands.TCUserImportCommand"
+		    	id="com.foxconn.electronics.commands.TCUserImportCommand">
+		   		<visibleWhen>
+		            <and>
+		                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                
+		                <iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test 
+										forcePluginActivation="true"
+										property="ghy.dba">
+									</test>
+								</and>
+							</adapt>
+						</iterate>
+							
+		                <!--命令抑制-->
+		                <with variable="rac_command_suppression">
+		                    <not>
+		                        <iterate operator="or">
+		                            <equals value="com.foxconn.electronics.commands.TCUserImportCommand"/>
+		                        </iterate>
+		                    </not>
+		                </with>
+		            </and>
+		        </visibleWhen>
+			</command>
+			<command
+		    	commandId="com.foxconn.electronics.certificateCommand"
+		    	id="com.foxconn.electronics.certificateCommand">
+		   		<visibleWhen>
+		            <and>
+		                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                
+		                <iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test 
+										forcePluginActivation="true"
+										property="ghy.Monitor_RD_Safety">
+									</test>
+								</and>
+							</adapt>
+						</iterate>
+							
+		                <!--命令抑制-->
+		                <with variable="rac_command_suppression">
+		                    <not>
+		                        <iterate operator="or">
+		                            <equals value="com.foxconn.electronics.certificateCommand"/>
+		                        </iterate>
+		                    </not>
+		                </with>
+		            </and>
+		        </visibleWhen>
+			</command>
+			
+			<!--
+			<command
+		    	commandId="com.foxconn.electronics.commands.CADImportCommand"
+		    	id="com.foxconn.electronics.commands.CADImportCommand">
+		   		<visibleWhen>
+		            <and>
+		                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+			                
+		                <iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test 
+										forcePluginActivation="true"
+										property="ghy.dba">
+									</test>
+								</and>
+							</adapt>
+						</iterate>							
+		                
+		                <with variable="rac_command_suppression">
+		                    <not>
+		                        <iterate operator="or">
+		                            <equals value="com.foxconn.electronics.commands.CADImportCommand"/>
+		                        </iterate>
+		                    </not>
+		                </with>
+		            </and>
+		        </visibleWhen>
+			</command>  
+			-->   		
+	 </menuContribution>
+
+      
+      <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+      	<command
+               commandId="com.foxconn.electronics.project.AssginCommand"
+               label="%MaterialAssginProject.LABEL">
+				<visibleWhen>
+				  	<and>
+						<with variable="rac_command_suppression">
+				         	<not>
+				            	<iterate operator="or">
+				               		<equals
+				                     	value="com.foxconn.electronics.project.Handler">
+				               	</equals>
+				            </iterate>
+				          </not>
+				      	</with>
+				      	<iterate ifEmpty="false">
+							<adapt type="com.teamcenter.rac.kernel.TCComponent">
+				   				<or>
+				      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="BOMLine" />
+				   				</or>
+							</adapt>
+						</iterate>
+					</and>
+				</visibleWhen>
+         </command>
+         <command
+               commandId="com.foxconn.electronics.DownLoadDatasetCommand"
+               label="%DownLoadDataset.LABEL">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.DownLoadDatasetHandler">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<or>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="Dataset" />
+                   				</or>
+                			</adapt>
+         				</iterate>
+         			</and>
+				</visibleWhen>
+         </command>
+         
+         <command
+               commandId="com.foxconn.electronics.CopyDownloadAddressCommand"
+               label="%CopyDownloadAddress.LABEL">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.download.CopyDownloadAddressHandler">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<or>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="Dataset" />
+                   				</or>
+                			</adapt>
+         				</iterate>
+         			</and>
+				</visibleWhen>
+         </command>
+
+         <command
+               commandId="com.foxconn.electronics.DocPlaceOnFileCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.document.DocPlaceOnFileHandler">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<or>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="ItemRevision" />
+                   				</or>
+                			</adapt>
+         				</iterate>
+         			</and>
+				</visibleWhen>
+         </command>
+         
+         <command
+               commandId="com.foxconn.electronics.commands.DCNCostImpactCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.DCNCostImpactCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<or>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="D9_MNT_DCNRevision" />
+                   				</or>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command> 
+         
+         <command
+               commandId="com.foxconn.electronics.commands.DCNCoverExportCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.DCNCoverExportCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<and>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="D9_DT_DCNRevision" />
+                      				<test forcePluginActivation="true" property="ghy.Desktop_MFDandMonitor_MEandPrinter_ME"/>
+                   				</and>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command>
+         
+          <command
+               commandId="com.foxconn.electronics.commands.MatrixBOMImputCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.MatrixBOMImputCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_ProductLineRevision"/>
+									<test forcePluginActivation="true" property="ghy.propertyTesterMatrixBOM"/>
+								</and>
+                			</adapt>
+         				</iterate> 
+         			</and>
+				</visibleWhen>
+         </command> 
+         
+         <command
+               commandId="com.foxconn.electronics.commands.MatrixBOMExportCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.MatrixBOMExportCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<and>
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_ProductLineRevision"/>
+									<test forcePluginActivation="true" property="ghy.propertyTesterMatrixBOM"/>
+								</and>
+                			</adapt>
+         				</iterate> 
+         			</and>
+				</visibleWhen>
+         </command> 
+         
+         <command
+               commandId="com.foxconn.electronics.commands.MatrixChangeListExportCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.MatrixChangeListExportCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                				<and>
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_DT_DCNRevision"/>
+									<test forcePluginActivation="true" property="ghy.propertyTesterMatrixBOM"/>
+								</and>
+                			</adapt>
+         				</iterate> 
+         			</and>
+				</visibleWhen>
+         </command> 
+         
+         <command
+               commandId="com.foxconn.electronics.managementebom.dcnChange.export">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.managementebom.dcnChange.export">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<or>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="D9_MNT_DCNRevision" />
+                   				</or>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command>
+         
+         <command
+               commandId="com.foxconn.electronics.commands.ReLationFWCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.ReLationFWCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">                				
+                				<or>									
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_FWDesignRevision"/>
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_VirtualPartRevision"/>									
+								</or>							
+								
+								<and>									
+									<test forcePluginActivation="true" property="ghy.Monitor_RD_FW"/>
+								</and>
+                			</adapt>
+         				</iterate> 
+         			</and>
+				</visibleWhen>
+         </command>
+         <!-- RF ChangeList導出測試菜單  -->
+         <command
+               commandId="com.foxconn.electronics.managementebom.export.changelist.rf.ExportRfChangeListCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.managementebom.export.changelist.rf.ExportRfChangeListCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+								<and>
+									<test property="com.teamcenter.rac.kernel.TCComponent.typeClass" value="D9_DT_DCNRevision"/>									
+									<test forcePluginActivation="true" property="ghy.Desktop_RD_DSD_RF"/>
+								</and>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command>
+         
+         <command
+               commandId="com.foxconn.electronics.commands.L10EbomApplyFormCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.commands.L10EbomApplyFormCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<and>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="D9_L10EBOMReqRevision" />
+                      				<test forcePluginActivation="true" property="ghy.Monitor_RD"/>
+                   				</and>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command>
+         
+         <command
+               commandId="com.foxconn.electronics.dcnreport.batcheditornewmoldfee.BatchEditorNewMoldFeeCommand">
+            <visibleWhen>
+                  	<and>
+						<with variable="rac_command_suppression">
+	                     	<not>
+	                        	<iterate operator="or">
+	                           		<equals
+	                                 	value="com.foxconn.electronics.dcnreport.batcheditornewmoldfee.BatchEditorNewMoldFeeCommand">
+	                           	</equals>
+	                        </iterate>
+	                      </not>
+	                  	</with>
+	                  	<iterate ifEmpty="false">
+                			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+                   				<and>
+                      				<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="EPMTask" />
+                      				<test forcePluginActivation="true" property="ghy.Monitor_RD"/>
+                   				</and>
+                			</adapt>
+         				</iterate>         				
+         			</and>
+				</visibleWhen>
+         </command>
+      </menuContribution>
+      
+      <menuContribution
+		 locationURI="menu:com.foxconn.menus.Parts?after=additions">	
+      	<command
+	    	commandId="com.foxconn.electronics.CreateCableMaterialCommand"
+	    	id="com.foxconn.electronics.CreateCableMaterialCommand"> 
+	      	<visibleWhen>
+	            <and>
+	                <with variable="rac_command_suppression">
+	                    <not>
+	                        <iterate operator="or">
+	                            <equals value="com.foxconn.electronics.CreateCableMaterialCommand"/>
+	                        </iterate>
+	                    </not>
+	                </with>
+	            </and>
+	        </visibleWhen>                     
+     	</command>      	
+       		
+      </menuContribution>
+      
+      
+      
+      
+      
+      <!-- 删除的菜单-->
+      
+      <menuContribution
+		 locationURI="menu:plmdeletemenu?after=additions">	
+			<command commandId="com.foxconn.electronics.MntEBomImportCommand" 
+			id="com.foxconn.electronics.MntEBomImportCommand"> 
+	          <visibleWhen>
+	            <and>
+	                <reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+	                <with variable="rac_command_suppression">
+	                    <not>
+	                        <iterate operator="or">
+	                            <equals value="com.foxconn.electronics.MntEBomImportCommand"/>
+	                        </iterate>
+	                    </not>
+	                </with>
+	            </and>
+	        </visibleWhen>                        
+      	</command> 
+	</menuContribution>
+	
+	<menuContribution
+		 locationURI="menu:plmdeletemenu?after=additions">	
+		<command
+        	commandId="com.foxconn.electronics.commands.ExplodeBOMCommand"
+        	id="com.foxconn.electronics.menus.ExplodeBOMCommand">
+       		<visibleWhen>
+                <and>
+                    <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                    <with variable="rac_command_suppression">
+                        <not>
+                            <iterate operator="or">
+                                <equals value="com.foxconn.electronics.commands.ExplodeBOMCommand"/>
+                            </iterate>
+                        </not>
+                    </with>
+                </and>
+            </visibleWhen>
+    	</command>
+	</menuContribution>
+	<menuContribution
+		 locationURI="menu:plmdeletemenu?after=additions">	
+		<command 
+			commandId="com.foxconn.electronics.commands.ExportBOMFileCommand"
+        	id="com.foxconn.electronics.menus.ExportBOMFileCommand">
+         	<visibleWhen>
+                <and>
+                    <reference definitionId="com.teamcenter.rac.pse.inMainView"/>
+                    <with variable="rac_command_suppression">
+                        <not>
+                            <iterate operator="or">
+                                <equals value="com.foxconn.electronics.commands.ExportBOMFileCommand"/>
+                            </iterate>
+                        </not>
+                    </with>
+                </and>
+            </visibleWhen>
+    	</command>
+    </menuContribution>
+   
+   </extension>
+   
+	<extension point="org.eclipse.core.expressions.propertyTesters">
+		<propertyTester 
+			id="Monitor_RD_EEandPSU" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_EEandPSU"
+			class="com.foxconn.electronics.Tester.Monitor_RD_EEandPSU">
+		</propertyTester>
+	
+		<propertyTester 
+			id="Desktop_RD_MFD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_MFD"
+			class="com.foxconn.electronics.Tester.Desktop_RD_MFD">
+		</propertyTester>
+	
+		<propertyTester 
+			id="Desktop_RD_DPD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_DPD"
+			class="com.foxconn.electronics.Tester.Desktop_RD_DPD">
+		</propertyTester>
+		<propertyTester 
+			id="Desktop_RD_DPD_SD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_DPD_SD"
+			class="com.foxconn.electronics.Tester.Desktop_RD_DPD_SD">
+		</propertyTester>
+		
+		
+		<propertyTester 
+			id="Printer_RD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Printer_RD"
+			class="com.foxconn.electronics.Tester.Printer_RD">
+		</propertyTester>
+		
+		<propertyTester 
+			id="dba" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="dba"
+			class="com.foxconn.electronics.Tester.dba">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_MFDandMonitor_MEandPrinter_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_MFDandMonitor_MEandPrinter_ME"
+			class="com.foxconn.electronics.Tester.Desktop_MFDandMonitor_MEandPrinter_ME">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Report" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Report"
+			class="com.foxconn.electronics.Tester.Report">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Pool_CE" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Pool_CE"
+			class="com.foxconn.electronics.Tester.Pool_CE">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor_EE_CE_PSU_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_EE_CE_PSU_ME"
+			class="com.foxconn.electronics.Tester.Monitor_EE_CE_PSU_ME">
+		</propertyTester>
+	    <propertyTester 
+			id="Monitor_RD_Safety" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_Safety"
+			class="com.foxconn.electronics.Tester.Monitor_RD_Safety">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor_RD_ME" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_ME"
+			class="com.foxconn.electronics.Tester.Monitor_RD_ME">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor_RD_FW" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD_FW"
+			class="com.foxconn.electronics.Tester.Monitor_RD_FW">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Monitor_RD" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Monitor_RD"
+			class="com.foxconn.electronics.Tester.Monitor_RD">
+		</propertyTester>
+		
+		<propertyTester 
+			id="propertyTesterMatrixBOM" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="propertyTesterMatrixBOM"
+			class="com.foxconn.electronics.Tester.propertyTesterMatrixBOM">
+		</propertyTester>
+		
+		<propertyTester 
+			id="Desktop_RD_DSD_RF" 
+			type="com.teamcenter.rac.kernel.TCComponent" 
+			namespace="ghy"
+			properties="Desktop_RD_DSD_RF"
+			class="com.foxconn.electronics.Tester.Desktop_RD_DSD_RF">
+		</propertyTester>
+		
+	</extension>
+</plugin>

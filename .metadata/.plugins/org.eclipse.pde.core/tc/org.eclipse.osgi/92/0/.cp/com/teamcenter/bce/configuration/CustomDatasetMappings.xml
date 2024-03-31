@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XML file containing valid dataset extensions and relation types supported for Non-CAD files. 
+  Each dataset extension specifies if it is a master, dataset name, ref_names and relation to be used while generating TCXML.
+  Each relation type specifies the display relation for the Add Dataset dialog and the actual relation to be used for generating
+  TCXML. 
+ -->
+<custom_data_set_mapping xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <data_set_mapping extension="prt">
+        <cad_data_set_mapping is_master="True" dataset_type="UGMASTER" ref_names="UGPART" relation=""/>
+        <cad_data_set_mapping dataset_type="UGPART" ref_names="UGPART" relation=""/>
+    </data_set_mapping>
+    <data_set_mapping extension="doc">
+        <cad_data_set_mapping dataset_type="MSWord" ref_names="word" relation="IMAN_reference"/>
+    </data_set_mapping>
+    <data_set_mapping extension="docx">
+        <cad_data_set_mapping dataset_type="MSWordX" ref_names="word" relation=""/>
+    </data_set_mapping>
+    <data_set_mapping extension="xls">
+        <cad_data_set_mapping dataset_type="MSExcel" ref_names="excel" relation=""/>
+    </data_set_mapping>
+    <data_set_mapping extension="jpg">
+        <cad_data_set_mapping dataset_type="JPEG" ref_names="JPEG_Reference" relation=""/>
+    </data_set_mapping>
+    <data_set_mapping extension="jt">
+        <cad_data_set_mapping dataset_type="DirectModel" ref_names="JTPART" relation="IMAN_Rendering"/>
+    </data_set_mapping>    
+    <relation_type actual_relation="IMAN_specification" display_relation="specification"/>
+    <relation_type actual_relation="IMAN_Rendering" display_relation="rendering"/>
+    <relation_type actual_relation="IMAN_manifestation" display_relation="manifestation"/>
+    <relation_type actual_relation="IMAN_reference" display_relation="reference"/>
+</custom_data_set_mapping>

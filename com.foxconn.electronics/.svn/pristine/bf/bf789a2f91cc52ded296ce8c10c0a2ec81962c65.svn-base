@@ -1,0 +1,28 @@
+package com.foxconn.electronics.matrixbom.handler;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+
+import com.foxconn.electronics.matrixbom.export.MatrixBOMImputDialog;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.ui.common.RACUIUtil;
+
+public class MatrixBOMImputHandler extends AbstractHandler{
+	
+	 
+	@Override
+	public Object execute(ExecutionEvent event) throws ExecutionException {
+		try {
+			AbstractAIFUIApplication app = AIFUtility.getCurrentApplication();	
+			//TCComponent targetComponent = (TCComponent) app.getTargetComponent();
+			//targetComponent.getReferenceProperty("");
+			new MatrixBOMImputDialog(app.getDesktop().getShell(),RACUIUtil.getTCSession(), app);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}	
+		return null;
+	}
+}

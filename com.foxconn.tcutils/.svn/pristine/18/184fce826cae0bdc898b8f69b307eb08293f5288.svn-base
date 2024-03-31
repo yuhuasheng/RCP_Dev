@@ -1,0 +1,72 @@
+Release Notes
+版本 1.0.7(Build 8)  
+-发行时间 2023/07/21
+-新增功能
+   1.TCUtils新增createDataSet方法 ，创建dataset功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A
+
+版本 1.0.6(Build 7)  
+-发行时间 2023/07/20
+-新增功能
+   1.TCUtils新增openBomWindow方法 ，打开结构管理器功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A
+
+  版本 1.0.5(Build 6)  
+-发行时间 2023/07/15
+-新增功能
+   1.TCUtils新增executeQuery方法 ，调用查询功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A 
+   
+ 版本 1.0.4(Build 5)  
+-发行时间 2023/06/20
+-新增功能
+   1.TCUtils新增setBypass方法 ，开旁路功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A
+
+   版本 1.0.3(Build 4)  
+-发行时间 2023/06/16
+-新增功能
+   1.TCUtils新增reviseVersion方法 ，对象升版功能
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A
+   
+   版本 1.0.2(Build 3)  
+-发行时间 2022/05/16
+-新增功能
+   1.TCUtils新增getLovValues方法 ，获取动态LOV值
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A  
+   
+ 版本 1.0.1(Build 2)  
+-发行时间 2022/03/10
+-新增功能
+   1.ME-BOM导出
+ -解决问题
+   -N/A
+-升级/优化 
+   -重新编制规范AjaxResult 错误编码 
+   
+   版本 1.0.0(Build 1)  
+-发行时间 2021/10/17
+-新增功能
+   1.TCUtils新增createCom方法
+ -解决问题
+   -N/A
+-升级/优化 
+   -N/A

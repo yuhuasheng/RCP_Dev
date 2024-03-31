@@ -1,0 +1,52 @@
+#IM Perspectives
+im.issueManager.PERSPECTIVE     = Gerenciador de emiss\u00E3o
+im.issueManager.PERSPECTIVE.TIP = <html><body>O Gerenciador de emiss\u00E3o \u00E9 utilizado para criar e gerenciar objetos de emiss\u00E3o.</body></html>
+
+#IM View Category
+im.viewCategory                 = Gerenciamento de emiss\u00E3o
+
+#IM Views
+im.issueHome.VIEW               = Issue In\u00EDcio
+im.issuePreview.VIEW            = Visualiza\u00E7\u00E3o de emiss\u00E3o
+im.listDetails.VIEW             = Detalhes da lista de problemas 
+
+#IM Create Wizards
+im.newIssueMenu.LABEL           = Relat\u00F3rio de Quest\u00F5es
+im.newIssueWizard.LABEL         = Criar ...
+im.newContextIssueWizard.LABEL  = Criar em contexto...
+im.newIssueWizard.TOOLTIP       = Crie um novo item de relat\u00F3rio de emiss\u00E3o
+im.newContextIssueWizard.TOOLTIP= Criar um novo item do relat\u00F3rio de problema relacionado aos objetos selecionados
+im.wizard.TypePage.TITLE        = Tipo de relat\u00F3rio de emiss\u00E3o
+im.wizard.TypePage.DESC         = Selecione o tipo de emiss\u00E3o a ser criada
+im.wizard.CreatePropsPage.TITLE = Informa\u00E7\u00F5es de cria\u00E7\u00E3o de item de relat\u00F3rio de emiss\u00E3o
+im.wizard.CreatePropsPage.DESC  = Defina informa\u00E7\u00F5es de cria\u00E7\u00E3o de item de relat\u00F3rio de emiss\u00E3o
+
+#Review Issue
+im.reviewIssue.LABEL            = Revisar problema...
+im.reviewIssue.TOOLTIP          = Revisar emiss\u00E3o
+
+#Issue Home Actions
+im.issuefolder.manage.LABEL    = Listas de problemas do Gerenciador...
+im.issuefolder.manage.TOOLTIP  = Listas de emiss\u00E3o do Gerenciador
+im.issuefolder.edit.LABEL      = Editar problema...
+
+AssignParticipants.TITLE       = Atribuir participantes...
+NewChangeWizard.LABEL          = Change...
+Open_the_selected_object.TIP   = Abra o objeto selecionado
+
+#Toolbar command tooltip
+Open_Home.TIP                                     = Abrir pasta In\u00EDcio
+#Open_Inbox.TIP                                   = Open Inbox
+Refreshes_the_selected_object.TIP                 = Atualize o objeto selecionado
+Open_the_selected_object.TIP                      = Abra o objeto selecionado
+Displays_properties_of_the_selected_object.TIP    = Exibe as propriedades do objeto selecionado
+Displays_accessibility_of_the_selected_object.TIP = Exiba a acessibilidade de objetos selecionados
+Add_Design_to_Product.TIP                         = Adicionar Design ao Produto
+Add_Part_to_Product.TIP                           = Adicionar pe\u00E7a ao produto
+Open_search_view.TIP                              = Abrir visualiza\u00E7\u00E3o da pesquisa
+openInVMU.TIP                                     = Iniciar/abrir na visualiza\u00E7\u00E3o do ciclo de vida
+
+
+
+
+

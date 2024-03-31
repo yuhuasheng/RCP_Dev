@@ -1,0 +1,165 @@
+package com.foxconn.mechanism.integrate.hhpnIntegrate;
+
+public class HHPNPojo {
+	
+	private int index;
+	private int isExistInTC;
+	private String itemId;
+	private String mfg;
+	private String mfgPN;
+	private String unit;
+	private String descr;
+	private String materialType;
+	private String materialGroup;
+	private String procurementType;
+	private String dataFrom;
+	private String plant;
+	private int  rohos; 
+	private int  pnms; 
+	private String rev;
+    private String result;
+    private String enDescr;
+    
+    
+    
+   
+  
+   public String getEnDescr() {
+		return enDescr;
+	}
+
+	public void setEnDescr(String enDescr) {
+		this.enDescr = enDescr;
+	}
+
+public int getPnms() {
+		return pnms;
+	}
+
+	public void setPnms(int pnms) {
+		this.pnms = pnms;
+	}
+
+public String getResult() {
+		return result;
+	}
+
+	public void setResult(String result) {
+		this.result = result;
+	}
+
+    public int getIsExistInTC() {
+		return isExistInTC;
+	}
+
+	public void setIsExistInTC(int isExistInTC) {
+		this.isExistInTC = isExistInTC;
+	}
+
+	public String getProcurementType() {
+		return procurementType;
+	}
+
+	public void setProcurementType(String procurementType) {
+		this.procurementType = procurementType;
+	}
+
+	public String getDataFrom() {
+		return dataFrom;
+	}
+
+	public void setDataFrom(String dataFrom) {
+		this.dataFrom = dataFrom;
+	}
+
+	public String getPlant() {
+		return plant;
+	}
+
+	public void setPlant(String plant) {
+		this.plant = plant;
+	}
+
+	public int getRohos() {
+		return rohos;
+	}
+
+	public void setRohos(int rohos) {
+		this.rohos = rohos;
+	}
+
+	
+
+public String getRev() {
+		return rev;
+	}
+
+	public void setRev(String rev) {
+		this.rev = rev;
+	}
+
+public String getMaterialGroup() {
+	return materialGroup;
+}
+
+public void setMaterialGroup(String materialGroup) {
+	this.materialGroup = materialGroup;
+}
+
+public String getMaterialType() {
+	return materialType;
+}
+
+public void setMaterialType(String materialType) {
+	this.materialType = materialType;
+}
+
+
+
+public int getIndex() {
+	return index;
+  }
+  
+  public void setIndex(int index) {
+	this.index = index;
+  }
+  
+  public String getItemId() {
+	return itemId;
+  }
+  
+  public void setItemId(String itemId) {
+	this.itemId = itemId;
+ }
+  
+ public String getMfg() {
+	return mfg==null?"":mfg;
+ }
+ 
+  public void setMfg(String mfg) {
+	this.mfg = mfg;
+  }
+  
+  public String getMfgPN() {
+	return mfgPN==null?"":mfgPN;
+  }
+public void setMfgPN(String mfgPN) {
+	this.mfgPN = mfgPN;
+}
+public String getUnit() {
+	return unit==null?"":unit;
+}
+public void setUnit(String unit) {
+	this.unit = unit;
+}
+public String getDescr() {
+	return descr==null?"":descr;
+}
+public void setDescr(String descr) {
+	this.descr = descr;
+}
+
+  
+  
+  
+}

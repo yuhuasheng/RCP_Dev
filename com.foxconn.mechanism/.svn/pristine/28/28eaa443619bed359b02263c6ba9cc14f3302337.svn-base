@@ -1,0 +1,20 @@
+package com.foxconn.mechanism.dtpac.matmaintain.dialog;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import cn.hutool.core.io.IoUtil;
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
+
+public class ExcelTest {
+
+	public static void main(String[] args) {
+		ExcelReader reader = ExcelUtil.getReader("C:\\Users\\MW00333\\Desktop\\DT_PAC_Material_Maintain_Template.xlsx", "Material");
+		List<List<Object>> tempReadList = reader.read();
+		List<List<Object>> matList = new ArrayList<List<Object>>();
+		matList.addAll(tempReadList);
+		matList.remove(0);
+		IoUtil.close(reader);
+	}
+}

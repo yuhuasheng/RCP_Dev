@@ -1,0 +1,15 @@
+package com.foxconn.mechanism.mntL5MgfEcnManagement;
+
+public class ECNBean {
+	
+	public boolean isSelected;
+	public int number;
+	public String ecnNumber;
+	public String objectName;
+	public String realUser;
+	public String changeCategory;
+	public String reasonCode;
+	public String changeDesc;
+	public String changeAnalyst;
+
+}

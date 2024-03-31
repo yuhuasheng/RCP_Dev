@@ -1,0 +1,795 @@
+package com.teamcenter.rac.workflow.commands.adhoc;
+
+import com.foxconn.decompile.util.TCUtil;
+import com.teamcenter.rac.aif.AbstractAIFOperation;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.common.TCTreeNode;
+import com.teamcenter.rac.common.organization.OrgObject;
+import com.teamcenter.rac.common.organization.OrgTreePanel;
+import com.teamcenter.rac.common.organization.OrgUserSelectionPanel;
+import com.teamcenter.rac.common.organization.ProjectTeamSelectionPanel;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentGroupMember;
+import com.teamcenter.rac.kernel.TCComponentProfile;
+import com.teamcenter.rac.kernel.TCComponentProject;
+import com.teamcenter.rac.kernel.TCComponentRole;
+import com.teamcenter.rac.kernel.TCComponentSignoff;
+import com.teamcenter.rac.kernel.TCComponentTask;
+import com.teamcenter.rac.kernel.TCComponentType;
+import com.teamcenter.rac.kernel.TCComponentUser;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCPreferenceService;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.rac.kernel.TCSignoffOriginType;
+import com.teamcenter.rac.util.ConfirmationDialog;
+import com.teamcenter.rac.util.Registry;
+import com.teamcenter.rac.workflow.commands.newprocess.UserExtNewProcessDialog;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import javax.swing.ListCellRenderer;
+import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+//import org.apache.log4j.Logger;
+import javax.swing.tree.TreeNode;
+
+public class UserGenericUserSelectionPanel extends JPanel {
+	protected TCSession session;
+
+	protected Registry appReg;
+
+	private OrgUserSelectionPanel orgUserSelectionPanel;
+
+	private ProjectTeamSelectionPanel projectTeamSelectionPanel;
+
+	private static final String ORGANIZATION_TAB_LABEL_KEY = "organizationLabel";
+
+	private static final String PROJECT_TEAM_TAB_LABEL_KEY = "projectTeamsLabel";
+
+	private static final String USER = "User";
+
+	private static final String INVALID_SIGNOFF_SELECTION = "InvalidSelectionReason.INVALID_SELECTION";
+
+	private static final String DUPLICATE_SIGNOFF_SELECTION = "InvalidSelectionReason.DUPLICATE_SIGNOFF";
+
+	private static final String MORE_THAN_REQUIRED_SIGNOFFS_SELECTED = "InvalidSelectionReason.MORE_THAN_REQUIRED";
+
+	public static final String PROFILE_SIGNOFFS_MET = "InvalidSelectionReason.PROFILE_SIGNOFFS_MET";
+
+	private int pendingSignOffs;
+
+	private String signOffType;
+
+	private TCComponentRole selectedProfileRoleComp;
+
+	JTabbedPane tabbedPane;
+
+	private int signOffsRequired;
+
+	private TCComponentGroup selectedProfileGrpComp;
+
+	private boolean subGroupsAllowed;
+
+	private int selectedProfileChildCount;
+
+	private Object[] assignedUserSignoffs;
+
+	private TCComponentGroupMember selectedSignoffGroupMember;
+
+	private OrgTreePanel orgTreePanel;
+
+	private TCComponentProject defaultProject;
+
+	private TCComponentProject[] projects;
+
+	private TCComponentProject[] m_owningProjects;
+
+	private boolean m_orgTabRemoved = false;
+
+	private boolean m_projectTabRemoved = false;
+
+	JComboBox projectsListCombo;
+
+	private TCComponent[] targetObjects = null;
+
+	private boolean projectsTreeLoaded = false;
+
+//  private static final Logger logger = Logger.getLogger(GenericUserSelectionPanel.class);
+
+	private String m_showPanels = "org_default";
+
+	// recompile 20220323143000 : START
+	protected PublicAccountPanel publicAccountPanel;
+	private SignoffTree signoffTree;
+	private String nodeName = "";
+	private String projectId = "";
+	
+	public UserGenericUserSelectionPanel(TCSession paramTCSession, SignoffTree signoffTree, String nodeName, String projectId) {
+		this(null, paramTCSession, signoffTree, nodeName, projectId);					
+	}
+	// 20220323143000 : END
+	
+	public UserGenericUserSelectionPanel(Frame paramFrame, TCSession paramTCSession, SignoffTree signoffTree, String nodeName, String projectId) {
+		// recompile 20220323143000 : START
+		// new add Constructor Parameter signoffTree,nodeName, projectId
+		// 20220323143000 : END
+		this(paramFrame, paramTCSession, signoffTree, null, nodeName, projectId);
+	}
+
+	public UserGenericUserSelectionPanel(Frame paramFrame, TCSession paramTCSession, SignoffTree signoffTree, TCComponentGroup paramTCComponentGroup, String nodeName, String projectId) {
+		// recompile 20220323143000 : START
+		// new add Constructor Parameter signoffTree,nodeName, projectId
+		// 20220323143000 : END
+		super(true);
+		this.session = paramTCSession;
+		this.signoffTree = signoffTree;
+		this.nodeName = nodeName;
+		this.projectId = projectId;	
+				
+		initializePreferences();
+		initializePanel();						
+	}
+
+	private void initializePreferences() {
+		TCPreferenceService tCPreferenceService = null;
+		try {
+			if (this.session != null) {
+				tCPreferenceService = this.session.getPreferenceService();
+				this.m_showPanels = tCPreferenceService.getStringValue("WRKFLW_show_user_assignment_options");
+			}
+		} catch (Exception exception) {
+			exception.printStackTrace();
+//      	logger.warn("Exception while reading preference WRKFLW_show_user_assignment_options", exception);
+		}
+		if (this.m_showPanels == null)
+			this.m_showPanels = "org_default";
+	}
+
+	protected void initializePanel() {
+		this.appReg = Registry.getRegistry(this);
+		setOrgUserSelectionPanel();
+		setProjectTeamSelectionPanel();
+		setLayout(new BorderLayout());
+		JPanel jPanel = createTabbedPanel();
+		add("Center", jPanel);
+		validate();
+		repaint();
+	}
+
+	protected void setOrgUserSelectionPanel() {
+		this.orgUserSelectionPanel = new OrgUserSelectionPanel(this.session, true);
+		this.orgTreePanel = this.orgUserSelectionPanel.getOrgTreePanel();
+		resetActionListnersOnSearchButtons();
+		this.orgUserSelectionPanel.hideDetailsInfoPanel();
+		this.orgUserSelectionPanel.setOrgTreeSelectionMode(1);
+		this.orgUserSelectionPanel.setSelectionCriteria(false, false, true);
+		this.orgUserSelectionPanel.setAllowAllTypeResoucePoolSelection(true);
+		this.orgUserSelectionPanel.enableResourcePoolSection(true);
+	}
+
+	protected void setProjectTeamSelectionPanel() {
+		this.projectTeamSelectionPanel = new ProjectTeamSelectionPanel(this.session);
+	}
+
+	protected JPanel createTabbedPanel() {
+		JPanel jPanel1 = new JPanel(new BorderLayout());
+		this.tabbedPane = new JTabbedPane(1);
+		String str1 = this.appReg.getString("organizationLabel");
+		String str2 = this.appReg.getString("projectTeamsLabel");
+		JPanel jPanel2 = new JPanel();
+		JPanel jPanel3 = new JPanel();
+		this.tabbedPane.addTab(str1, jPanel2);
+		this.tabbedPane.addTab(str2, jPanel3);
+		// recompile 20220323143000 : START	
+		publicAccountPanel = new PublicAccountPanel(session, projectId, getPublicMailInfo());
+		this.tabbedPane.addTab("指派實際工程師", publicAccountPanel);
+		// 20220323143000 : END
+		if (this.m_showPanels.equals("project_default")) {
+			updateTab(1);
+			this.tabbedPane.setSelectedIndex(1);
+		} else if (this.m_showPanels.equals("org_only")) {
+			updateTab(0);
+			this.tabbedPane.removeTabAt(1);
+			this.m_projectTabRemoved = true;
+		} else if (this.m_showPanels.equals("project_only")) {
+			updateTab(1);
+			this.tabbedPane.setSelectedIndex(1);
+			this.tabbedPane.removeTabAt(0);
+			this.m_orgTabRemoved = true;
+		} else {
+			updateTab(0);
+		}
+		this.tabbedPane.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent param1ChangeEvent) {
+				JTabbedPane jTabbedPane = (JTabbedPane) param1ChangeEvent.getSource();
+				int i = jTabbedPane.getSelectedIndex();
+				UserGenericUserSelectionPanel.this.updateTab(i);
+				UserGenericUserSelectionPanel.this.projectTeamSelectionPanel.initiateProfileFilter();
+								
+				if (2 == i) {					
+					publicAccountPanel.publicMailPanel.initializePanel(getPublicMailInfo());
+				}
+			}
+		});
+		jPanel1.add(this.tabbedPane, "Center");
+		return jPanel1;
+	}
+
+	public void addAllUserProjects() {
+		this.projectsListCombo = this.projectTeamSelectionPanel.getProjectsListCombo();
+		TCComponent[] arrayOfTCComponent = null;
+		try {
+			arrayOfTCComponent = this.session.getUser().getRelatedComponents("user_projects");
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+//      	Logger.getLogger(UserGenericUserSelectionPanel.class).error(tCException.getLocalizedMessage(), tCException);
+		}
+		if (arrayOfTCComponent == null || arrayOfTCComponent.length == 0)
+			return;
+		TCComponentProject tCComponentProject = (TCComponentProject) ((this.session.getCurrentProject() != null)
+				? this.session.getCurrentProject()
+				: arrayOfTCComponent[0]);
+		this.projectsListCombo.addItem(tCComponentProject);
+		for (int b = 0; arrayOfTCComponent != null && b < arrayOfTCComponent.length; b++) {
+			if (arrayOfTCComponent[b] != tCComponentProject)
+				this.projectsListCombo.addItem(arrayOfTCComponent[b]);
+		}
+		this.projectsListCombo.setSelectedItem(tCComponentProject);
+	}
+
+	private void updateTab(int paramInt) {
+		JPanel jPanel = null;
+		if (paramInt == 0 && this.orgUserSelectionPanel != null) {
+			jPanel = new JPanel(new BorderLayout());
+			jPanel.add(this.orgUserSelectionPanel, "Center");
+			this.projectTeamSelectionPanel.getTeamRoleUserTree().clearSelection();
+		} else if (paramInt == 1) {
+			if (!this.projectsTreeLoaded) {
+				this.projectsTreeLoaded = true;
+				setProjects();
+			}
+			jPanel = new JPanel(new BorderLayout());
+			jPanel.add(this.projectTeamSelectionPanel, "Center");
+			this.orgUserSelectionPanel.getOrgTreePanel().getOrgTree().clearSelection();
+			this.projectsListCombo = this.projectTeamSelectionPanel.getProjectsListCombo();
+			if (this.projectsListCombo.getItemCount() == 0 && this.projects != null && this.projects.length > 0) {
+				if (this.m_owningProjects != null && this.m_owningProjects.length > 0)
+					this.projectsListCombo.setRenderer(new ProjectCellRenderer(this.m_owningProjects));
+				this.projectsListCombo.addItem(this.defaultProject);
+				for (int b = 0; this.projects != null && b < this.projects.length; b++) {
+					if (this.projects[b] != this.defaultProject)
+						this.projectsListCombo.addItem(this.projects[b]);
+				}
+				this.projectsListCombo.setSelectedItem(this.defaultProject);
+			}
+		}
+		if (jPanel != null) {
+			int i = paramInt;
+			if (paramInt == 1 && this.m_orgTabRemoved)
+				i = 0;
+			this.tabbedPane.setComponentAt(i, jPanel);
+		}
+	}
+
+	public OrgUserSelectionPanel getOrgUserSelectionPanel() {
+		return this.orgUserSelectionPanel;
+	}
+
+	public ProjectTeamSelectionPanel getProjectTeamSelectionPanel() {
+		return this.projectTeamSelectionPanel;
+	}
+
+	public void removeProjectTab() {
+		updateTab(0);
+		if (this.tabbedPane.getTabCount() != 0 && this.tabbedPane.getTabCount() == 2)
+			this.tabbedPane.remove(1);
+		this.m_projectTabRemoved = true;
+	}
+
+	public void validateButtons() {
+		if (this.signOffType != null && this.signOffType.equalsIgnoreCase("TCComponentProfile")
+				&& this.selectedProfileChildCount >= this.signOffsRequired) {
+			String str = this.appReg.getString("InvalidSelectionReason.PROFILE_SIGNOFFS_MET");
+			disableButtons(str);
+			return;
+		}
+		enableButtons();
+	}
+
+	public void disableButtons(String paramString) {
+		getParent().getParent().setEnabled(false);
+		setLabelMessage(paramString);
+		JPanel jPanel = (JPanel) getParent().getParent().getParent().getComponent(0);
+		jPanel.getComponent(0).setEnabled(false);
+		if (this.signOffType != null && (this.signOffType.equals("TCComponentSignoff")
+				|| this.signOffType.equalsIgnoreCase("TCComponentGroupMember"))) {
+			jPanel.getComponent(2).setVisible(true);
+			jPanel.getComponent(2).setEnabled(false);
+		} else {
+			jPanel.getComponent(2).setVisible(false);
+		}
+	}
+
+	private void setLabelMessage(String paramString) {
+		JLabel jLabel = (JLabel) getParent().getParent().getComponent(0);
+		if (paramString == null)
+			paramString = "";
+		jLabel.setText(paramString);
+		if (!paramString.equals(""))
+			jLabel.setForeground(Color.RED);
+	}
+
+	public void enableButtons() {
+		getParent().getParent().setEnabled(true);
+		setLabelMessage("");
+		JPanel jPanel = (JPanel) getParent().getParent().getParent().getComponent(0);
+		jPanel.getComponent(0).setEnabled(true);
+		if (this.signOffType != null && (this.signOffType.equalsIgnoreCase("TCComponentSignoff")
+				|| this.signOffType.equalsIgnoreCase("TCComponentAliasList")
+				|| this.signOffType.equalsIgnoreCase("TCComponentGroupMember")
+				|| this.signOffType.equalsIgnoreCase("AliasList"))) {
+			jPanel.getComponent(2).setVisible(true);
+			jPanel.getComponent(2).setEnabled(true);
+		} else {
+			jPanel.getComponent(2).setVisible(false);
+		}
+	}
+
+	private void resetActionListnersOnSearchButtons() {
+    final OrgTreePanel orgTreePanel = this.orgUserSelectionPanel.getOrgTreePanel();
+    JButton jButton1 = orgTreePanel.getUserButton();
+    JButton jButton2 = orgTreePanel.getRefreshButton();
+    ActionListener[] arrayOfActionListener1 = null;
+    arrayOfActionListener1 = jButton1.getActionListeners();
+    ActionListener[] arrayOfActionListener2;
+    int i = (arrayOfActionListener2 = arrayOfActionListener1).length;
+    int b;
+    for (b = 0; b < i; b++) {
+      ActionListener actionListener = arrayOfActionListener2[b];
+      jButton1.removeActionListener(actionListener);
+    } 
+    jButton1.addActionListener(new ActionListener() {
+          public void actionPerformed(ActionEvent param1ActionEvent) {
+            final String searchCriteria = orgTreePanel.getSearchTextField().getText().trim();
+            if (searchCriteria.equals("*")) {
+              int i = ConfirmationDialog.post(AIFUtility.getActiveDesktop(), UserGenericUserSelectionPanel.this.appReg.getString("search.TITLE"), UserGenericUserSelectionPanel.this.appReg.getString("confirmSearchWithStar"));
+              if (i == 1)
+                return; 
+            } 
+            UserGenericUserSelectionPanel.this.session.queueOperation(new AbstractAIFOperation() {
+                  public void executeOperation() {
+                    try {
+                      SwingUtilities.invokeAndWait(new Runnable() {
+                            public void run() {}
+                          });
+                    } catch (Exception exception) {
+                    	exception.printStackTrace();
+//                      logger.error(exception.getClass().getName(), exception);
+                    } 
+                    UserGenericUserSelectionPanel.this.searchOrgTree("User", "user_id", searchCriteria);
+                  }
+                });
+          }
+        });
+    arrayOfActionListener1 = jButton2.getActionListeners();
+    i = (arrayOfActionListener2 = arrayOfActionListener1).length;
+    for (b = 0; b < i; b++) {
+      ActionListener actionListener = arrayOfActionListener2[b];
+      jButton2.removeActionListener(actionListener);
+    } 
+    jButton2.addActionListener(new ActionListener() {
+          public void actionPerformed(ActionEvent param1ActionEvent) { UserGenericUserSelectionPanel.this.session.queueOperation(new AbstractAIFOperation() {
+                  public void executeOperation() {
+                    try {
+                      SwingUtilities.invokeAndWait(new Runnable() {
+                            public void run() {}
+                          });
+                    } catch (Exception exception) {
+                    	exception.printStackTrace();
+//                      logger.error(exception.getClass().getName(), exception);
+                    } 
+                    UserGenericUserSelectionPanel.this.reloadOrgTree();
+                  }
+                }); }
+        });
+  }
+
+	private void reloadOrgTree() {
+		this.orgTreePanel.filterOrgTreeForProfile(this.selectedProfileGrpComp, this.selectedProfileRoleComp, null,
+				this.subGroupsAllowed, null, null, null, false);
+		this.projectTeamSelectionPanel.filterProjectTreeForProfile(this.selectedProfileGrpComp,
+				this.selectedProfileRoleComp, this.subGroupsAllowed);
+	}
+
+	private void searchOrgTree(String paramString1, String paramString2, String paramString3) {
+		this.orgTreePanel.performSearchInContext(this.selectedProfileGrpComp, this.selectedProfileRoleComp,
+				this.subGroupsAllowed);
+	}
+
+	public String checkSignOffsSelectedAreValid() {
+		OrgObject[] arrayOfOrgObject = getSelectedObjects();
+		return (arrayOfOrgObject == null || arrayOfOrgObject.length == 0) ? ""
+				: getReasonForInvalidSelection(arrayOfOrgObject);
+	}
+
+	private String getReasonForInvalidSelection(OrgObject[] paramArrayOfOrgObject) {
+		String str1 = this.appReg.getString("InvalidSelectionReason.INVALID_SELECTION");
+		String str2 = this.appReg.getString("InvalidSelectionReason.DUPLICATE_SIGNOFF");
+		String str3 = this.appReg.getString("InvalidSelectionReason.MORE_THAN_REQUIRED");
+		String str4 = this.appReg.getString("InvalidSelectionReason.PROFILE_SIGNOFFS_MET");
+		if (this.signOffType != null && this.signOffType.equalsIgnoreCase("TCComponentProfile")) {
+			if (this.pendingSignOffs == 0)
+				return str4;
+			if (paramArrayOfOrgObject.length > this.pendingSignOffs)
+				return str3;
+			String str5 = null;
+			String str6 = null;
+			if (this.selectedProfileGrpComp != null)
+				try {
+					str6 = this.selectedProfileGrpComp.getFullName();
+				} catch (TCException tCException) {
+					tCException.printStackTrace();
+//					logger.error(tCException.getClass().getName(), tCException);
+				}
+			if (this.selectedProfileRoleComp != null)
+				str5 = this.selectedProfileRoleComp.toString();
+			for (int b1 = 0; b1 < paramArrayOfOrgObject.length; b1++) {
+				TCComponentRole tCComponentRole = paramArrayOfOrgObject[b1].getRole();
+				String str = null;
+				try {
+					str = paramArrayOfOrgObject[b1].getGroup().getFullName();
+				} catch (TCException tCException) {
+					tCException.printStackTrace();
+//					logger.error(tCException.getClass().getName(), tCException);
+				}
+				if (str6 != null)
+					if (!this.subGroupsAllowed) {
+						if (str == null || !str.equalsIgnoreCase(str6))
+							return str1;
+					} else if (this.subGroupsAllowed && (str == null || !str.endsWith(str6))) {
+						return str1;
+					}
+				if (str5 != null && (tCComponentRole == null || !tCComponentRole.toString().equalsIgnoreCase(str5)))
+					return str1;
+			}
+		}
+		for (int b = 0; b < paramArrayOfOrgObject.length; b++) {
+			TCComponentGroup tCComponentGroup = paramArrayOfOrgObject[b].getGroup();
+			TCComponentRole tCComponentRole = paramArrayOfOrgObject[b].getRole();
+			TCComponentUser tCComponentUser = paramArrayOfOrgObject[b].getUser();
+			if (tCComponentGroup == null || tCComponentRole == null || tCComponentUser == null)
+				continue;
+			if (this.selectedSignoffGroupMember != null)
+				try {
+					if (this.selectedSignoffGroupMember.getGroup().equals(tCComponentGroup)
+							&& this.selectedSignoffGroupMember.getRole().equals(tCComponentRole)
+							&& this.selectedSignoffGroupMember.getUser().equals(tCComponentUser))
+						continue;
+				} catch (TCException tCException) {
+					tCException.printStackTrace();
+//					logger.error(tCException.getClass().getName(), tCException);
+				}
+			for (int b1 = 0; this.assignedUserSignoffs != null && b1 < this.assignedUserSignoffs.length; b1++) {
+				try {
+					TCComponentGroupMember tCComponentGroupMember = (TCComponentGroupMember) this.assignedUserSignoffs[b1];
+					if (tCComponentGroup.equals(tCComponentGroupMember.getGroup())
+							&& tCComponentRole.equals(tCComponentGroupMember.getRole())
+							&& tCComponentUser.equals(tCComponentGroupMember.getUser()))
+						return str2;
+				} catch (TCException tCException) {
+					tCException.printStackTrace();
+//					logger.error(tCException.getClass().getName(), tCException);
+				}
+			}
+			continue;
+		}
+		return null;
+	}
+
+	public void setNumSignOffsPending(int paramInt) {
+		this.pendingSignOffs = paramInt;
+	}
+
+	public void setSignOffType(String paramString) {
+		this.signOffType = paramString;
+	}
+
+	public void setProfileRoleComp(TCComponentRole paramTCComponentRole) {
+		this.selectedProfileRoleComp = paramTCComponentRole;
+	}
+
+	public void setAssignedUserSignOffs(Set paramSet) {
+		if (paramSet == null) {
+			paramSet = null;
+		} else {
+			this.assignedUserSignoffs = paramSet.toArray();
+		}
+	}
+
+	public void addToSelectedProfileChildCount(int paramInt) {
+		this.selectedProfileChildCount += paramInt;
+	}
+
+	public void removeFromSelectedProfileChildCount(int paramInt) {
+		this.selectedProfileChildCount -= paramInt;
+	}
+
+	public void setSelectedProfileChildCount(int paramInt) {
+		this.selectedProfileChildCount = paramInt;
+	}
+
+	public void setSignoffRequired(int paramInt) {
+		this.signOffsRequired = paramInt;
+	}
+
+	public void setProfileGroupComp(TCComponentGroup paramTCComponentGroup) {
+		this.selectedProfileGrpComp = paramTCComponentGroup;
+	}
+
+	public void isSubGroupsAllowed(boolean paramBoolean) {
+		this.subGroupsAllowed = paramBoolean;
+	}
+
+	public boolean getSubGroupsAllowed() {
+		return this.subGroupsAllowed;
+	}
+
+	public void selectAllmemberResPoolRadio(boolean paramBoolean) {
+		if (this.tabbedPane.getSelectedIndex() == 0) {
+			this.orgUserSelectionPanel.getOrgTreePanel().getAllMemberResPoolRadio().setSelected(paramBoolean);
+		} else if (this.tabbedPane.getSelectedIndex() == 1) {
+			this.projectTeamSelectionPanel.getAllMemberResPoolRadio().setSelected(paramBoolean);
+		}
+	}
+
+	public void selectAnyMemberResPoolRadio(boolean paramBoolean) {
+		if (this.tabbedPane.getSelectedIndex() == 0) {
+			this.orgUserSelectionPanel.getOrgTreePanel().getAnyMemberResPoolRadio().setSelected(paramBoolean);
+		} else if (this.tabbedPane.getSelectedIndex() == 1) {
+			this.projectTeamSelectionPanel.getAnyMemberResPoolRadio().setSelected(paramBoolean);
+		}
+	}
+
+	public void selectAnyGrpRadio(boolean paramBoolean) {
+		if (this.tabbedPane.getSelectedIndex() == 0) {
+			this.orgUserSelectionPanel.getOrgTreePanel().getAnyGrpResourcePoolButton().setSelected(paramBoolean);
+		} else if (this.tabbedPane.getSelectedIndex() == 1) {
+			this.projectTeamSelectionPanel.getAnyGrpResourcePoolButton().setSelected(paramBoolean);
+		}
+	}
+
+	public void selectSpecificGrpRadio(boolean paramBoolean) {
+		if (this.tabbedPane.getSelectedIndex() == 0) {
+			this.orgUserSelectionPanel.getOrgTreePanel().getSpecificGrpResourcePoolButton().setSelected(paramBoolean);
+		} else if (this.tabbedPane.getSelectedIndex() == 1) {
+			this.projectTeamSelectionPanel.getSpecificGrpResourcePoolButton().setSelected(paramBoolean);
+		}
+	}
+
+	public void setDefaultProject(TCComponent paramTCComponent) {
+		this.defaultProject = (TCComponentProject) paramTCComponent;
+	}
+
+	public OrgObject[] getSelectedObjects() {
+		OrgObject[] arrayOfOrgObject = null;
+		TCTreeNode[] arrayOfTCTreeNode = null;
+		if (this.m_showPanels.equals("project_only")) {
+			arrayOfTCTreeNode = this.projectTeamSelectionPanel.getTeamRoleUserTree().getSelectedNodes();
+		} else if (this.tabbedPane.getSelectedIndex() == 0) {
+			arrayOfOrgObject = this.orgUserSelectionPanel.getSelectedObjects();
+		} else if (this.tabbedPane.getSelectedIndex() == 1) {
+			arrayOfTCTreeNode = this.projectTeamSelectionPanel.getTeamRoleUserTree().getSelectedNodes();
+		}
+		ArrayList arrayList = new ArrayList();
+		for (int b1 = 0; arrayOfOrgObject != null && b1 < arrayOfOrgObject.length; b1++)
+			arrayList.add(arrayOfOrgObject[b1]);
+		for (int b2 = 0; arrayOfTCTreeNode != null && b2 < arrayOfTCTreeNode.length; b2++) {
+			OrgObject orgObject = this.orgUserSelectionPanel.getOrgTreePanel().getOrgTree()
+					.getOrgObject(arrayOfTCTreeNode[b2]);
+			if (orgObject != null && !arrayList.contains(orgObject))
+				arrayList.add(orgObject);
+		}
+		return (OrgObject[]) arrayList.toArray(new OrgObject[arrayList.size()]);
+	}
+
+	public int getActiveTabIndex() {
+		return this.tabbedPane.getSelectedIndex();
+	}
+
+	public TCComponentProject[] getValidProjects(TCComponent[] paramArrayOfTCComponent) {
+		TCComponentProject[] arrayOfTCComponentProject = null;
+		try {
+			ArrayList arrayList1 = new ArrayList(paramArrayOfTCComponent.length);
+			for (int b1 = 0; b1 < paramArrayOfTCComponent.length; b1++) {
+				TCComponentProject tCComponentProject = (TCComponentProject) paramArrayOfTCComponent[b1];
+				arrayList1.add(tCComponentProject);
+			}
+			TCComponentType.getTCPropertiesSet(arrayList1, new String[] { "object_string", "is_active" });
+			TCComponent[] arrayOfTCComponent1 = this.session.getUser().getRelatedComponents("user_projects");
+			if (arrayOfTCComponent1 == null)
+				return null;
+			ArrayList<TCComponent> arrayList2 = new ArrayList(arrayOfTCComponent1.length);
+			TCComponent[] arrayOfTCComponent2;
+			int i = (arrayOfTCComponent2 = arrayOfTCComponent1).length;
+			for (int b2 = 0; b2 < i; b2++) {
+				TCComponent tCComponent = arrayOfTCComponent2[b2];
+				arrayList2.add(tCComponent);
+			}
+			TCComponentType.getTCPropertiesSet(arrayList2, new String[] { "object_string", "is_active" });
+			ArrayList arrayList3 = new ArrayList();
+			for (TCComponent tCComponent : arrayList2) {
+				boolean bool = tCComponent.getLogicalProperty("is_active");
+				if (arrayList1.contains(tCComponent) && bool)
+					arrayList3.add(tCComponent);
+			}
+			arrayOfTCComponentProject = (TCComponentProject[]) arrayList3
+					.toArray(new TCComponentProject[arrayList3.size()]);
+			sortProjectsByName(arrayOfTCComponentProject);
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+//			logger.error(tCException.getClass().getName(), tCException);
+		}
+		return arrayOfTCComponentProject;
+	}
+
+	private void sortProjectsByName(Object[] paramArrayOfObject) {
+		Comparator comparator = new Comparator() {
+			public int compare(Object param1Object1, Object param1Object2) {
+				String str1 = ((TCComponentProject) param1Object1).toString();
+				String str2 = ((TCComponentProject) param1Object2).toString();
+				String str3 = str1.toUpperCase();
+				String str4 = str2.toUpperCase();
+				return str3.compareTo(str4);
+			}
+		};
+		Arrays.sort(paramArrayOfObject, comparator);
+	}
+
+	public int getSelectedProfilePendingSignoffcount() {
+		return this.pendingSignOffs;
+	}
+
+	public void setTargetObjects(ArrayList paramArrayList) {
+		if (paramArrayList == null)
+			return;
+		this.targetObjects = (TCComponent[]) paramArrayList.toArray(new TCComponent[paramArrayList.size()]);
+		boolean bool = true;
+		if (this.projectTeamSelectionPanel != null)
+			bool = this.projectTeamSelectionPanel.isShowing();
+		if (!this.m_projectTabRemoved
+				&& (bool || this.m_showPanels.equals("project_default") || this.m_showPanels.equals("project_only")))
+			updateTab(1);
+	}
+
+	private void setProjects() {
+		if (this.targetObjects == null) {
+			this.projectsTreeLoaded = false;
+			return;
+		}
+		try {
+			TCComponent[] arrayOfTCComponent1 = null;
+			HashSet hashSet1 = new HashSet();
+			ArrayList arrayList = new ArrayList(this.targetObjects.length);
+			TCComponent[] arrayOfTCComponent2;
+			int i = (arrayOfTCComponent2 = this.targetObjects).length;
+			int b;
+			for (b = 0; b < i; b++) {
+				TCComponent tCComponent = arrayOfTCComponent2[b];
+				arrayList.add(tCComponent);
+			}
+			if (arrayList.size() == 0)
+				return;
+			TCComponentType.getTCPropertiesSet(arrayList, new String[] { "project_list", "owning_project" });
+			HashSet hashSet2 = new HashSet();
+			for (b = 0; b < this.targetObjects.length; b++) {
+				arrayOfTCComponent1 = this.targetObjects[b].getReferenceListProperty("project_list");
+				TCComponent tCComponent = this.targetObjects[b].getReferenceProperty("owning_project");
+				if (tCComponent != null)
+					hashSet2.add((TCComponentProject) tCComponent);
+				for (int b1 = 0; arrayOfTCComponent1 != null && b1 < arrayOfTCComponent1.length; b1++)
+					hashSet1.add(arrayOfTCComponent1[b1]);
+			}
+			arrayOfTCComponent1 = (TCComponent[]) hashSet1.toArray(new TCComponent[hashSet1.size()]);
+			if (arrayOfTCComponent1 == null || arrayOfTCComponent1.length == 0) {
+				this.m_owningProjects = null;
+				return;
+			}
+			this.projects = getValidProjects(arrayOfTCComponent1);
+			hashSet2.retainAll(Arrays.asList(this.projects));
+			if (hashSet2.size() > 0) {
+				this.m_owningProjects = (TCComponentProject[]) hashSet2.toArray(new TCComponentProject[hashSet2.size()]);
+				setDefaultProject(this.m_owningProjects[0]);
+			} else {
+				this.m_owningProjects = null;
+				if (this.projects != null && this.projects.length > 0)
+					setDefaultProject(this.projects[0]);
+			}
+		} catch (TCException tCException) {
+			tCException.printStackTrace();
+//			logger.error(tCException.getClass().getName(), tCException);
+		}
+	}
+
+	public void setSelectedSignoffGroupMember(TCComponentGroupMember paramTCComponentGroupMember) {
+		this.selectedSignoffGroupMember = paramTCComponentGroupMember;
+	}
+
+	private class ProjectCellRenderer extends JLabel implements ListCellRenderer<Object> {
+		private List<TCComponentProject> m_owningProjects = null;
+
+		public ProjectCellRenderer(TCComponentProject[] param1ArrayOfTCComponentProject) {
+			this.m_owningProjects = Arrays.asList(param1ArrayOfTCComponentProject);
+		}
+
+		public Component getListCellRendererComponent(JList<?> param1JList, Object param1Object, int param1Int,
+				boolean param1Boolean1, boolean param1Boolean2) {
+			String str = param1Object.toString();
+			if (this.m_owningProjects.contains(param1Object))
+				str = String.valueOf(str) + " *";
+			setText(str);
+			if (param1Boolean1) {
+				setBackground(param1JList.getSelectionBackground());
+				setForeground(param1JList.getSelectionForeground());
+			} else {
+				setBackground(param1JList.getBackground());
+				setForeground(param1JList.getForeground());
+			}
+			setEnabled(param1JList.isEnabled());
+			setFont(param1JList.getFont());
+			setOpaque(true);
+			return this;
+		}
+	}
+	
+	// recompile 20220323143000 : START
+	private List<List<String>> getPublicMailInfo() {
+		List<List<String>> retLst = new ArrayList<List<String>>();
+		
+		try {
+			SignoffTreeNode rootNode = signoffTree.getRootNode();
+			int fCount = rootNode.getChildCount();
+			for (int fi = 0; fi < fCount; fi++) {
+				TreeNode fTreeNode = rootNode.getChildAt(fi);				
+//				if ("Users".equals(fTreeNode.toString())) {
+					int sCount = fTreeNode.getChildCount();
+					for (int si = 0; si < sCount; si++) {
+						List<String> contentLst = new ArrayList<String>();						
+						TreeNode sTreeNode1 = fTreeNode.getChildAt(si);						
+						contentLst.add(this.nodeName);
+						contentLst.add(TCUtil.parseBracket(TCUtil.parseNode(sTreeNode1.toString())));
+						
+						retLst.add(contentLst);
+					}
+//				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return retLst;
+	}
+	// 20220323143000 : END
+	
+}

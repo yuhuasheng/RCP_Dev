@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy source folder &apos;TcSoaCommon_14000.2.0.jar&apos; to &apos;com.teamcenter.rac.issuemanager&apos;&#x0D;&#x0A;- Original project: &apos;com.foxconn.TCFunctionDemo&apos;&#x0D;&#x0A;- Destination element: &apos;com.teamcenter.rac.issuemanager&apos;&#x0D;&#x0A;- Original element: &apos;com.foxconn.TCFunctionDemo/lib/TcSoaCommon_14000.2.0.jar&apos;" description="Copy source folder" element1="/lib\/TcSoaCommon_14000.2.0.jar" flags="6" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyRoots" roots="1" stamp="1703569834080" target="/com.teamcenter.rac.issuemanager" version="1.0"/>
+</session>

@@ -1,0 +1,189 @@
+package com.foxconn.dp.plm.syncdoc.mapper;
+
+import java.util.List;
+import java.util.Map;
+
+import com.foxconn.dp.plm.syncdoc.domain.*;
+import org.apache.ibatis.annotations.Param;
+
+
+public interface SyncDocMapper {
+	
+	List<Integer> getDMSProjectFolderParentId(Integer dmsProjectFolderId);
+	List<Integer> getDMSProjectFolderChildId(Integer dmsProjectFolderId);
+	void updateDMSFolderRef(@Param("folderIds")List<Integer> folderIds);
+	
+	List<ObjDocument> getDocs();
+	
+	int getDMSProjectCount(@Param("spasId")String spasId);
+	
+	ObjDocument getDocCreator(@Param("docNum")String docNum);
+	
+	void setDocCreator(@Param("docInfos")List<ObjDocument> docInfos);
+	
+	void setDocRevCreator(@Param("docInfos")List<ObjDocument> docInfos);
+	
+	List<Integer> getDMSNoAccountDataId(@Param("dmsProjectFolderId")Integer dmsProjectFolderId, @Param("departments")List<String> departments);
+	
+	List<Integer> getDMSHasAccountDataId(@Param("dmsProjectFolderId")Integer dmsProjectFolderId, @Param("departments")List<String> departments);
+	
+	void setDMSNoAccountDataSource(List<Integer> dmsNoAccountDataId);
+	
+	void setDMSHasAccountDataSource(List<Integer> dmsHasAccountDataId);
+	
+	List<ProjectInfo> getTCDMSProjectInfo();
+	
+	void changeProjectName(List<ProjectInfo> projectInfos);
+	
+	void changeFolderName(List<ProjectInfo> projectInfos);
+	
+	void getProjectDifference(Map map);//获取专案差异
+	
+	List<Project> getProjectInfo(List<String> spasId);//获取专案信息
+	
+	void TCProjectToDMS(Map map);//TC专案同步到DMS
+	
+	List<String> getTCProjectFolderSPASId();//获取TC所有项目文件夹spasId
+	
+	void getFolderStructureDifference(Map map);//获取专案结构差异
+	
+	void TCStructureToDMS(Map map);//TC专案结构同步到DMS
+	
+	String DMSStructureToTC(Map map);//DMS专案结构同步到TC
+	
+	void setFolderRefId(@Param("folderId")String folderId, @Param("folderPuid")String folderPuid);
+	
+	void setFolderDelFlag(@Param("folderId")String folderId);
+	
+	void getDocStructureDifference(Map map);//获取专案文档结构差异
+	
+	Integer getDocParentId(Map map);//获取文档父id
+	
+	List<ItemRevInfo> getItemRevInfo(String itemId);//根据item_id获取所有版本信息
+	
+	void TCDocToDMS1(@Param("parentId")Integer parentId, @Param("itemId")String itemId);
+	
+	int getDocumentSeq();
+	
+	void TCDocToDMS2(Map map);
+	
+	void TCDocToDMS(Map map);
+	
+	List<String> getDocNum();
+	
+	void getRevStructureDifference(Map map);
+	
+	List<Integer> getDMSLastFolderIds(Integer DMSProjectId);
+	
+	List<String> getItemIds(Integer DMSFolderId);
+	
+	DMSDocInfo getDMSDocInfo(String itemId);
+	
+	String getItemRevRealAuthor(@Param("docId")String docId);
+	
+	String getItemRevUploadDate(@Param("docId")String docId,@Param("docRev")String docRev);
+
+	Integer getDMSItemRevId(@Param("docId")String docId,@Param("docRev")String docRev);
+	
+	String getDMSFileName(@Param("docId")String docId,@Param("docRev")String docRev);
+	
+	String getTCProjectFolderPUID(String spasId);
+	
+	List<String> getTCProjectFolderDocItemIds(String TCProjectFolderPUID);
+
+	Integer getDMSItemCount(String docItemId);
+	
+	List<ItemInfo> getTCItemInfo(@Param("TCProjectFolderPUID")String TCProjectFolderPUID,@Param("itemId")String itemId);
+
+	Integer getDMSItemParentId(@Param("DMSProjectFolderId")String DMSProjectFolderId,@Param("level")String level, @Param("name")String name, @Param("path")String path);
+
+	Integer getDMSProjectFolderId(@Param("spasId")String spasId);
+	
+	List<String> getDMSProjectFolderDocItemIds(@Param("DMSProjectFolderId")Integer DMSProjectFolderId);
+
+	Integer getTCItemCount(@Param("TCProjectFolderPUID")String TCProjectFolderPUID,@Param("docItemId")String docItemId);
+	
+	List<ItemInfo> getDMSItemInfo(@Param("DMSProjectFolderId")String DMSProjectFolderId,@Param("itemId")String itemId);
+	
+	String getTCItemParentId(@Param("TCProjectFolderPUID")String TCProjectFolderPUID, @Param("level")String level, @Param("name")String name, @Param("path")String path);
+	
+	List<DocRevInfo> getTCProjectDocRev(@Param("TCProjectFolderPUID")String TCProjectFolderPUID);
+
+	Integer getDocRevCount(@Param("docId")String docId);
+	
+	List<DocRevInfo> getDMSProjectDocRev(@Param("DMSProjectFolderId") Integer DMSProjectFolderId);
+	
+	void addTCDocRevInfo(List<DocRevInfo> TCDocRevInfo);
+	
+	void addDMSDocRevInfo(List<DocRevInfo> DMSDocRevInfo);
+	
+	void getDocRevDifferenceData(Map map);
+	
+	String getItemRevOwning(@Param("tcDocRevId")String tcDocRevId);
+	
+	Integer getDMSDocSN(@Param("docId")String docId);
+
+	Integer getParentFolderId(@Param("DMSProjectFolderId")String DMSProjectFolderId,@Param("docPath")String docPath);
+	
+	void addDMSDocRev(Map map);
+
+	Integer getItemRevSource(@Param("docId")String docId, @Param("docRev")String docRev);
+	
+	void setItemRevDelFlag(Map map);
+	
+	String getTCParentFolderId(@Param("TCProjectFolderPUID")String TCProjectFolderPUID,@Param("docPath")String docPath);
+
+	String getTCDocRevId(@Param("docId")String docId, @Param("frontDocRev")String frontDocRev);
+	
+	String getDMSItemRevName(@Param("docId")String docId, @Param("docRev")String docRev);
+	
+	List<ItemRevInfo1> getItemRevRefData();
+	
+	String getItemRevRefId(@Param("docNum")String docNum, @Param("versionNum")String versionNum);
+	
+	void setItemRevRefId(Map map);
+	
+	List<ItemRevInfo1> getItemRevStateData();
+	
+	Integer getItemRevStateCount(@Param("docNum")String docNum,@Param("versionNum")String versionNum);
+	
+	List<String> getItemRevStateName(@Param("docNum")String docNum,@Param("versionNum")String versionNum);
+	
+	void setItemRevState(Map map);
+	
+	List<CirculateInfo> geCirculateTodayData(String today);
+	
+	DocIdAndRevInfo getDocIdAndRev(@Param("revId")Integer revId);
+	
+	String getItemRevPuid(@Param("docNum")String docNum, @Param("revNum")String revNum) throws Exception;
+	
+	void setProcessingResult(Map map);
+	
+	Integer getTCItemRevProcessState(Map map);
+	
+	int getDocSnByDocNum(String DocNum);
+	
+	void setDMSDocRevIssueState(Map map);
+	
+	Integer getDMSItemRevProcessState(@Param("docId")String docId, @Param("docRev")String docRev);
+	
+	Integer getItemRevProcessStateCount(@Param("docId")String docId, @Param("docRev")String docRev);
+	
+	String getItemRevProcessStateName(@Param("docId")String docId, @Param("docRev")String docRev);
+	
+	ProjectFolderRefInfo getDMSFolderRef(@Param("projectFolderId")String projectFolderId,@Param("level")String level,
+			@Param("parentName")String parentName, @Param("childName")String childName, @Param("folderPath")String folderPath);
+	
+	String getTCFolderId(@Param("tcProjectId")String tcProjectId, @Param("level")String level,
+			@Param("parentName")String parentName, @Param("childName")String childName, @Param("folderPath")String folderPath);
+	
+	Map<String,Object> getDMSFolderDelFlag(@Param("tcFolderId")String tcFolderId);
+
+	void setFolderDelFlagNum(@Param("tcFolderId")String tcFolderId);
+	
+	void deleteTCDocRevInfo();
+	
+	void deleteDMSDocRevInfo();
+
+	void updateFolderName(@Param("folderName") String folderName,@Param("fldSN")Long fldSN);
+}

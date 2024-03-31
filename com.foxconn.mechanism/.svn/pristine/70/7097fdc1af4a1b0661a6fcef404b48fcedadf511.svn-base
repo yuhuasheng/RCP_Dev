@@ -1,0 +1,30 @@
+package com.foxconn.mechanism.integrate.hhpnIntegrate;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.swt.widgets.Shell;
+
+import com.teamcenter.rac.aif.AIFDesktop;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aifrcp.AIFUtility;
+import com.teamcenter.rac.util.Registry;
+/**
+ * 
+ * @author wt00110
+ *    料号集成 菜单入口
+ */
+public class HHPNIntegrateHandler extends AbstractHandler {
+	AbstractAIFUIApplication app = null;
+	@Override
+	public Object execute(ExecutionEvent arg0) throws ExecutionException {	
+		Registry reg = null;
+		app = AIFUtility.getCurrentApplication();
+		
+		reg = Registry.getRegistry("com.foxconn.mechanism.integrate.hhpnIntegrate.hhpnintegrate");
+		new InputInfoDialog(app,AIFDesktop.getActiveDesktop().getShell(),reg);
+		return null;
+	}
+	
+	
+}

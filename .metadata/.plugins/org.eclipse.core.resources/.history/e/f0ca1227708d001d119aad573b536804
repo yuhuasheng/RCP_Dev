@@ -1,0 +1,921 @@
+package com.foxconn.savedcnchange.handler;
+
+import java.io.File;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.ibatis.session.SqlSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.foxconn.plm.tcapi.constants.BOMLinePropConstant;
+import com.foxconn.plm.tcapi.constants.DCNFormConstant;
+import com.foxconn.plm.tcapi.constants.ItemRevPropConstant;
+import com.foxconn.plm.tcapi.constants.StatusEnum;
+import com.foxconn.plm.tcapi.service.BOMService;
+import com.foxconn.plm.tcapi.service.EPMTaskService;
+import com.foxconn.plm.tcapi.service.ITCSOAClientConfig;
+import com.foxconn.plm.tcapi.service.ItemService;
+import com.foxconn.plm.tcapi.service.TCSOAServiceFactory;
+import com.foxconn.plm.tcapi.utils.CommonTools;
+import com.foxconn.plm.tcapi.utils.TCPublicUtils;
+import com.foxconn.plm.tcapi.utils.bom.BOMFacade;
+import com.foxconn.plm.tcapi.utils.item.ItemFacade;
+import com.foxconn.plm.tcapi.utils.item.ItemSearcher;
+import com.foxconn.savedcnchange.constant.DCNChangeConstant;
+import com.foxconn.savedcnchange.domain.BOMChangeBean;
+import com.foxconn.savedcnchange.domain.DCNChangeBean;
+import com.foxconn.savedcnchange.domain.MaterialBean;
+import com.foxconn.savedcnchange.mapper.SaveDCNServiceMapper;
+import com.foxconn.savedcnchange.util.MyBatisUtil;
+import com.foxconn.savedcnchange.util.TCPropertes;
+import com.teamcenter.services.loose.core.SessionService;
+import com.teamcenter.services.strong.cad.StructureManagementService;
+import com.teamcenter.services.strong.core.DataManagementService;
+import com.teamcenter.services.strong.structuremanagement.StructureService;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.soa.client.model.ServiceData;
+import com.teamcenter.soa.client.model.strong.BOMLine;
+import com.teamcenter.soa.client.model.strong.BOMView;
+import com.teamcenter.soa.client.model.strong.BOMWindow;
+import com.teamcenter.soa.client.model.strong.EPMTask;
+import com.teamcenter.soa.client.model.strong.Form;
+import com.teamcenter.soa.client.model.strong.Item;
+import com.teamcenter.soa.client.model.strong.ItemRevision;
+import com.teamcenter.soa.client.model.strong.Part;
+import com.teamcenter.soa.exceptions.NotLoadedException;
+import com.foxconn.savedcnchange.config.TCSOAClientConfigImpl;
+import com.foxconn.savedcnchange.constant.*;
+
+public class SaveDCNChangeHandler {
+
+	private static final Logger log = LoggerFactory.getLogger(SaveDCNChangeHandler.class);
+
+	private static Properties props = null;
+
+	private static Properties tcProps = null;
+
+	private static ItemRevision DCNItemRev = null;
+
+	private static String processName = null; // 流程名称
+
+	private static String DCNItemId = null; // DCN对象版本ID
+
+	private static String DCNVersion = null; // DCN对象版本号
+
+	private static final String D9_PREFIX = "d9_";
+
+	private static final String POC_STR = "IR_";
+
+	static {
+		System.out.println(CommonTools.getPath(SaveDCNChangeHandler.class));
+		props = CommonTools.getProperties(CommonTools.getPath(SaveDCNChangeHandler.class) + File.separator + "ConstantParams.properties");
+		tcProps = CommonTools.getProperties(props.getProperty("tc_properties"));
+	}
+
+	public static void main(String[] args) throws Exception {
+		log.info("========== SaveDCNChangeHandler start ==========");
+		args = new String[] { "-taskUid=B9kNrZYTJSIjwC" };
+		if (CommonTools.isEmpty(args)) {
+			return;
+		}
+
+		String taskUid = "";
+
+		Optional<String> findAny = Stream.of(args).filter(arg -> {
+			return arg.startsWith("-taskUid");
+		}).findAny();
+
+		if (findAny.isPresent()) {
+			taskUid = findAny.get().split("=")[1].trim();
+			System.out.println("==>> taskUid: " + taskUid);
+		}
+
+		if (CommonTools.isEmpty(taskUid)) {
+			throw new Exception("【ERROR】 获取输入参数taskUid发生错误！");
+		}
+
+		ITCSOAClientConfig tcSOAClientConfig = new TCSOAClientConfigImpl(tcProps.getProperty("TC_IP"), tcProps.getProperty("TC_USERNAME"), tcProps.getProperty("TC_PASSWORD"));
+		TCSOAServiceFactory tcsoaServiceFactory = new TCSOAServiceFactory(tcSOAClientConfig);
+		try {
+			TCPublicUtils.byPass(tcsoaServiceFactory.getSessionService(), true); // 开启旁路
+
+			ModelObject object = TCPublicUtils.findObjectByUID(tcsoaServiceFactory.getDataManagementService(), taskUid); // 获取任务对象
+			if (CommonTools.isEmpty(object)) {
+				throw new Exception("【ERROR】 获取流程对象发生错误！");
+			}
+
+			EPMTask rootTask = EPMTaskService.getEPMTask(tcsoaServiceFactory.getDataManagementService(), object); // 获取流程根任务
+
+			processName = EPMTaskService.getProcessName(tcsoaServiceFactory.getDataManagementService(), rootTask); // 获取流程名称
+			log.info("【INFO】 流程名称为: " + processName);
+
+			ModelObject[] rootTargetAttachments = EPMTaskService.getRootTargetAttachments(tcsoaServiceFactory.getDataManagementService(), rootTask); // 获取目标对象数组
+			if (CommonTools.isEmpty(rootTargetAttachments)) {
+				throw new Exception("【ERROR】 流程名称为: " + processName + ", 目标对象数组为空！");
+			}
+
+			// 获取对象/对象类型映射
+			Map<ModelObject, String> modelObjectTypeMapp = TCPublicUtils.getModelObjectTypeMapp(rootTargetAttachments);
+			if (CommonTools.isEmpty(modelObjectTypeMapp)) {
+				throw new Exception("【ERROR】 流程名称为: " + processName + ", 获取目标对象数组类型失败！");
+			}
+
+			DCNItemRev = getDCNItemRev(modelObjectTypeMapp);
+			if (CommonTools.isEmpty(DCNItemRev)) {
+				throw new Exception("【ERROR】流程名称为:" + processName + ", 目标对象数组的对象版本类型不符合本次操作要求，请重新选择...");
+			}
+
+			DCNItemId = TCPublicUtils.getPropStr(tcsoaServiceFactory.getDataManagementService(), DCNItemRev, ItemRevPropConstant.ITEM_ID);
+			log.info("【INFO】 DCNItemId:" + DCNItemId);
+			DCNVersion = TCPublicUtils.getPropStr(tcsoaServiceFactory.getDataManagementService(), DCNItemRev, ItemRevPropConstant.ITEM_REVISION_ID);
+			log.info("【INFO】DCNVersion:" + DCNVersion);			
+
+			Map<String, List<ItemRevision>> map = filterItemRevList(tcsoaServiceFactory.getStructureManagementService(), tcsoaServiceFactory.getStructureService(), tcsoaServiceFactory.getDataManagementService(),
+					DCNItemRev);
+			if (CommonTools.isEmpty(map)) {
+				throw new Exception("【ERROR】 流程名称为: " + processName + ", DCN 零组件ID为: " + DCNItemId + ", 版本号为: "
+						+ DCNVersion + ", 受影响方案和解决方案项伪文件夹没有符合条件的记录");
+			}
+
+			List<ItemRevision> beforeMatList = map.get("beforeMatList");
+			List<ItemRevision> beforeBomList = map.get("beforeBomList");
+			List<ItemRevision> afterMatList = map.get("afterMatList");
+			List<ItemRevision> afterBomList = map.get("afterBomList");
+			
+			beforeBomList = distinctItem(tcsoaServiceFactory.getDataManagementService(), beforeBomList);
+			beforeMatList = distinctItem(tcsoaServiceFactory.getDataManagementService(), beforeMatList);
+				
+			
+			List<MaterialBean> beforeDataMatList = null;
+			List<BOMChangeBean> finishDataBeforeBomList = null;
+			List<MaterialBean> afterDataMatList = null;
+			List<BOMChangeBean> finishDataAfterBomList = null;
+						
+			if (CommonTools.isNotEmpty(beforeBomList)) {
+				finishDataBeforeBomList = getTotalBomStruct(tcsoaServiceFactory.getStructureManagementService(), 
+						tcsoaServiceFactory.getStructureService(), tcsoaServiceFactory.getDataManagementService(), beforeBomList);
+			}
+
+			if (CommonTools.isNotEmpty(afterBomList)) {
+				finishDataAfterBomList = getTotalBomStruct(tcsoaServiceFactory.getStructureManagementService(), 
+						tcsoaServiceFactory.getStructureService(), tcsoaServiceFactory.getDataManagementService(), afterBomList);
+			}
+
+			if (CommonTools.isNotEmpty(afterMatList)) {
+				afterDataMatList = getTotalMaterialBeanList(tcsoaServiceFactory.getDataManagementService(), afterMatList);
+				if (CommonTools.isNotEmpty(beforeMatList)) {
+					beforeDataMatList = getTotalMaterialBeanList(tcsoaServiceFactory.getDataManagementService(), beforeMatList);
+					afterDataMatList = checkMaterialChange(beforeDataMatList, afterDataMatList); // 校验物料是否发生变更
+				}
+
+			}			
+			
+			List<DCNChangeBean> dcnChangeBeanList = getDCNChangeBeanList(tcsoaServiceFactory.getDataManagementService());			
+			
+			saveBOMChangeAndMaterial(finishDataBeforeBomList, finishDataAfterBomList, afterDataMatList, dcnChangeBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error(CommonTools.getExceptionMsg(e));
+		}
+
+		tcSOAClientConfig.destroy(); // 登出系统
+		log.info("========== SaveDCNChangeHandler end ==========");
+	}
+
+	/**
+	 * 过滤不符合条件的受影响方案和解决方案向的对象版本
+	 * 
+	 * @param structureManagementService
+	 * @param strucService
+	 * @param dataManagementService
+	 * @param DCNItemRev
+	 * @return
+	 * @throws NotLoadedException
+	 */
+	private static Map<String, List<ItemRevision>> filterItemRevList(StructureManagementService structureManagementService, StructureService strucService,
+			DataManagementService dataManagementService, ItemRevision DCNItemRev) throws NotLoadedException {
+		List<ItemRevision> beforeMatList = new CopyOnWriteArrayList<ItemRevision>();
+		List<ItemRevision> beforeBomList = new CopyOnWriteArrayList<ItemRevision>();		
+		List<ItemRevision> afterBomList = new CopyOnWriteArrayList<ItemRevision>();
+		List<ItemRevision> afterMatList = new CopyOnWriteArrayList<ItemRevision>();
+
+		Map<String, List<ItemRevision>> retMap = new LinkedHashMap<String, List<ItemRevision>>();
+		
+		ModelObject[] problemItemObjects = TCPublicUtils.getPropModelObjectArray(dataManagementService, DCNItemRev, ItemRevPropConstant.PROBLEMITEM);
+		if (CommonTools.isNotEmpty(problemItemObjects)) {
+			Stream.of(problemItemObjects).parallel().forEach(obj -> {
+				try {
+					if (obj instanceof ItemRevision) {
+						boolean bom = BOMService.isBom(dataManagementService, (ItemRevision) obj);
+						if (bom) {
+							beforeBomList.add((ItemRevision) obj);
+						}
+						beforeMatList.add((ItemRevision) obj);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+		}
+		
+		ModelObject[] impactedItemObjects = TCPublicUtils.getPropModelObjectArray(dataManagementService, DCNItemRev, ItemRevPropConstant.IMPACTEDITEM); 
+		if (CommonTools.isNotEmpty(impactedItemObjects)) {
+			Stream.of(impactedItemObjects).parallel().forEach(obj -> {
+				try {
+					if (obj instanceof ItemRevision) {
+						boolean bom = BOMService.isBom(dataManagementService, (ItemRevision) obj);
+						if (bom) {
+							beforeBomList.add((ItemRevision) obj);
+						}
+						beforeMatList.add((ItemRevision) obj);
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+
+			});
+		}
+		
+		ModelObject[] solutionItemObjects = TCPublicUtils.getPropModelObjectArray(dataManagementService, DCNItemRev,
+				ItemRevPropConstant.SOLUTIONITEM);
+		if (CommonTools.isNotEmpty(solutionItemObjects)) {
+			Stream.of(solutionItemObjects).parallel().forEach(obj -> {
+				try {
+					if (obj instanceof ItemRevision) {
+						boolean bom = BOMService.isBom(dataManagementService, (ItemRevision) obj);
+						if (bom) {
+							afterBomList.add((ItemRevision) obj);
+						}						
+						afterMatList.add(((ItemRevision) obj));
+						
+					}
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+		}
+
+		// distinct the same item for solutionItem
+//		afterBomList = distinctItem(dataManagementService, afterBomList);
+//		afterBomList = afterBomList.stream().filter(CommonTools.distinctByKey(obj -> {
+//					try {
+//						return TCPublicUtils.getPropStr(dataManagementService, obj, ItemRevPropConstant.ITEM_ID) + TCPublicUtils.getPropStr(dataManagementService, obj, ItemRevPropConstant.ITEM_REVISION_ID);
+//					} catch (NotLoadedException e) {
+//						e.printStackTrace();
+//					}
+//					return null;
+//				})).collect(Collectors.toList());
+		
+		retMap.put("beforeMatList", beforeMatList);
+		retMap.put("beforeBomList", beforeBomList);
+		retMap.put("afterBomList", afterBomList);
+		retMap.put("afterMatList", afterMatList);
+		return retMap;
+	}
+
+	
+	/**
+	 * distinct the same item by itemId and version
+	 * @param dmService
+	 * @param list
+	 * @return
+	 */
+	private static List<ItemRevision> distinctItem(DataManagementService dmService, List<ItemRevision> list) {
+		list = list.stream().filter(CommonTools.distinctByKey(obj -> {
+			try {
+				return TCPublicUtils.getPropStr(dmService, obj, ItemRevPropConstant.ITEM_ID) + TCPublicUtils.getPropStr(dmService, obj, ItemRevPropConstant.ITEM_REVISION_ID);
+			} catch (NotLoadedException e) {
+				e.printStackTrace();
+			}
+			return null;
+		})).collect(Collectors.toList());
+		
+		return list;
+	}
+	
+	
+	/**
+	 * 校验物料是否发生变更
+	 * @param beforeDataMatList
+	 * @param afterDataMatList
+	 * @return
+	 */
+	private static List<MaterialBean> checkMaterialChange(List<MaterialBean> beforeDataMatList, List<MaterialBean> afterDataMatList) {
+		Collections.sort(beforeDataMatList);
+		Collections.sort(afterDataMatList);
+		List<MaterialBean> newAfterMatList = new CopyOnWriteArrayList<MaterialBean>();
+		
+		for (MaterialBean afterBean : afterDataMatList) {
+			String afterItemId = afterBean.getItemId();
+			for (MaterialBean beforeBean : newAfterMatList) {
+				String beforeItemId = beforeBean.getItemId();
+				if (afterItemId.equals(beforeItemId)) { // 零组件ID相同时，进一步比较属性栏位是否发生更改
+					if (checkPropsChange(afterBean, beforeBean)) { // 属性发生发生变更代表返回结果
+						newAfterMatList.add(afterBean);
+					}
+				}
+			}
+		}
+		
+		
+		afterDataMatList.parallelStream().forEach(afterBean -> {	
+			if (afterBean.getItemId().equals("34067U800-20U-G")) {
+				System.out.println(123);
+			}
+			Optional<MaterialBean> findAny = beforeDataMatList.stream().filter(beforeBean -> {				
+				String beforeItemId = beforeBean.getItemId();
+				String afterItemId = afterBean.getItemId();
+				if (beforeItemId.equals("52113JN00-38U-H") && afterItemId.equals("52113JN00-38U-H")) {
+					System.out.println(123);
+				}
+				if (afterItemId.equals(beforeItemId)) { // 零组件ID相同时，进一步比较属性栏位是否发生更改
+					System.out.println(123);
+					if (checkPropsChange(afterBean, beforeBean)) { // 属性发生发生变更代表返回结果
+						return true;
+					} else {
+						return false;
+					}
+				} 
+				return true; // 没有匹配到记录页也代表返回结果
+			}).findAny();
+			
+			if (findAny.isPresent()) { // 代表匹配到				
+				newAfterMatList.add(findAny.get());
+			}
+		});
+		return newAfterMatList;
+	}
+	
+	
+	/**
+	 * 核对属性是否发生变更
+	 * @param beforeBean 改前bean
+	 * @param afterBean 改后bean
+	 * @return true代表属性发生改变，false代表属性没有发生改变
+	 */
+	private static boolean checkPropsChange(MaterialBean afterBean, MaterialBean beforeBean) {
+		if (!beforeBean.getEnDescription().equals(afterBean.getEnDescription())) {
+			return true;
+		}
+		
+		if (!beforeBean.getChDescription().equals(afterBean.getChDescription())) {
+			return true;
+		}
+		
+		if (!beforeBean.getUnit().equals(afterBean.getUnit())) {
+			return true;
+		}
+		
+		if (!beforeBean.getMaterialGroup().equals(afterBean.getMaterialGroup())) {
+			return true;
+		}
+		
+		if (!beforeBean.getMaterialType().equals(afterBean.getMaterialType())) {
+			return true;
+		}
+		
+		if (!beforeBean.getManufacturerPN().equals(afterBean.getManufacturerPN())) {
+			return true;
+		}
+		
+		if (!beforeBean.getManufacturerID().equals(afterBean.getManufacturerID())) {
+			return true;
+		}
+		
+		if (!beforeBean.getProcurementMethods().equals(afterBean.getProcurementMethods())) {
+			return true;
+		}
+		
+		if (!beforeBean.getSapRev().equals(afterBean.getSapRev())) {
+			return true;
+		}
+		
+		if (!beforeBean.getSupplierZF().equals(afterBean.getSupplierZF())) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	
+	/**
+	 * 获取所有含有BOM结构的集合
+	 * 
+	 * @param smService
+	 * @param strucService
+	 * @param dmService
+	 * @param itemRevList
+	 * @return
+	 */
+	private static List<BOMChangeBean> getTotalBomStruct(StructureManagementService smService,
+			StructureService strucService, DataManagementService dmService, List<ItemRevision> itemRevList) {
+		List<BOMChangeBean> list = new ArrayList<BOMChangeBean>();
+		itemRevList.forEach(itemRev -> {
+			try {
+				BOMChangeBean bomBean = getBOMStruct(smService, strucService, dmService, itemRev);
+				list.add(bomBean);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
+		List<BOMChangeBean> finishList = setParentPartInfo(list);
+		return finishList;
+	}
+
+	/**
+	 * 设置父对象版本信息到子对象版本中
+	 * 
+	 * @param list
+	 * @return
+	 */
+	private static List<BOMChangeBean> setParentPartInfo(List<BOMChangeBean> list) {
+		List<BOMChangeBean> finishDataList = new ArrayList<BOMChangeBean>();
+		for (BOMChangeBean bean : list) {
+			List<BOMChangeBean> childs = bean.getChilds();
+			if (CommonTools.isNotEmpty(childs)) {
+				childs.forEach(child -> {
+					child.setDcnItemId(bean.getDcnItemId());
+					child.setParentUid(bean.getParentUid());
+					child.setParentId(bean.getParentId());
+					child.setParentVersion(bean.getParentVersion());
+					finishDataList.add(child);
+					List<BOMChangeBean> subList = child.getSubstitutesList();
+					if (CommonTools.isNotEmpty(subList)) {
+						subList.forEach(sub -> {
+							sub.setDcnItemId(bean.getDcnItemId());
+							sub.setParentUid(bean.getParentUid());
+							sub.setParentId(bean.getParentId());
+							sub.setParentVersion(bean.getParentVersion());
+							finishDataList.add(sub);
+						});
+					}
+				});
+			}
+		}
+
+		return finishDataList;
+	}
+
+	/**
+	 * 获取单层BOM结构(可能包含替代料)
+	 * 
+	 * @param smService
+	 * @param strucService
+	 * @param dmService
+	 * @param itemRev
+	 * @return
+	 * @throws Exception
+	 */
+	private static BOMChangeBean getBOMStruct(StructureManagementService smService, StructureService strucService,
+			DataManagementService dmService, ItemRevision itemRev) throws Exception {
+		BOMWindow[] bomWindows = null;
+		List createBOMWindowsResponse = BOMFacade.commonOperate.openBOMWindow(smService, dmService, itemRev);
+		if (CommonTools.isEmpty(createBOMWindowsResponse)) {
+			throw new Exception("【ERROR】 打开BOMWindow失败！");
+		}
+		String itemId = TCPublicUtils.getPropStr(dmService, itemRev, ItemRevPropConstant.ITEM_ID);
+		System.out.println("==>> itemId: " + itemId);		
+		String version = TCPublicUtils.getPropStr(dmService, itemRev, ItemRevPropConstant.ITEM_REVISION_ID);
+		System.out.println("==>> version: " + version);
+		bomWindows = new BOMWindow[] { (BOMWindow) createBOMWindowsResponse.get(0) }; // BOMWindow
+		BOMLine topLine = (BOMLine) createBOMWindowsResponse.get(1); // 顶层BOMLine
+//		BOMService.packOrUnpack(strucService, dmService, topLine, 3); // 解包BOMLine
+		BOMChangeBean rootBean = new BOMChangeBean(dmService, topLine, true);
+		rootBean.setDcnItemId(DCNItemId); // 设置DCN编号
+		rootBean.setSortString(DCNChangeConstant.PRI);
+		try {
+			ModelObject[] children = TCPublicUtils.getPropModelObjectArray(dmService, topLine,
+					BOMLinePropConstant.BL_ALL_CHILD_LINES);
+			Stream.of(children).parallel().forEach(obj -> {
+				try {
+					BOMLine bomLine = (BOMLine) obj;
+					String bl_item_item_id = TCPublicUtils.getPropStr(dmService, bomLine,
+							BOMLinePropConstant.BL_ITEM_ITEM_ID);
+					
+					System.out.println("==>> bl_item_item_id: " + bl_item_item_id);
+					String bl_rev_item_revision_id = TCPublicUtils.getPropStr(dmService, bomLine,
+							BOMLinePropConstant.BL_REV_ITEM_REVISION_ID);
+					System.out.println("==>> bl_rev_item_revision_id: " + bl_rev_item_revision_id);
+					TCPublicUtils.refreshObject(dmService, bomLine);
+//					BOMService.packOrUnpack(strucService, dmService, bomLine, 3); // 解包BOMLine
+					ItemRevision partItemRev = (ItemRevision) TCPublicUtils.getPropModelObject(dmService, bomLine,
+							BOMLinePropConstant.BL_LINES_OBJECT);
+					boolean isSub = TCPublicUtils.getPropBoolean(dmService, bomLine,
+							BOMLinePropConstant.FND0BL_IS_SUBSTITUTE);
+					if (!isSub) {
+						BOMChangeBean bomBean = new BOMChangeBean(dmService, bomLine, false);
+						bomBean.setSortString(DCNChangeConstant.PRI);
+						bomBean.setItemCategory(getPartTypeCode(dmService, partItemRev)); // 获取料号代号
+						boolean hasSub = TCPublicUtils.getPropBoolean(dmService, bomLine,
+								BOMLinePropConstant.BL_HAS_SUBSTITUTES);
+						if (hasSub) {
+							int strategy = 1;
+							int priority = 1;
+							bomBean.setStrategy(String.valueOf(strategy)); // 代表含有替代料
+							bomBean.setUsageProb(String.valueOf(100)); // 有替代料则填写
+							bomBean.setPriority(String.valueOf(priority));
+
+							ModelObject[] listSubstitutes = TCPublicUtils.getPropModelObjectArray(dmService, bomLine,
+									BOMLinePropConstant.BL_SUBSTITUTE_LIST);
+							List<BOMChangeBean> subBeanList = new ArrayList<BOMChangeBean>();
+							for (int i = 0; i < listSubstitutes.length; i++) {
+								ModelObject modelObject = listSubstitutes[i];
+								if ((CommonTools.isEmpty(modelObject)) || (!(modelObject instanceof Item))) {
+									continue;
+								}
+								
+								Item subItem = (Item) listSubstitutes[i];
+								ItemRevision subItemRev = ItemService.getItemLatestRev(dmService, subItem);
+								String subItemId = TCPublicUtils.getPropStr(dmService, subItemRev,
+										ItemRevPropConstant.ITEM_ID);
+								System.out.println("==>> subItemId: " + subItemId);
+								String subVersion = TCPublicUtils.getPropStr(dmService, subItemRev,
+										ItemRevPropConstant.ITEM_REVISION_ID);
+								System.out.println("==>> subVersion: " + subVersion);
+//								BOMLine subBomLine = (BOMLine) listSubstitutes[i];
+//								BOMChangeBean subBean = tcPropMapping(dmService, new BOMChangeBean(), subBomLine, false);
+								BOMChangeBean subBean = (BOMChangeBean) bomBean.clone();
+								subBean.setChildItemId(subItemId);
+								subBean.setChildVersion(subVersion);
+								subBean.setChildUid(subItemRev.getUid());
+								subBean.setSortString(DCNChangeConstant.ALT);								
+//								ItemRevision subItemRev = (ItemRevision) TCPublicUtils.getPropModelObject(dmService, subBomLine, BOMLinePropConstant.BL_LINES_OBJECT);
+								subBean.setItemCategory(getPartTypeCode(dmService, subItemRev)); // 获取料号代号
+								subBean.setUsageProb(String.valueOf(0));
+								subBean.setStrategy(String.valueOf(strategy));
+								subBean.setPriority(String.valueOf(++priority));
+//								subBean.setFindNum(bomBean.getFindNum());
+//								subBean.setQty(bomBean.getQty());
+//								subBean.setUnit(bomBean.getUnit());
+								subBean.setLocation("");
+								subBean.setSapRev(TCPublicUtils.getPropStr(dmService, subItemRev, ItemRevPropConstant.D9_SAPREV));
+								subBeanList.add(subBean);
+							}
+							bomBean.setSubstitutesList(subBeanList);
+						}
+						rootBean.addChilds(bomBean);
+					}
+
+				} catch (Exception e1) {
+					throw new RuntimeException(e1);
+				}
+			});
+
+			if (rootBean.getChilds().size() > 0) {
+				rootBean.getChilds().sort(Comparator.comparing(BOMChangeBean::getFindNum));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		} finally {
+			if (CommonTools.isNotEmpty(bomWindows)) {
+				BOMService.saveBOMWindow(smService, bomWindows[0]); // save BOMWindow
+				BOMService.closeBOMWindow(smService, bomWindows[0]); // close BOMWindow
+			}
+		}
+
+		return rootBean;
+	}
+
+	private static String getPartTypeCode(DataManagementService dmService, ItemRevision itemRev) {
+		String typeCode = "L";
+		TCPublicUtils.refreshObject(dmService, itemRev);
+		try {
+			String tempPN = TCPublicUtils.getPropStr(dmService, itemRev, ItemRevPropConstant.D9_TEMPPN);
+			System.out.println("==>> tempPN: " + tempPN);
+			if (tempPN.startsWith("79")) {
+				String productType = TCPublicUtils.getPropStr(dmService, itemRev,
+						ItemRevPropConstant.D9_PRODUCTTYPE_L6);
+				if ("MVA".equals(productType)) {
+					typeCode = "S";
+				}
+			} else if (tempPN.startsWith("629")) {
+				typeCode = "S";
+			}
+		} catch (Exception e) {
+
+		}
+		return typeCode;
+	}
+
+	/**
+	 * 获取所有的物料bean集合
+	 * 
+	 * @param dmService
+	 * @param itemRevList
+	 * @return
+	 */
+	private static List<MaterialBean> getTotalMaterialBeanList(DataManagementService dmService,
+			List<ItemRevision> itemRevList) {
+		List<MaterialBean> retList = Collections.synchronizedList(new ArrayList<MaterialBean>());
+		itemRevList.stream().parallel().forEach(itemRev -> {
+			try {
+				MaterialBean bean = new MaterialBean();
+				bean.setDcnItemId(DCNItemId);
+				bean = tcPropMapping(dmService, bean, itemRev, "");
+				bean.setUid(itemRev.getUid());
+				if (CommonTools.isNotEmpty(bean.getSapDescription())) {
+					bean.setEnDescription(bean.getSapDescription());
+				}
+				retList.add(bean);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+		return retList;
+	}
+
+	
+	/**
+	 * 获取DCN变更集合
+	 * @param dmService
+	 * @return
+	 * @throws NotLoadedException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 */
+	private static List<DCNChangeBean> getDCNChangeBeanList(DataManagementService dmService) throws NotLoadedException, IllegalArgumentException, IllegalAccessException {
+		List<DCNChangeBean> list = new ArrayList<DCNChangeBean>();				
+		Form form = getMNTDCNForm(dmService);
+		if (CommonTools.isNotEmpty(form)) {
+			DCNChangeBean bean = new DCNChangeBean();
+			bean.setDcnItemId(DCNItemId);
+			bean.setStatus(StatusEnum.Released.name());
+			bean.setValidDate(new Date());
+			bean = tcPropMapping(dmService, bean, DCNItemRev, "");
+			bean = tcPropMapping(dmService, bean, form, DCNChangeConstant.MNT_DCN_FORM_TYPE);
+			String plant = bean.getPlantCode();
+			String[] split = plant.split(",");
+			for (int i = 0; i < split.length; i++) {
+				if (i == 0) {
+					bean.setPlantCode(split[i]);
+					list.add(bean);
+				} else {
+					DCNChangeBean newBean = (DCNChangeBean) bean.clone();
+					newBean.setPlantCode(split[i]);
+					list.add(newBean);
+				}
+			}
+		}
+		return list;
+	}
+	
+	
+	
+	/**
+	 * 保存BOM变更信息到DB
+	 * 
+	 * @param impactList
+	 * @param solutionBomList
+	 * @param solutionMatList
+	 * @param flag
+	 */
+	private static void saveBOMChangeAndMaterial(List<BOMChangeBean> finishDataBeforeBomList, List<BOMChangeBean> finishDataAfterBomList, List<MaterialBean> afterDataMatList, List<DCNChangeBean> dcnChangeBeanList) {
+		SqlSession session = MyBatisUtil.getSqlSession();
+		try {
+			SaveDCNServiceMapper mapper = session.getMapper(SaveDCNServiceMapper.class);
+			if (CommonTools.isNotEmpty(finishDataBeforeBomList)) {
+				Collections.sort(finishDataBeforeBomList);
+				finishDataBeforeBomList.forEach(beforeBean -> {
+					Integer count = mapper.getBeforeChangeRecords(beforeBean);
+					if (count > 0) {
+						mapper.updateBeforeChange(beforeBean);
+					} else {
+						mapper.insertBeforeChange(beforeBean);
+					}
+				});
+			}
+
+			if (CommonTools.isNotEmpty(finishDataAfterBomList)) {
+				Collections.sort(finishDataAfterBomList);
+				finishDataAfterBomList.forEach(afterBean -> {
+					Integer count = mapper.getAfterChangeRerords(afterBean);
+					if (count > 0) {
+						mapper.updateAfterChange(afterBean);
+					} else {
+						mapper.insertAfterChange(afterBean);
+					}
+				});
+			}
+
+			if (CommonTools.isNotEmpty(afterDataMatList)) {
+				Collections.sort(afterDataMatList);
+				afterDataMatList.forEach(matBean -> {
+					Integer count = mapper.getMaterialRerords(matBean);
+					if (count > 0) {
+						mapper.updateMaterial(matBean);
+					} else {
+						mapper.insertMaterial(matBean);
+					}
+				});
+			}
+			
+			if (CommonTools.isNotEmpty(dcnChangeBeanList)) {
+				dcnChangeBeanList.forEach(dcnChangeBean -> {
+					Integer count = mapper.getDCNChangeRecord(dcnChangeBean);
+					if (count > 0) {
+						mapper.updateDCNChange(dcnChangeBean);
+					} else {
+						mapper.insertDCNChange(dcnChangeBean);
+					}
+				});
+			}
+			session.commit();
+		} catch (Exception e) {
+			e.printStackTrace();
+			session.rollback();
+		}
+	}
+
+	/**
+	 * 获取DCN对象版本
+	 * 
+	 * @param targetMap
+	 * @return
+	 */
+
+	private static ItemRevision getDCNItemRev(Map<ModelObject, String> targetMap) {
+		ItemRevision itemRev = null;
+		for (Map.Entry<ModelObject, String> entry : targetMap.entrySet()) {
+			String value = entry.getValue();
+			if (DCNChangeConstant.MNT_DCN_REV_TYPE.equalsIgnoreCase(value)) {
+				itemRev = (ItemRevision) entry.getKey();
+				break;
+			}
+		}
+		return itemRev;
+	}
+
+	/**
+	 * 获取抛转工厂
+	 * 
+	 * @param dmService
+	 * @return
+	 * @throws NotLoadedException
+	 */
+	private static Form getMNTDCNForm(DataManagementService dmService) throws NotLoadedException {
+		String objectType = "";
+		Form form = null;
+		ModelObject[] objects = TCPublicUtils.getPropModelObjectArray(dmService, DCNItemRev, ItemRevPropConstant.IMAN_SPECIFICATION);
+		if (CommonTools.isNotEmpty(objects)) {
+			for (ModelObject obj : objects) {
+			if (!(obj instanceof Form)) {
+				continue;
+			}
+			form = (Form) obj;
+			objectType = form.getTypeObject().getName();
+			if (!DCNChangeConstant.MNT_DCN_FORM_TYPE.equals(objectType)) {
+				continue;
+			}
+				break;
+			}
+		}
+
+		return form;
+	}
+
+	public static BOMChangeBean tcPropMapping(DataManagementService dmService, BOMChangeBean bean, BOMLine bomLine,
+			boolean isTopLine) throws NotLoadedException, IllegalArgumentException, IllegalAccessException {
+		if (bean != null && bomLine != null) {
+			TCPublicUtils.refreshObject(dmService, bomLine);
+			ItemRevision itemRev = (ItemRevision) TCPublicUtils.getPropModelObject(dmService, bomLine,
+					BOMLinePropConstant.BL_LINES_OBJECT);
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++) {
+				fields[i].setAccessible(true);
+				TCPropertes tcPropName = fields[i].getAnnotation(TCPropertes.class);
+				if (tcPropName != null) {
+					Object val = "";
+					String propertyName = tcPropName.tcProperty();
+					String type = tcPropName.type();
+					if (propertyName.startsWith("bl")) {
+						val = TCPublicUtils.getPropStr(dmService, bomLine, propertyName);
+						if ("bl_quantity".equals(propertyName)) {
+							if (CommonTools.isEmpty(val.toString().trim())) {
+								val = "1"; // 数量默认值设置为1
+							}
+						}
+					} else {
+						val = TCPublicUtils.getPropStr(dmService, itemRev, propertyName);
+//						TCPublicUtils.getProperty(dmService, itemRev, propertyName);
+//						int index = propertyName.indexOf(D9_PREFIX);
+//						if (index != -1) {
+//							try {
+//								val = TCPublicUtils.getPropStr(dmService, itemRev, propertyName);
+//							} catch (Exception e) {
+//								log.warn(" 【WARN】 property name " + propertyName + ", is not exist");
+//								String pocPropertyName = propertyName.substring(0, index + D9_PREFIX.length()) + POC_STR
+//										+ propertyName.substring(index + D9_PREFIX.length());
+//								val = TCPublicUtils.getPropStr(dmService, itemRev, pocPropertyName);
+//							}
+//						} else {
+//							val = TCPublicUtils.getPropStr(dmService, itemRev, propertyName);
+//						}
+					}
+
+					if (fields[i].getType() == Integer.class) {
+						if (val.equals("") || val == null) {
+							val = null;
+						} else {
+							val = Integer.parseInt((String) val);
+						}
+					}
+
+					if (isTopLine && "childItemRev".equals(type)) {
+						fields[i].set(bean, "");
+					} else if (!isTopLine && "parentItemRev".equals(type)) {
+						fields[i].set(bean, "");
+					} else {
+						fields[i].set(bean, val);
+					}
+				}
+			}
+
+			if (isTopLine) {
+				bean.setParentUid(itemRev.getUid());
+			} else {
+				bean.setChildUid(itemRev.getUid());
+			}
+			String unit = bean.getUnit();
+			if (CommonTools.isEmpty(unit)) {
+				bean.setQty(null);
+			}
+
+			if (CommonTools.isNotEmpty(bean.getQty())) {
+				float b1 = Float.parseFloat(bean.getQty()) * UnitEnum.KEA.houndredMultiple();
+				int qty = (int) b1;
+				bean.setQty(String.valueOf(qty));
+			}
+
+			if (unit.equals(UnitEnum.KEA.unit())) {
+				float b2 = Float.parseFloat(bean.getQty()) / UnitEnum.KEA.throusandMultiple();
+				bean.setQty(String.valueOf(b2));
+			}
+		}
+		return bean;
+	}
+
+//	public static MaterialBean tcPropMapping(DataManagementService dmService, MaterialBean bean, ItemRevision itemRev)
+//			throws NotLoadedException, IllegalArgumentException, IllegalAccessException {
+//		if (bean != null && itemRev != null) {
+//			TCPublicUtils.refreshObject(dmService, itemRev);
+//			Field[] fields = bean.getClass().getDeclaredFields();
+//			for (int i = 0; i < fields.length; i++) {
+//				fields[i].setAccessible(true);
+//				TCPropertes tcPropName = fields[i].getAnnotation(TCPropertes.class);
+//				if (tcPropName != null) {
+//					Object val = "";
+//					String propertyName = tcPropName.tcProperty();
+//					val = TCPublicUtils.getPropStr(dmService, itemRev, propertyName);
+//					fields[i].set(bean, val);
+//				}
+//			}
+//			bean.setUid(itemRev.getUid());
+//			if (CommonTools.isNotEmpty(bean.getSapDescription())) {
+//				bean.setEnDescription(bean.getSapDescription());
+//			}
+//		}
+//		return bean;
+//	}
+
+	public static <T> T tcPropMapping(DataManagementService dmService, T bean, ModelObject obj, String typeStr)
+			throws IllegalArgumentException, IllegalAccessException, NotLoadedException {
+		if (bean != null && obj != null) {
+			TCPublicUtils.refreshObject(dmService, obj);
+			Field[] fields = bean.getClass().getDeclaredFields();
+			for (int i = 0; i < fields.length; i++) {
+				fields[i].setAccessible(true);
+				TCPropertes tcPropName = fields[i].getAnnotation(TCPropertes.class);
+				if (tcPropName != null) {
+					Object val = "";
+					String propertyName = tcPropName.tcProperty();
+					String tcType = tcPropName.type();
+					if (CommonTools.isEmpty(propertyName) || !tcType.equalsIgnoreCase(typeStr)) {
+						continue;
+					}
+					
+					if (tcType.equalsIgnoreCase(DCNChangeConstant.MNT_DCN_FORM_TYPE) && CommonTools.isNotEmpty(propertyName)) {
+						val = Stream.of(TCPublicUtils.getPropStrArray(dmService, obj, propertyName)).collect(Collectors.joining(","));
+					} else {
+						val = TCPublicUtils.getPropStr(dmService, obj, propertyName);
+					}					
+					fields[i].set(bean, val);
+				}
+			}
+		}
+		return bean;
+
+	}
+}

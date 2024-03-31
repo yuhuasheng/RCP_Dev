@@ -1,0 +1,5 @@
+package com.foxconn.tcutils.constant;
+
+public class PreferenceConstant {
+	public static final String D9_SPRINGCLOUD_URL = "D9_SpringCloud_URL";
+}

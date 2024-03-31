@@ -1,0 +1,4 @@
+import=com.teamcenter.rac.common.common,com.teamcenter.rac.workflow.common.common,com.teamcenter.rac.workflow.commands.newperformsignoff.newperformsignoff
+
+DecisionDialog=com.teamcenter.rac.workflow.commands.newperformsignoff.UserDecisionDialog
+NewSignoffDecisionPanel=com.teamcenter.rac.workflow.commands.newperformsignoff.UserNewSignoffDecisionPanel

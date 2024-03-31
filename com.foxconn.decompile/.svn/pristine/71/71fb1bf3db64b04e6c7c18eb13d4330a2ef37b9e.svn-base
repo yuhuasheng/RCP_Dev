@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   
+    <extension point="org.eclipse.ui.commands">
+    	<command id="com.foxconn.decompile.handlers.ActualUserHandlerCommand" name="TXT轉化Form"/>
+ 	</extension>
+   
+ 	<extension point="org.eclipse.ui.handlers">
+      	<handler class="com.foxconn.decompile.handlers.ActualUserHandler" commandId="com.foxconn.decompile.handlers.ActualUserHandlerCommand"/>
+ 	</extension>
+   
+	<extension point="org.eclipse.ui.menus">
+		<menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+			<command commandId="com.foxconn.decompile.handlers.ActualUserHandlerCommand"
+		    	id="com.foxconn.decompile.handlers.ActualUserHandlerCommand">
+		     	<visibleWhen>
+		            <and>
+		            	<reference definitionId="com.teamcenter.rac.ui.inMainPerspective"/>
+		                <with variable="rac_command_suppression">
+		                    <not>
+		                        <iterate operator="or">
+		                            <equals value="com.foxconn.decompile.handlers.ActualUserHandlerCommand"/>
+		                        </iterate>
+		                    </not>
+		                </with>
+		                
+		                <iterate ifEmpty="false">
+		        			<adapt type="com.teamcenter.rac.kernel.TCComponent">
+		           				<and>
+		           					<test property="com.teamcenter.rac.kernel.TCComponent.typeClass"  value="ItemRevision" />
+		           					<test forcePluginActivation="true" property="ghy.dba"/>
+		           				</and>
+		        			</adapt>
+		 				</iterate>
+		 			</and>
+		 		</visibleWhen>
+		 	</command>
+		 </menuContribution>
+	</extension>
+
+</plugin>

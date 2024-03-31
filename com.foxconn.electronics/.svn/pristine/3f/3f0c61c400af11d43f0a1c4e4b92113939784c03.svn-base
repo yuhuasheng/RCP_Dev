@@ -1,0 +1,22 @@
+package com.foxconn.electronics.issuemanagement.controller;
+
+import com.foxconn.electronics.issuemanagement.service.IssueUpdatesService;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.plm.tc.httpService.jhttp.GetMapping;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCSession;
+
+public class IssueUpdatesController {
+	private IssueUpdatesService service;
+
+	public IssueUpdatesController(TCSession session,String customer,TCComponentItemRevision itemRevision) {
+		super();
+		this.service = new IssueUpdatesService(session,customer,itemRevision);
+	}
+	
+	@GetMapping("/issueUpdates/getBaseData")
+	public AjaxResult getBaseData() {
+		return service.getBaseData();
+	}
+	
+}

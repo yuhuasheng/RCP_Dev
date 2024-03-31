@@ -1,0 +1,1030 @@
+package com.foxconn.electronics.L10Ebom.service;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.commons.lang.ArrayUtils;
+import com.foxconn.electronics.L10Ebom.domain.L10EBOMBean;
+import com.foxconn.electronics.L10Ebom.response.BaseResultBean;
+import com.foxconn.electronics.L10Ebom.response.OtherResultBean;
+import com.foxconn.electronics.L10Ebom.response.PartResultBean;
+import com.foxconn.electronics.util.TCPropName;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.TCUtil;
+import com.google.gson.Gson;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCProperty;
+import com.teamcenter.rac.kernel.TCSession;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.StrSplitter;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+
+public class MntL10EbomService {
+	private TCSession session;
+	private ResourceBundle reg;
+	private Set<String> eeTypeSet = CollUtil.newHashSet("IO/BD", "VIDEO/TUNER", "USB", "HEADPHONE", "LED BD", "RESET",
+			"MOTHER", "DOWN CONVERTER", "Wifi/Bluetooth", "MAIN/B", "INTERFACE", "KEY/B", "IR", "LOGO", "LIGHT SENSOR",
+			"LED driver BD", "LED Lighting BD", "LED Lighting  Driver BD", "AUDIO", "DPF", "OTHERS", "FRC",
+			"Emitter BD", "DC JACK", "Bluetooth", "LED Lightbar(for LCM)", "Network Communication BD");
+	private Set<String> piTypeSet = CollUtil.newHashSet("Power/Power&Inverter BD/Power LED Converter BD",
+			"CONTROL POWER/CONTROL FOR INVERTER/LED CONVERTER", "POWER/B (公板：需要單獨報安規)");
+
+	public static final String[] UPDATE_ITEM_ATTRI = { "description", "sapDescription", "mfg", "mfgPn", "unit",
+			"materialType", "materialGroup", "procurementType", "sapRev", "supplierZF" };
+	public static final String[] UPDATE_BOM_ATTRI = { "findNum", "location", "qty", "packageType", "side",
+//			"alternativeGroup", 
+			"referenceDimension" };
+
+	private static Map<String, Object> MAX_FINDNUMMAP = new ConcurrentHashMap<String, Object>();
+
+	public TCSession getSession() {
+		return session;
+	}
+
+	public MntL10EbomService(AbstractAIFUIApplication app, ResourceBundle reg2) {
+		this.session = (TCSession) app.getSession();
+		this.reg = reg2;
+	}
+
+	public AjaxResult getPartNum(String uid, String type) {
+		TCComponent obj = TCUtil.loadObjectByUid(uid);
+		if (!(obj instanceof TCComponentItemRevision)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+		}
+		TCComponentItemRevision itemRev = (TCComponentItemRevision) obj;
+		String objType = itemRev.getTypeObject().getName();
+		if (!"D9_L10EBOMReqRevision".equals(objType)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr4.MSG"));
+		}
+		List<?> resultList = null;
+		switch (type) {
+		case "part":
+			resultList = getPartList(itemRev, "D9_BOMReq_L10B_REL");
+			break;
+		case "semi":
+			resultList = getPartList(itemRev, "D9_BOMReq_L10C_REL");
+			break;
+		case "panel":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10D_REL");
+			break;
+		case "packing":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10E_REL");
+			break;
+		case "me":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10F_REL");
+			break;
+		case "meMuxiliary":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10G_REL");
+			break;
+		case "ee":
+			resultList = getOtherPartList(itemRev, "D9_BOMReq_L10H_REL");
+			break;
+		case "externalWire":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10I_REL");
+			break;
+		case "pi":
+			resultList = getOtherPartList(itemRev, "D9_BOMReq_L10J_REL");
+			break;
+		case "powerLine":
+			resultList = getBasePartList(itemRev, "D9_BOMReq_L10K_REL");
+			break;
+		default:
+			resultList = Collections.emptyList();
+			break;
+		}
+		return AjaxResult.success(resultList);
+	}
+
+	public AjaxResult addPart(String uid, String type) {
+		TCComponent obj = TCUtil.loadObjectByUid(uid);
+		if (!(obj instanceof TCComponentItemRevision)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+		}
+		TCComponentItemRevision itemRev = (TCComponentItemRevision) obj;
+		String objType = itemRev.getTypeObject().getName();
+		if (!"D9_L10EBOMReqRevision".equals(objType)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr4.MSG"));
+		}
+		try {
+			String projectIds = itemRev.getProperty("project_ids");
+			String function = "";
+			String relation = "";
+			if ("packing".equals(type)) {
+				relation = "D9_BOMReq_L10E_REL";
+				function = "__D9_Find_Packing";
+
+			} else if ("ee".equals(type)) {
+				relation = "D9_BOMReq_L10H_REL";
+				function = "__D9_Find_PCA";
+			} else if ("pi".equals(type)) {
+				relation = "D9_BOMReq_L10J_REL";
+				function = "__D9_Find_PCA";
+			} else if ("me".equals(type)) {
+				// relation = "D9_BOMReq_L10F_REL";
+				return AjaxResult.success(true);
+			} else {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "param type is error");
+			}
+			// 查詢需要的對象，並將對象的最新版本的數據掛載到文件夾下
+			Map<String, TCComponentItemRevision> map = getCurrentPart(itemRev, relation);
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, function,
+					new String[] { "project_list.project_id" }, new String[] { projectIds });
+			if (executeQuery != null && executeQuery.length > 0) {
+				for (int i = 0; i < executeQuery.length; i++) {
+
+					TCComponentItemRevision lastRevision = null;
+					if (executeQuery[i] instanceof TCComponentItem) {
+						lastRevision = ((TCComponentItem) executeQuery[i]).getLatestItemRevision();
+					} else {
+						continue;
+					}
+					if ("ee".equals(type)
+							&& !eeTypeSet.contains(lastRevision.getProperty("d9_PCBAssyClassification_L6"))) {
+						continue;
+					}
+					if ("pi".equals(type)
+							&& !piTypeSet.contains(lastRevision.getProperty("d9_PCBAssyClassification_L6"))) {
+						continue;
+					}
+					String itemId = lastRevision.getProperty("item_id");
+					if (ObjectUtil.isNotNull(map) && ObjectUtil.isNotNull(map.get(itemId))) {
+						map.remove(itemId);
+					}
+					map.put(itemId, lastRevision);
+				}
+				itemRev.setRelated(relation, map.values().toArray(new TCComponent[map.keySet().size()]));
+			}
+			return AjaxResult.success(true);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "");
+		}
+	}
+
+	public AjaxResult deletePart(String uid, String type, String partUids) {
+		TCComponent obj = TCUtil.loadObjectByUid(uid);
+		if (!(obj instanceof TCComponentItemRevision)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+		}
+		List<String> list = StrSplitter.splitTrim(partUids, ",", true);
+		Set<String> set = new HashSet<String>();
+		for (String str : list) {
+			TCComponent part = TCUtil.loadObjectByUid(str);
+			if (!(part instanceof TCComponentItemRevision)) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+			}
+			set.add(part.getUid());
+		}
+		TCComponentItemRevision itemRev = (TCComponentItemRevision) obj;
+		String objType = itemRev.getTypeObject().getName();
+		if (!"D9_L10EBOMReqRevision".equals(objType)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr4.MSG"));
+		}
+		String relation = "";
+		switch (type) {
+		case "part":
+			relation = "D9_BOMReq_L10B_REL";
+			break;
+		case "semi":
+			relation = "D9_BOMReq_L10C_REL";
+			break;
+		case "panel":
+			relation = "D9_BOMReq_L10D_REL";
+			break;
+		case "packing":
+			relation = "D9_BOMReq_L10E_REL";
+			break;
+		case "me":
+			relation = "D9_BOMReq_L10F_REL";
+			break;
+		case "meMuxiliary":
+			relation = "D9_BOMReq_L10G_REL";
+			break;
+		case "ee":
+			relation = "D9_BOMReq_L10H_REL";
+			break;
+		case "externalWire":
+			relation = "D9_BOMReq_L10I_REL";
+			break;
+		case "pi":
+			relation = "D9_BOMReq_L10J_REL";
+			break;
+		case "powerLine":
+			relation = "D9_BOMReq_L10K_REL";
+			break;
+		default:
+			break;
+		}
+		if (StrUtil.isBlank(relation)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "param type is error");
+		}
+		try {
+			Map<String, TCComponentItemRevision> map = getCurrentPart(itemRev, relation);
+			List<TCComponentItemRevision> collect = map.values().stream().filter(item -> {
+				return !set.contains(item.getUid());
+			}).collect(Collectors.toList());
+			itemRev.setRelated(relation, collect.toArray(new TCComponent[collect.size()]));
+			return AjaxResult.success(true);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "");
+		}
+	}
+
+	public AjaxResult batchAddPart(String uid, String type, String partUids) {
+		try {
+			TCComponent obj = TCUtil.loadObjectByUid(uid);
+			if (!(obj instanceof TCComponentItemRevision)) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+			}
+			if (StrUtil.isBlank(partUids)) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "param partUids cannot blank");
+			}
+			List<String> list = StrSplitter.splitTrim(partUids, ",", true);
+			Map<String, TCComponentItemRevision> map = new HashMap<String, TCComponentItemRevision>();
+			for (String str : list) {
+				TCComponent part = TCUtil.loadObjectByUid(str);
+				if (!(part instanceof TCComponentItemRevision)) {
+					return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+				}
+				TCComponentItemRevision itemRevision = (TCComponentItemRevision) part;
+				map.put(itemRevision.getProperty("item_id"), itemRevision);
+			}
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) obj;
+			String objType = itemRev.getTypeObject().getName();
+			if (!"D9_L10EBOMReqRevision".equals(objType)) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr4.MSG"));
+			}
+			String relation = "";
+			switch (type) {
+			case "part":
+				relation = "D9_BOMReq_L10B_REL";
+				break;
+			case "semi":
+				relation = "D9_BOMReq_L10C_REL";
+				break;
+			case "panel":
+				relation = "D9_BOMReq_L10D_REL";
+				break;
+			case "packing":
+				relation = "D9_BOMReq_L10E_REL";
+				break;
+			case "me":
+				relation = "D9_BOMReq_L10F_REL";
+				break;
+			case "meMuxiliary":
+				relation = "D9_BOMReq_L10G_REL";
+				break;
+			case "ee":
+				relation = "D9_BOMReq_L10H_REL";
+				break;
+			case "externalWire":
+				relation = "D9_BOMReq_L10I_REL";
+				break;
+			case "pi":
+				relation = "D9_BOMReq_L10J_REL";
+				break;
+			case "powerLine":
+				relation = "D9_BOMReq_L10K_REL";
+				break;
+			default:
+				break;
+			}
+			if (StrUtil.isBlank(relation)) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "param type is error");
+			}
+			Map<String, TCComponentItemRevision> oldMap = getCurrentPart(itemRev, relation);
+			for (String key : oldMap.keySet()) {
+				if (ObjectUtil.isNull(map.get(key))) {
+					map.put(key, oldMap.get(key));
+				}
+			}
+			itemRev.setRelated(relation, map.values().toArray(new TCComponent[map.values().size()]));
+			return AjaxResult.success(true);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "");
+		}
+	}
+
+	public AjaxResult searchPart(String itemId) {
+		try {
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件 ID", new String[] { "item_id" },
+					new String[] { itemId + "*" });
+			List<BaseResultBean> list = new ArrayList<>(executeQuery.length);
+			if (executeQuery != null && executeQuery.length > 0) {
+				for (int i = 0; i < executeQuery.length; i++) {
+					TCComponentItem item = null;
+					if (executeQuery[i] instanceof TCComponentItem) {
+						item = (TCComponentItem) executeQuery[i];
+					} else {
+						continue;
+					}
+					TCComponentItemRevision itemRevision = item.getLatestItemRevision();
+					BaseResultBean bean = new BaseResultBean();
+					bean.setItem("" + (i + 1));
+					bean.setCode(itemRevision.getProperty("item_id"));
+					bean.setDesc(itemRevision.getProperty("d9_EnglishDescription"));
+					bean.setVersion(itemRevision.getProperty("item_revision_id"));
+					bean.setRelease(TCUtil.isReleased(itemRevision));
+
+					// String desc = itemRevision.getProperty("d9_EnglishDescription");
+					String sapDescription = itemRevision.getProperty("d9_DescriptionSAP");
+					String mfg = itemRevision.getProperty("d9_ManufacturerID");
+					String mfgPn = itemRevision.getProperty("d9_ManufacturerPN");
+					String unit = itemRevision.getProperty("d9_Un");
+					String materialType = itemRevision.getProperty("d9_MaterialType");
+					String materialGroup = itemRevision.getProperty("d9_MaterialGroup");
+					String procurementType = itemRevision.getProperty("d9_ProcurementMethods");
+					String sapRev = itemRevision.getProperty("d9_SAPRev");
+					String supplierZF = itemRevision.getProperty("d9_SupplierZF");
+					bean.setSapDescription(sapDescription);
+					bean.setMfg(mfg);
+					bean.setMfgPn(mfgPn);
+					bean.setUnit(unit);
+					bean.setMaterialType(materialType);
+					bean.setMaterialGroup(materialGroup);
+					bean.setProcurementType(procurementType);
+					bean.setSapRev(sapRev);
+					bean.setSupplierZF(supplierZF);
+
+					bean.setQty(1);
+					bean.setUid(itemRevision.getUid());
+					list.add(bean);
+				}
+				return AjaxResult.success(list);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return AjaxResult.success(Collections.EMPTY_LIST);
+	}
+
+	private Map<String, TCComponentItemRevision> getCurrentPart(TCComponentItemRevision itemRev, String relation)
+			throws Exception {
+		Map<String, TCComponentItemRevision> resultMap = new HashMap<String, TCComponentItemRevision>();
+		TCComponent[] relatedComponents = itemRev.getRelatedComponents(relation);
+		if (relatedComponents == null || relatedComponents.length == 0) {
+			return resultMap;
+		}
+		for (int i = 0; i < relatedComponents.length; i++) {
+			TCComponentItemRevision itemRevision = null;
+			if (relatedComponents[i] instanceof TCComponentItemRevision) {
+				itemRevision = (TCComponentItemRevision) relatedComponents[i];
+			} else {
+				continue;
+			}
+			String itemId = itemRevision.getProperty("item_id");
+			resultMap.put(itemId, itemRevision);
+		}
+		return resultMap;
+	}
+
+	private List<OtherResultBean> getOtherPartList(TCComponentItemRevision itemRev, String relation) {
+		try {
+			TCComponent[] relatedComponents = itemRev.getRelatedComponents(relation);
+			if (relatedComponents == null || relatedComponents.length == 0) {
+				return Collections.emptyList();
+			}
+			List<OtherResultBean> list = new ArrayList<>(relatedComponents.length);
+			for (int i = 0; i < relatedComponents.length; i++) {
+				TCComponentItemRevision itemRevision = null;
+				if (relatedComponents[i] instanceof TCComponentItemRevision) {
+					itemRevision = (TCComponentItemRevision) relatedComponents[i];
+				} else {
+					continue;
+				}
+				BaseResultBean baseBean = getBaseResultBean(itemRevision, i);
+				if (ObjectUtil.isNotNull(baseBean)) {
+					OtherResultBean bean = new OtherResultBean();
+					BeanUtil.copyProperties(baseBean, bean);
+					bean.setModelName(itemRevision.getProperty("d9_FoxconnModelName"));
+					bean.setDerivativeType(itemRevision.getProperty("d9_DerivativeTypeDC"));
+					bean.setPacType(itemRevision.getProperty("d9_PCBAssyClassification_L6"));
+					list.add(bean);
+				}
+			}
+			return list;
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return Collections.emptyList();
+	}
+
+	private List<BaseResultBean> getBasePartList(TCComponentItemRevision itemRev, String relation) {
+		try {
+			TCComponent[] relatedComponents = itemRev.getRelatedComponents(relation);
+			if (relatedComponents == null || relatedComponents.length == 0) {
+				return Collections.emptyList();
+			}
+			List<BaseResultBean> list = new ArrayList<>(relatedComponents.length);
+			for (int i = 0; i < relatedComponents.length; i++) {
+				TCComponentItemRevision itemRevision = null;
+				if (relatedComponents[i] instanceof TCComponentItemRevision) {
+					itemRevision = (TCComponentItemRevision) relatedComponents[i];
+				} else {
+					continue;
+				}
+				BaseResultBean bean = getBaseResultBean(itemRevision, i);
+				if (ObjectUtil.isNotNull(bean)) {
+					list.add(bean);
+				}
+			}
+			return list;
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return Collections.emptyList();
+	}
+
+	private List<PartResultBean> getPartList(TCComponentItemRevision itemRev, String relation) {
+		try {
+			TCComponent[] relatedComponents = itemRev.getRelatedComponents(relation);
+			if (relatedComponents == null || relatedComponents.length == 0) {
+				return Collections.emptyList();
+			}
+			List<PartResultBean> list = new ArrayList<>(relatedComponents.length);
+			for (int i = 0; i < relatedComponents.length; i++) {
+				TCComponentItemRevision itemRevision = null;
+				if (relatedComponents[i] instanceof TCComponentItemRevision) {
+					itemRevision = (TCComponentItemRevision) relatedComponents[i];
+				} else {
+					continue;
+				}
+				BaseResultBean baseBean = getBaseResultBean(itemRevision, i);
+				if (ObjectUtil.isNotNull(baseBean)) {
+					PartResultBean bean = new PartResultBean();
+					BeanUtil.copyProperties(baseBean, bean);
+					bean.setType(itemRevision.getProperty("d9_ChineseDescription"));
+					bean.setRemark(itemRevision.getProperty("d9_Remarks"));
+					list.add(bean);
+				}
+			}
+			return list;
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return Collections.emptyList();
+	}
+
+	private BaseResultBean getBaseResultBean(TCComponentItemRevision itemRevision, int i) {
+		try {
+			BaseResultBean bean = new BaseResultBean();
+			bean.setItem("" + (i + 1));
+			bean.setCode(itemRevision.getProperty("item_id"));
+			bean.setDesc(itemRevision.getProperty("d9_EnglishDescription"));
+			bean.setVersion(itemRevision.getProperty("item_revision_id"));
+			bean.setRelease(TCUtil.isReleased(itemRevision));
+			bean.setQty(1);
+			bean.setUid(itemRevision.getUid());
+			bean.setSapDescription(itemRevision.getProperty("d9_DescriptionSAP"));
+			bean.setMfg(itemRevision.getProperty("d9_ManufacturerID"));
+			bean.setMfgPn(itemRevision.getProperty("d9_ManufacturerPN"));
+			bean.setMaterialGroup(itemRevision.getProperty("d9_MaterialGroup"));
+			bean.setMaterialType(itemRevision.getProperty("d9_MaterialType"));
+			bean.setUnit(itemRevision.getProperty("d9_Un"));
+			bean.setProcurementType(itemRevision.getProperty("d9_ProcurementMethods"));
+			bean.setTempPN(itemRevision.getProperty("d9_TempPN"));
+			bean.setSapRev(itemRevision.getProperty("d9_SAPRev"));
+			bean.setSupplierZF(itemRevision.getProperty("d9_SupplierZF"));
+			return bean;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * 初始化展示BOM
+	 * 
+	 * @param uid
+	 * @param all
+	 * @return
+	 */
+	public AjaxResult initBOMLine(String uid, boolean all) {
+		TCComponent obj = TCUtil.loadObjectByUid(uid);
+		if (obj instanceof TCComponentItemRevision) {
+
+			TCComponentItemRevision revision = (TCComponentItemRevision) obj;
+			try {
+				L10EBOMBean topebom = getTopBOMLine(revision, all);
+				// setMaxFindNumMap(topebom);
+
+				AjaxResult ajaxResult = AjaxResult.success(topebom);
+				System.out.println("ajaxResult = " + ajaxResult);
+
+				return ajaxResult;
+			} catch (TCException e) {
+				e.printStackTrace();
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+			}
+
+		}
+
+		return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "初始化加载BOM失败！");
+	}
+
+	/**
+	 * 展示下层BOM
+	 * 
+	 * @param uid
+	 * @return
+	 */
+	public AjaxResult expansionChile(String uid, String key) {
+
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			TCComponent itemRev = session.getComponentManager().getTCComponent(uid);
+			if (itemRev instanceof TCComponentItemRevision) {
+
+				TCComponentItemRevision revision = (TCComponentItemRevision) itemRev;
+
+				bomwindow = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine bomLine = bomwindow.setWindowTopLine(revision.getItem(), revision, null, null);
+				AIFComponentContext[] childrens = bomLine.getChildren();
+				ArrayList<L10EBOMBean> listEbom = new ArrayList<L10EBOMBean>();
+				if (childrens != null && childrens.length > 0) {
+					for (int i = 0; i < childrens.length; i++) {
+						TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+						L10EBOMBean ebom = new L10EBOMBean(children);
+						ebom.setItemRevUid(uid);
+						ebom.setParentItem(revision.getProperty("item_id"));
+						ebom.setBomId(key);
+
+						if (children.hasSubstitutes()) {
+							TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+							for (TCComponentBOMLine subBomline : listSubstitutes) {
+								L10EBOMBean subebom = new L10EBOMBean(subBomline);
+								subebom.setParentRevUid(ebom.getItemRevUid());
+								subebom.setParentItem(ebom.getItem());
+								subebom.setBomId(key);
+								subebom.setIsSecondSource(true);
+								ebom.addSecondSource(subebom);
+							}
+						}
+
+						listEbom.add(ebom);
+					}
+				}
+
+				AjaxResult ajaxResult = AjaxResult.success(listEbom);
+				System.out.println("ajaxResult = " + ajaxResult);
+
+				return ajaxResult;
+
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			try {
+				bomwindow.close();
+			} catch (TCException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "展开BOM失败！");
+
+	}
+
+	/**
+	 * 删除结构
+	 * 
+	 * @param topebom
+	 * @throws TCException
+	 */
+	public void cutBOMChile(TCComponentBOMLine topebom) throws TCException {
+
+		AIFComponentContext[] childrens = topebom.getChildren();
+		if (childrens != null && childrens.length > 0) {
+			for (int i = 0; i < childrens.length; i++) {
+				TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+				children.cut();
+			}
+		}
+	}
+
+	/**
+	 * 搭建BOM
+	 * 
+	 * @param childs
+	 * @param topebom
+	 * @throws Exception
+	 */
+	public void addBOMChile(List<L10EBOMBean> childrens, TCComponentBOMLine topebom) throws Exception {
+		if (childrens != null && childrens.size() > 0) {
+			for (int i = 0; i < childrens.size(); i++) {
+				L10EBOMBean ebomBean = childrens.get(i);
+				String childUid = ebomBean.getItemRevUid();
+				TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(childUid);
+
+				TCComponentBOMLine bomLine = topebom.add(itemRev.getItem(), itemRev, null, false);
+				if (itemRev != null) {
+					setProItemValue(ebomBean, itemRev);
+					setProBomValue(ebomBean, bomLine);
+				}
+			}
+		}
+	}
+
+	/**
+	 * 保存整个BOM结构，重新搭建BOM
+	 * 
+	 * @param data
+	 */
+	public AjaxResult saveBOMChile(L10EBOMBean rootBean) throws TCException {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+
+			Boolean isModifyItem = rootBean.getIsModifyItem();
+			Boolean isModifyTree = rootBean.getIsModifyTree();
+			List<L10EBOMBean> childs = rootBean.getChilds();
+
+			if (isModifyTree) {
+				// 结构变化
+				String itemRevUid = rootBean.getItemRevUid();
+				TCComponentItemRevision topitemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(itemRevUid);
+				if (topitemRev != null) {
+					bomwindow = TCUtil.createBOMWindow(session);
+
+					TCComponentBOMLine topebom = bomwindow.setWindowTopLine(topitemRev.getItem(), topitemRev, null,
+							null);
+					cutBOMChile(topebom);
+					addBOMChile(childs, topebom);
+					bomwindow.save();
+				}
+			} else if (isModifyItem) {
+				// 结构没有变化，属性变化
+				String itemRevUid = rootBean.getParentRevUid();
+				TCComponentItemRevision topitemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(itemRevUid);
+				if (topitemRev != null) {
+					bomwindow = TCUtil.createBOMWindow(session);
+					TCComponentBOMLine topebom = bomwindow.setWindowTopLine(topitemRev.getItem(), topitemRev, null,
+							null);
+
+					AIFComponentContext[] childrens = topebom.getChildren();
+					if (childrens != null && childrens.length > 0) {
+						for (int i = 0; i < childrens.length; i++) {
+							TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+							String item = rootBean.getItem();
+							String bl_item_item_id = children.getProperty("bl_item_item_id");
+							if (item.equals(bl_item_item_id)) {
+								TCComponentItemRevision itemRev = children.getItemRevision();
+								setProItemValue(rootBean, itemRev);
+								setProBomValue(rootBean, children);
+							}
+						}
+					}
+					bomwindow.save();
+				}
+			}
+
+			if (childs != null && childs.size() > 0) {
+				for (int i = 0; i < childs.size(); i++) {
+					L10EBOMBean childsBean = childs.get(i);
+					saveBOMChile(childsBean);
+				}
+			}
+
+			List<L10EBOMBean> secondSource = rootBean.getSecondSource();
+			if (secondSource != null && secondSource.size() > 0) {
+				for (int i = 0; i < secondSource.size(); i++) {
+					L10EBOMBean secondSourceBean = secondSource.get(i);
+					// saveBOMChile(secondSourceBean);
+					Boolean isModifyItem_s = secondSourceBean.getIsModifyItem();
+					if (isModifyItem_s) {
+						String uid_s = secondSourceBean.getItemRevUid();
+						TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager()
+								.getTCComponent(uid_s);
+						setProItemValue(secondSourceBean, itemRev);
+					}
+				}
+			}
+
+			return AjaxResult.success("保存BOM成功！");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (bomwindow != null)
+				bomwindow.close();
+		}
+	}
+
+	/**
+	 * 设置零件属性
+	 * 
+	 * @param itemBean
+	 * @param itemRev
+	 * @throws Exception
+	 */
+	private void setProItemValue(L10EBOMBean itemBean, TCComponentItemRevision itemRev) throws Exception {
+		boolean isWrite = TCUtil.checkOwninguserisWrite(session, itemRev);
+		if (isWrite) {
+			HashMap<String, String> itemMap = new HashMap<String, String>();
+			for (String fieldName : UPDATE_ITEM_ATTRI) {
+				Field field = itemBean.getClass().getDeclaredField(fieldName);
+				field.setAccessible(true);
+				TCPropName tcProp = field.getAnnotation(TCPropName.class);
+				if (tcProp != null) {
+					String tcPropName = tcProp.value();
+					Object value = field.get(itemBean) == null ? "" : field.get(itemBean);
+					itemMap.put(tcPropName, value + "");
+				}
+			}
+			if (itemMap != null && itemMap.size() > 0) {
+				itemRev.setProperties(itemMap);
+			}
+		}
+	}
+
+	/**
+	 * 设置结构属性
+	 * 
+	 * @param itemBean
+	 * @param tcbom
+	 * @throws Exception
+	 */
+	private void setProBomValue(L10EBOMBean itemBean, TCComponentBOMLine tcbom) throws Exception {
+		HashMap<String, String> bomMap = new HashMap<String, String>();
+		for (String fieldName : UPDATE_BOM_ATTRI) {
+			Field field = itemBean.getClass().getDeclaredField(fieldName);
+			field.setAccessible(true);
+			TCPropName tcProp = field.getAnnotation(TCPropName.class);
+			if (tcProp != null) {
+				String tcPropName = tcProp.value();
+				Object value = field.get(itemBean) == null ? "" : field.get(itemBean);
+				bomMap.put(tcPropName, value + "");
+			}
+		}
+		if (bomMap != null && bomMap.size() > 0) {
+			tcbom.setProperties(bomMap);
+		}
+	}
+
+	/**
+	 * 添加BOM，添加一行
+	 * 
+	 * @param data
+	 * @return
+	 * @throws TCException
+	 */
+	public AjaxResult addBOM(String data) throws TCException {
+		Gson gson = new Gson();
+		L10EBOMBean rootBean = gson.fromJson(data, L10EBOMBean.class);
+		String itemRevUid = rootBean.getItemRevUid();
+		String parentRevUid = rootBean.getParentRevUid();
+		String quantity = rootBean.getQty();
+		if (quantity == null || "".equals(quantity)) {
+			quantity = "1";
+		}
+
+		TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager()
+				.getTCComponent(itemRevUid);
+		TCComponentItemRevision parentRev = (TCComponentItemRevision) session.getComponentManager()
+				.getTCComponent(parentRevUid);
+
+		if (itemRev != null && parentRev != null) {
+			TCComponentBOMWindow bomwindow = null;
+			try {
+				bomwindow = TCUtil.createBOMWindow(session);
+				TCComponentBOMLine topebom = bomwindow.setWindowTopLine(parentRev.getItem(), parentRev, null, null);
+				TCComponentBOMLine bomLine = topebom.add(itemRev.getItem(), itemRev, null, false);
+
+				bomLine.setProperty("bl_quantity", "" + quantity);
+				bomwindow.save();
+
+				L10EBOMBean ebom = new L10EBOMBean(bomLine);
+				ebom.setParentRevUid(parentRevUid);
+				ebom.setParentItem(parentRev.getProperty("item_id"));
+				// ebom.setBomId();
+
+				AjaxResult ajaxResult = AjaxResult.success(ebom);
+				return ajaxResult;
+			} catch (Exception e) {
+				e.printStackTrace();
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+			} finally {
+				bomwindow.close();
+			}
+		}
+		return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("SelectWarn1.MSG"));
+
+	}
+
+	public void setMaxFindNumMap(L10EBOMBean rootBean) throws TCException {
+		new Thread(() -> {
+			try {
+				ExecutorService es = Executors.newFixedThreadPool(4);
+				setMaxFindNumMap(rootBean, es);
+				es.shutdown();
+			} catch (TCException e) {
+				e.printStackTrace();
+			}
+		}).start();
+	}
+
+	public void setMaxFindNumMap(L10EBOMBean rootBean, ExecutorService es) throws TCException {
+		String itemUid = rootBean.getItemRevUid();
+		if (!MAX_FINDNUMMAP.containsKey(itemUid)) {
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(itemUid);
+			if (TCUtil.isReleased(itemRev)) {
+				MAX_FINDNUMMAP.put(itemUid, es.submit(() -> getMaxFindNum(itemRev)));
+			} else {
+				TCComponentItemRevision baseOnRev = getPreviousRev(itemRev);
+				if (baseOnRev != null) {
+					MAX_FINDNUMMAP.put(itemUid, es.submit(() -> getMaxFindNum(baseOnRev)));
+				} else {
+					MAX_FINDNUMMAP.put(itemUid, new int[] { 0, 0 });
+				}
+			}
+		}
+		for (L10EBOMBean cBomBean : rootBean.getChilds()) {
+			if (cBomBean.getChilds().size() > 0) {
+				setMaxFindNumMap(cBomBean, es);
+			}
+		}
+	}
+
+	public TCComponentItemRevision getPreviousRev(TCComponentItemRevision itemRev) throws TCException {
+		TCProperty p = itemRev.getTCProperty("revision_list");
+		TCComponent[] tccom = p.getReferenceValueArray();
+		if (tccom != null && tccom.length > 1) {
+			int index = ArrayUtils.indexOf(tccom, itemRev);
+			if (index > 0) {
+				return (TCComponentItemRevision) tccom[index - 1];
+			}
+		}
+		return null;
+	}
+
+	public int[] getMaxFindNum(String itemRevUid) throws Exception {
+		int max[] = new int[2];
+		Object result = MAX_FINDNUMMAP.get(itemRevUid);
+		if (result != null) {
+			if (result instanceof int[]) {
+				max = (int[]) result;
+			} else {
+				max = ((Future<int[]>) result).get();
+			}
+		} else {
+			TCComponentItemRevision itemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(itemRevUid);
+			if (TCUtil.isReleased(itemRev)) {
+				max = getMaxFindNum(itemRev);
+			} else {
+				TCComponentItemRevision baseOnRev = getPreviousRev(itemRev);
+				if (baseOnRev != null) {
+					max = getMaxFindNum(baseOnRev);
+				}
+			}
+			MAX_FINDNUMMAP.put(itemRevUid, max);
+		}
+		return max;
+	}
+
+	public int[] getMaxFindNum(TCComponentItemRevision baseOnRev) {
+		TCComponentBOMWindow bomWindow = null;
+		int[] result = new int[2];
+		result[0] = 0;
+		result[1] = 0;
+		try {
+			bomWindow = TCUtil.createBOMWindow(session);
+			bomWindow.setWindowTopLine(null, baseOnRev, null, null);
+			TCComponentBOMLine topBomLine = bomWindow.getTopBOMLine();
+			AIFComponentContext[] componmentContext = topBomLine.getChildren();
+			if (componmentContext != null && componmentContext.length > 0) {
+				AIFComponentContext lastAIFCom = componmentContext[componmentContext.length - 1];
+				TCComponentBOMLine bomLine = (TCComponentBOMLine) lastAIFCom.getComponent();
+				String findNum = bomLine.getProperty("bl_sequence_no");
+				result[0] = Integer.parseInt(findNum);
+				Integer maxAlt = Stream.of(componmentContext).map(e -> {
+					TCComponentBOMLine bom = (TCComponentBOMLine) e.getComponent();
+					try {
+						String altGroup = bom.getProperty("bl_occ_d9_AltGroup");
+						if (!TCUtil.isNull(altGroup)) {
+							return Integer.parseInt(altGroup);
+						}
+					} catch (TCException e1) {
+						e1.printStackTrace();
+					}
+					return 0;
+				}).max(Integer::compare).get();
+				if (maxAlt != null) {
+					result[1] = maxAlt.intValue();
+				}
+				return result;
+			}
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		} finally {
+			if (bomWindow != null) {
+				try {
+					bomWindow.close();
+				} catch (TCException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		return result;
+	}
+
+	public L10EBOMBean getTopBOMLine(TCComponentItemRevision revision, boolean all) throws TCException {
+		TCComponentBOMWindow bomwindow = null;
+		L10EBOMBean topebom = null;
+
+		try {
+			bomwindow = TCUtil.createBOMWindow(session);
+			TCComponentBOMLine topBomline = bomwindow.setWindowTopLine(revision.getItem(), revision, null, null);
+			topebom = new L10EBOMBean(topBomline);
+			// topebom.setQty("");
+
+			if (all) {
+				topebom = getALLBOMLine(topebom, topebom.getItem(), 100);
+			} else {
+				topebom = getALLBOMLine(topebom, topebom.getItem(), 4);
+			}
+
+		} catch (TCException e) {
+			e.printStackTrace();
+		} finally {
+			bomwindow.close();
+		}
+
+		return topebom;
+	}
+
+	public L10EBOMBean getALLBOMLine(L10EBOMBean panBean, String key, int level) throws TCException {
+		TCComponentBOMLine bomLine = panBean.bomLine;
+		if (bomLine.hasSubstitutes()) {
+			TCComponentBOMLine[] listSubstitutes = bomLine.listSubstitutes();
+			for (TCComponentBOMLine subBomline : listSubstitutes) {
+				L10EBOMBean subebom = new L10EBOMBean(subBomline);
+				subebom.setParentRevUid(panBean.getItemRevUid());
+				subebom.setParentItem(panBean.getItem());
+				subebom.setBomId(key);
+				subebom.setIsSecondSource(true);
+				panBean.addSecondSource(subebom);
+			}
+		}
+
+		AIFComponentContext[] childrens = bomLine.getChildren();
+		level = level - 1;
+		if (childrens != null && childrens.length > 0 && level > 0) {
+			for (int i = 0; i < childrens.length; i++) {
+				TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+				L10EBOMBean ebom = new L10EBOMBean(children);
+				ebom.setParentRevUid(panBean.getItemRevUid());
+				ebom.setParentItem(panBean.getItem());
+				ebom.setBomId(key);
+				panBean.addChild(ebom);
+				getALLBOMLine(ebom, key + "$" + ebom.getItem(), level);
+			}
+		}
+
+		return panBean;
+	}
+
+	public AjaxResult updateProp(String uid, String remark) {
+		TCComponent obj = TCUtil.loadObjectByUid(uid);
+		if (!(obj instanceof TCComponentItemRevision)) {
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, reg.getString("selectErr3.MSG"));
+		}
+		TCComponentItemRevision itemRevision = (TCComponentItemRevision) obj;
+		try {
+			itemRevision.setProperty("d9_Remarks", remark);
+			return AjaxResult.success(true);
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "Update Failed");
+	}
+
+}

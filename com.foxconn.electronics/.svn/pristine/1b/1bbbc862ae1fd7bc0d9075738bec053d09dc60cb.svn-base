@@ -1,0 +1,2695 @@
+package com.foxconn.electronics.matrixbom.service;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import com.teamcenter.rac.common.create.SOAGenericCreateHelper;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.foxconn.electronics.dbomconvertebom.QueryL5L6PNMS;
+import com.foxconn.electronics.matrixbom.constant.MatrixBOMConstant;
+import com.foxconn.electronics.matrixbom.domain.ProductLineBOMBean;
+import com.foxconn.electronics.matrixbom.export.MatrixBOMImputDialog;
+import com.foxconn.electronics.matrixbom.export.PackingMatrixImput;
+import com.foxconn.mechanism.integrate.hhpnIntegrate.HHPNPojo;
+import com.foxconn.tcutils.util.TCUtil;
+import com.foxconn.tcutils.util.AjaxResult;
+import com.foxconn.tcutils.util.CommonTools;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.teamcenter.rac.aif.AbstractAIFUIApplication;
+import com.teamcenter.rac.aif.kernel.AIFComponentContext;
+import com.teamcenter.rac.aif.kernel.InterfaceAIFComponent;
+import com.teamcenter.rac.common.create.BOCreateDefinitionFactory;
+import com.teamcenter.rac.common.create.CreateInstanceInput;
+import com.teamcenter.rac.common.create.IBOCreateDefinition;
+import com.teamcenter.rac.common.create.ICreateInstanceInput;
+import com.teamcenter.rac.kernel.TCComponent;
+import com.teamcenter.rac.kernel.TCComponentBOMLine;
+import com.teamcenter.rac.kernel.TCComponentBOMWindow;
+import com.teamcenter.rac.kernel.TCComponentBOMWindowType;
+import com.teamcenter.rac.kernel.TCComponentDataset;
+import com.teamcenter.rac.kernel.TCComponentFolder;
+import com.teamcenter.rac.kernel.TCComponentGroup;
+import com.teamcenter.rac.kernel.TCComponentItem;
+import com.teamcenter.rac.kernel.TCComponentItemRevision;
+import com.teamcenter.rac.kernel.TCComponentItemType;
+import com.teamcenter.rac.kernel.TCComponentListOfValues;
+import com.teamcenter.rac.kernel.TCComponentListOfValuesType;
+import com.teamcenter.rac.kernel.TCComponentProcessType;
+import com.teamcenter.rac.kernel.TCComponentRevisionRule;
+import com.teamcenter.rac.kernel.TCComponentRevisionRuleType;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplate;
+import com.teamcenter.rac.kernel.TCComponentTaskTemplateType;
+import com.teamcenter.rac.kernel.TCException;
+import com.teamcenter.rac.kernel.TCSession;
+import com.teamcenter.services.loose.core.ProjectLevelSecurityService;
+import com.teamcenter.services.loose.core._2007_09.ProjectLevelSecurity.AssignedOrRemovedObjects;
+import com.teamcenter.soa.client.model.ModelObject;
+import com.teamcenter.soa.client.model.ServiceData;
+
+import cn.hutool.core.codec.Base64;
+import cn.hutool.core.img.ImgUtil;
+import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
+
+public class ProductLineBOMService {
+
+	private TCSession session;
+
+	public static String tempPath = System.getProperty("java.io.tmpdir");
+
+	public static String[] proname = new String[] { "d9_CustomerPN", "d9_ManufacturerID", "d9_ManufacturerPN",
+			"d9_EnglishDescription", "d9_Un", "d9_SupplierZF", "object_desc", "d9_FRUPN", "d9_ThermalType",
+			"d9_CoolerFanVendor", "d9_CoolerFanModelNo", "d9_Chassis", "d9_Rating", "d9_Type" };
+	private String[] bomname = new String[] { "bl_occ_d9_TorqueIn", "bl_occ_d9_TorqueOut", "bl_occ_d9_Remark",
+			"bl_occ_d9_Category", "bl_occ_d9_Plant", "bl_occ_d9_ProgramName" };
+
+	public ProductLineBOMService() {
+	}
+
+	public ProductLineBOMService(AbstractAIFUIApplication app) {
+		session = (TCSession) app.getSession();
+	}
+	
+	/**
+	 * 查询零件
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult queryMatrixParts(String itemids) {
+		ArrayList<ProductLineBOMBean> rootBeanlist = new ArrayList<ProductLineBOMBean>();
+		TCComponentItemRevision itemrevision = null;
+		try {
+			TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件版本...",
+					new String[] { "items_tag.item_id", "object_type" },
+					new String[] { itemids, "D9_CommonPartRevision" });
+			if (executeQuery != null && executeQuery.length > 0) {
+
+				for (int i = 0; i < executeQuery.length; i++) {
+					if (executeQuery[i] instanceof TCComponentItemRevision)
+						itemrevision = (TCComponentItemRevision) executeQuery[i];
+
+					ProductLineBOMBean rootBean = new ProductLineBOMBean();
+					rootBean = ProductLineBOMBean.tcPropItemMapping(rootBean, itemrevision);
+					rootBean.setReleased(TCUtil.isReleased(itemrevision));
+					boolean itemWrite = TCUtil.checkOwninguserisWrite(session, itemrevision);
+					rootBean.setItemEnabled(itemWrite);
+					String uom = itemrevision.getItem().getProperty("uom_tag");
+					rootBean.setUom(uom);
+
+					// 下载图片,转为Base64返回
+					String Base64Str = MatrixBOMService.downloadFile(itemrevision).get("base64Str");
+					rootBean.setBase64Str(Base64Str);
+
+//					TCComponent[] components = itemrevision.getRelatedComponents("IMAN_specification");
+//					for (TCComponent tcComponent : components) {
+//						if (!(tcComponent instanceof TCComponentDataset)) {
+//							continue;
+//						}
+//						String type = tcComponent.getType();
+//						if("Image".equals(type) || "JPEG".equals(type) || "GIF".equals(type)) {
+//							String uid=tcComponent.getUid();
+//							String url=TCUtil.getPreference(session, TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+//							String itemImgPath=url+"/tc-hdfs/downloadFile?site=WH&refId="+uid;
+//							rootBean.setItemImgPath(itemImgPath);
+//						}
+//					}
+
+					rootBeanlist.add(rootBean);
+				}
+
+			} else {
+				// return new AjaxResult(AjaxResult.STATUS_PARAM_ERROR, null,null);
+				// return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "");
+				return AjaxResult.success("");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		}
+
+		String jsons = JSONArray.toJSONString(rootBeanlist);
+		System.out.print("json ==" + jsons);
+		return AjaxResult.success("执行成功", rootBeanlist);
+	}
+
+	/**
+	 * 创建零件指派ID
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult newIDMatrixParts() {
+		try {
+			TCComponentItemType itemType = (TCComponentItemType) session.getTypeComponent("D9_CommonPart");
+			String item_id = itemType.getNewID();
+			String itemRev = itemType.getNewRev(null);
+
+			Map<String, String> map = new HashMap<String, String>();
+			map.put("item_id", item_id);
+			map.put("item_revision_id", itemRev);
+
+			return AjaxResult.success("执行成功", map);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		}
+	}
+
+	/**
+	 * 产品线增加零件(创建零件)
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult addMatrixParts(String data) {
+		try {
+			// getLovValues("D9_YesNo_LOV");
+			// getLovValues("D9_Plant_LOV");
+
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			String itemid = rootBean.getItemId();
+			String name = rootBean.getItemName();
+			String rev = rootBean.getItemRevision();
+			String itemType = rootBean.getItemType();
+			String uom_tag = rootBean.getUom();
+
+			if (itemType == null || "".equals(itemType)) {
+				itemType = "D9_CommonPart";
+			}
+
+			TCComponentItemRevision latestItemRevision = null;
+			if (itemid.equalsIgnoreCase("NA") || itemid.equalsIgnoreCase("N/A")) {
+				TCComponentItem newItem = createItem(session, "", rev, name, itemType);
+				latestItemRevision = newItem.getLatestItemRevision();
+				// 设置零件属性
+				String[] provalue = new String[] { rootBean.getCustomerPN(), rootBean.getManufacturerID(),
+						rootBean.getManufacturerPN(), rootBean.getEnglishDescription(), rootBean.getUn(),
+						rootBean.getSupplierZF(), rootBean.getItemDescription(), rootBean.getFrupn(),
+						rootBean.getThermalType(), rootBean.getCoolerFanVendor(), rootBean.getCoolerFanModelNo(),
+						rootBean.getChassis(), rootBean.getRating(), rootBean.getType() };
+
+				latestItemRevision.setProperties(proname, provalue);
+
+				String thermalType = rootBean.getThermalType();
+				System.out.println("thermalType = " + thermalType);
+				// latestItemRevision.setProperty("d9_ThermalType", thermalType);
+
+				if (rootBean.getMeetTCO90() != null && !rootBean.getMeetTCO90().equals("")) {
+					latestItemRevision.setProperty("d9_MeetTCO90", rootBean.getMeetTCO90());
+				}
+
+			} else {
+				if (!getRightStr(itemid)) {
+					// MessageBox.post(AIFUtility.getActiveDesktop(),"输入的ID不正确", "提示",
+					// MessageBox.INFORMATION);
+					return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "输入的ID不正确");
+				}
+
+				TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件版本...",
+						new String[] { "items_tag.item_id" }, new String[] { itemid });
+				if (executeQuery != null && executeQuery.length > 0) {
+					for (int i = 0; i < executeQuery.length; i++) {
+						if (executeQuery[i] instanceof TCComponentItemRevision)
+							latestItemRevision = (TCComponentItemRevision) executeQuery[i];
+					}
+				} else {
+					TCComponentItem newItem = createItem(session, itemid, rev, name, itemType);
+					latestItemRevision = newItem.getLatestItemRevision();
+					// 设置零件属性
+					String[] provalue = new String[] { rootBean.getCustomerPN(), rootBean.getManufacturerID(),
+							rootBean.getManufacturerPN(), rootBean.getEnglishDescription(), rootBean.getUn(),
+							rootBean.getSupplierZF(), rootBean.getItemDescription(), rootBean.getFrupn(),
+							rootBean.getThermalType(), rootBean.getCoolerFanVendor(), rootBean.getCoolerFanModelNo(),
+							rootBean.getChassis(), rootBean.getRating(), rootBean.getType() };
+
+					latestItemRevision.setProperties(proname, provalue);
+
+					if (rootBean.getMeetTCO90() != null && !rootBean.getMeetTCO90().equals("")) {
+						latestItemRevision.setProperty("d9_MeetTCO90", rootBean.getMeetTCO90());
+					}
+
+					// latestItemRevision.setProperty("uom_tag", "Other");
+					if (uom_tag != null)
+						newItem.setProperty("uom_tag", uom_tag);
+
+				}
+			}
+
+			rootBean.setItemRevision(latestItemRevision.getProperty("item_revision_id"));
+			rootBean.setItemId(latestItemRevision.getProperty("item_id"));
+
+			// 图片处理
+			boolean iswrite = TCUtil.checkOwninguserisWrite(session, latestItemRevision);
+			if (iswrite) {
+				String property_item_id = latestItemRevision.getProperty("item_id");
+				// String urlstr = "";
+				String base64Str = rootBean.getBase64Str();
+				String imgName = rootBean.getImgName();
+				if (StrUtil.isNotEmpty(base64Str) && StrUtil.isNotEmpty(imgName)) {
+					if (!imgName.contains("."))
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "参数imgName不正确");
+					// saveImage(urlstr, imgPath, imgName);
+					String substring = imgName.substring(imgName.lastIndexOf(".") + 1);
+					String imgFilepath = tempPath + "\\" + imgName;
+					base64StringToImage(base64Str, imgFilepath, imgName, substring);
+
+					if (!new File(imgFilepath).exists())
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "图片下载失败！");
+
+					TCComponentDataset dataSet = null;
+					if (substring.equalsIgnoreCase("png")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "Image", property_item_id, "Image");
+					} else if (substring.equalsIgnoreCase("jpeg")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "Image", property_item_id, "Image");
+					} else if (substring.equalsIgnoreCase("jpg")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "JPEG", property_item_id,
+								"JPEG_Reference");
+					} else if (substring.equalsIgnoreCase("gif")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "GIF", property_item_id, "GIF_Reference");
+					}
+					if (dataSet == null)
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "图片对象创建失败！");
+
+					latestItemRevision.setRelated("IMAN_specification", new TCComponent[] { dataSet });
+				}
+			}
+
+			latestItemRevision.refresh();
+
+			String jsons = JSONArray.toJSONString(rootBean);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBean);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		}
+	}
+
+	/**
+	 * 发起流程
+	 * 
+	 * @param itemids
+	 * @return
+	 */
+	public AjaxResult createRelease(String itemRevUID, String processName) {
+		if ("".equals(processName))
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "流程创建失败，流程模板名称不能为空！");
+
+		System.out.println("processName = " + processName);
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			List<TCComponentItemRevision> solutionList = new ArrayList<>();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(itemRevUID);
+			if (roductLineItemRev == null)
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "未找到Matrix对象！");
+
+			// 系列
+			TCComponent[] tccom_HasVariants = roductLineItemRev
+					.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					if (tccom_HasVariants[i] instanceof TCComponentItemRevision) {
+						TCComponentItemRevision itemRevision = (TCComponentItemRevision) tccom_HasVariants[i];
+						if (!TCUtil.isReleased(itemRevision))
+							solutionList.add(itemRevision);
+					}
+				}
+			}
+
+			// 物料
+			bomwindow = createBOMWindow(session);
+			TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+			// 解包
+			topbom.refresh();
+			AIFComponentContext[] childrens_Packed = topbom.getChildren();
+			for (AIFComponentContext aifchildren : childrens_Packed) {
+				TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+				if (children.isPacked()) {
+					children.unpack();
+					children.refresh();
+				}
+			}
+			topbom.refresh();
+			AIFComponentContext[] childrens = topbom.getChildren();
+			if (childrens.length > 0) {
+				for (int i = 0; i < childrens.length; i++) {
+					TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+					TCComponentItemRevision itemRevision = children.getItemRevision();
+					// 替代件需要发布吗？ Matrix对象需要发布吗？ 产品线需要发布吗？ 是否需要修订新版本？
+
+					if (!TCUtil.isReleased(itemRevision))
+						solutionList.add(itemRevision);
+				}
+			}
+
+			// 发起流程
+			if (solutionList == null || solutionList.size() == 0)
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "流程创建失败，未找到可发布流程的对象！");
+
+			TCComponentItemRevision[] solutionArray = solutionList.toArray(new TCComponentItemRevision[] {});
+			// String createRelease = addStatusByWorkFlow(session, solutionArray, "TCM
+			// Release Process");
+			String createRelease = addStatusByWorkFlow(session, solutionArray, processName);
+			if (!"".equals(createRelease)) {
+				return AjaxResult.success("执行成功", "流程：" + createRelease + "，创建成功!");
+			}
+
+		} catch (TCException e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				bomwindow.close();
+			} catch (TCException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return AjaxResult.success("执行成功");
+	}
+
+	public void addSolutionList(List<TCComponentItemRevision> solutionList, TCComponentItemRevision solution) {
+		for (TCComponentItemRevision item : solutionList) {
+			String uid = item.getUid();
+			String solutionUid = solution.getUid();
+			if (uid.equals(solutionUid)) {
+				return;
+			}
+		}
+		solutionList.add(solution);
+	}
+
+	/**
+	 * 创建DCN变更
+	 * 
+	 * @param itemids
+	 * @return
+	 */
+	public AjaxResult createDCN(String itemRevUID) {
+		TCComponentBOMWindow bomwindow = null;
+		String object_string = "";
+		try {
+			List<TCComponentItemRevision> impactedList = new ArrayList<>();
+			List<TCComponentItemRevision> solutionList = new ArrayList<>();
+			List<TCComponentItemRevision> solutionList_2 = new ArrayList<>();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(itemRevUID);
+			if (roductLineItemRev == null)
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "未找到Matrix对象！");
+
+			// 系列变更
+			TCComponent[] tccom_HasVariants = roductLineItemRev
+					.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					if (tccom_HasVariants[i] instanceof TCComponentItemRevision) {
+						TCComponentItemRevision itemRevision = (TCComponentItemRevision) tccom_HasVariants[i];
+						if (!TCUtil.isReleased(itemRevision)) {
+							TCComponentItemRevision impactedRevision = getImpactedRevision(itemRevision);
+							if (impactedRevision != null) {
+								addSolutionList(impactedList, impactedRevision);
+								addSolutionList(solutionList_2, itemRevision);
+								addSolutionList(solutionList, itemRevision);
+							} else {
+								addSolutionList(solutionList_2, itemRevision);
+								addSolutionList(solutionList, itemRevision);
+							}
+						}
+					}
+				}
+			}
+
+			// 物料
+			bomwindow = createBOMWindow(session);
+			for (TCComponentItemRevision revision : solutionList) {
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, revision);
+				AIFComponentContext[] childrens = topbom.getChildren();
+				if (childrens.length > 0) {
+					for (int i = 0; i < childrens.length; i++) {
+						TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+						TCComponentItemRevision itemRevision = children.getItemRevision();
+						if (!TCUtil.isReleased(itemRevision)) {
+							TCComponentItemRevision impactedRevision = getImpactedRevision(itemRevision);
+							if (impactedRevision != null) {
+								addSolutionList(impactedList, impactedRevision);
+								addSolutionList(solutionList_2, itemRevision);
+
+							} else {
+								addSolutionList(solutionList_2, itemRevision);
+							}
+						}
+					}
+				}
+			}
+
+			// 获取组织结构
+			TCComponentGroup group = session.getGroup();
+			String groupName = group.getFullName();
+			System.out.println("groupName = " + groupName);
+
+			String itemTypeName = "D9_DT_DCN";
+//			D9_ChangeList	D9_PRT_DCN	D9_DT_DCN 	D9_MNT_DCN
+			if (groupName.contains("Printer")) {
+				itemTypeName = "D9_PRT_DCN";
+			} else if (groupName.contains("Monitor")) {
+				itemTypeName = "D9_MNT_DCN";
+			} else if (groupName.contains("Desktop")) {
+				itemTypeName = "D9_DT_DCN";
+			}
+
+			String itemid = "";
+			String itemRev = "";
+			String itemName = roductLineItemRev.getProperty("object_name");
+			if (solutionList_2 == null || solutionList_2.size() == 0) {
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "当前Matrix对象，未满足创建DCN要求！");
+			} else {
+				for (TCComponentItemRevision solution_2 : solutionList_2) {
+					AIFComponentContext[] whereReferenceds = solution_2.whereReferenced();
+					String impacted_str = solution_2.getProperty("object_string");
+					if (whereReferenceds != null && whereReferenceds.length > 0) {
+						for (AIFComponentContext whereReferenced : whereReferenceds) {
+							InterfaceAIFComponent component = whereReferenced.getComponent();
+							if (component instanceof TCComponentItemRevision) {
+								TCComponentItemRevision dcnRevision = (TCComponentItemRevision) component;
+								String propertyType = dcnRevision.getType();
+								String dcn_string = dcnRevision.getProperty("object_string");
+//								D9_ChangeList	D9_PRT_DCN	D9_DT_DCN 	D9_MNT_DCN
+								if (propertyType.equals("D9_ChangeListRevision")
+										|| propertyType.equals("D9_PRT_DCNRevision")
+										|| propertyType.equals("D9_DT_DCNRevision")
+										|| propertyType.equals("D9_MNT_DCNRevision")) {
+
+									TCComponent[] solutionItems = dcnRevision.getRelatedComponents("CMHasSolutionItem");
+									for (TCComponent solutionItem : solutionItems) {
+										if (solutionItem instanceof TCComponentItemRevision) {
+											TCComponentItemRevision solution_1 = (TCComponentItemRevision) solutionItem;
+											if (solution_2 == solution_1) {
+												return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "当前对象:"
+														+ impacted_str + "已存在:" + dcn_string + "解决方案项中,不能重复创建DCN!");
+
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			TCComponentItem newItem = createItem(session, itemid, itemRev, itemName, itemTypeName);
+			if (newItem == null)
+				return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "创建DCN失败！");
+
+			// 指派专案
+			TCComponent[] project = roductLineItemRev.getItem().getReferenceListProperty("project_list");
+			if (CommonTools.isNotEmpty(project)) {
+				assignedProject(session, newItem, project);
+			}
+			// 更新实际用户
+			String d9_ActualUserID_dcn = roductLineItemRev.getProperty("d9_ActualUserID");
+			newItem.getLatestItemRevision().setProperty("d9_ActualUserID", d9_ActualUserID_dcn);
+
+			// 生成Matrix报告
+			String exportBOMExcel = MatrixBOMExportService.exportBOMExcel(itemRevUID);
+
+			// 将生成的Matrix报告挂在DCN的变更前后
+			TCComponentItem document = null;
+			TCComponent[] relatedComponents = roductLineItemRev.getRelatedComponents("IMAN_specification");
+			if (CommonTools.isNotEmpty(relatedComponents)) {
+				for (int i = 0; i < relatedComponents.length; i++) {
+					if (relatedComponents[i] instanceof TCComponentItemRevision) {
+						TCComponentItemRevision documentRev = (TCComponentItemRevision) relatedComponents[i];
+						String property = documentRev.getProperty("object_name");
+						if (property.equals(itemName)) {
+							document = documentRev.getItem();
+							break;
+						}
+					}
+				}
+			}
+			if (document != null) {
+				TCComponentItemRevision latestItemRevision = document.getLatestItemRevision();
+				solutionList_2.add(latestItemRevision);
+				TCComponentItemRevision get_Latest_Released_ItemRev = get_Latest_Released_ItemRev(document);
+				// TCComponentItemRevision[] releasedItemRevisions =
+				// document.getReleasedItemRevisions();
+				if (CommonTools.isNotEmpty(get_Latest_Released_ItemRev)) {
+					impactedList.add(get_Latest_Released_ItemRev);
+				}
+			}
+
+			TCComponentFolder homeFolder = session.getUser().getHomeFolder();
+			homeFolder.add("contents", newItem);
+			object_string = newItem.getProperty("object_string");
+			System.out.println("object_string = " + object_string);
+
+			TCComponentItemRevision itemRevision = newItem.getLatestItemRevision();
+			TCComponentItemRevision[] impactedArray = impactedList.toArray(new TCComponentItemRevision[] {});
+			TCComponentItemRevision[] solutionArray = solutionList_2.toArray(new TCComponentItemRevision[] {});
+			itemRevision.setRelated("CMHasImpactedItem", impactedArray);
+			itemRevision.setRelated("CMHasSolutionItem", solutionArray);
+
+			if (exportBOMExcel != null && !"".equals(exportBOMExcel)) {
+				String createDCNexportDCNExcel = MatrixBOMExportService.createDCNexportDCNExcel(itemRevision,
+						exportBOMExcel);
+				System.out.println("createDCNexportDCNExcel = " + createDCNexportDCNExcel);
+
+				String matrixVer = roductLineItemRev.getProperty("item_revision_id");
+				// com.foxconn.tcutils.util.TCUtil.updateDataset(session,
+				// documentItem.getLatestItemRevision(), "IMAN_specification", file.toString());
+
+				MatrixBOMExportService.generateDocument(session, roductLineItemRev, createDCNexportDCNExcel, matrixVer);
+			}
+
+		} catch (TCException e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			TCUtil.closeBypass(TCUtil.getTCSession());
+			try {
+				bomwindow.close();
+			} catch (TCException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return AjaxResult.success("执行成功", object_string + "，DCN创建成功，请在Home下查看！");
+	}
+
+	/**
+	 * 产品线增加零件(保存结构)
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult addBOMMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+
+					TCComponentBOMLine bomline;
+					String item_id = rootBean.getItemId();
+					String ver = rootBean.getItemRevision();
+					String category = rootBean.getCategory().trim();
+					String plant = rootBean.getPlant();
+
+//					if(StrUtil.isEmpty(item_id) || StrUtil.isEmpty(ver) || StrUtil.isEmpty(category) || StrUtil.isEmpty(plant)) {
+//						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "工厂或者Category不能为空！");
+//					}
+					TCComponentItemRevision itemrevision = queryItemRev(item_id, ver);
+					if (itemrevision != null) {
+
+						bomline = addbomline(bomwindow, topbom, itemrevision);
+
+						// 设置属性
+						String[] bomvalue = new String[] { rootBean.getTorqueIn(), rootBean.getTorqueOut(),
+								rootBean.getRemark(), rootBean.getCategory().trim(), rootBean.getPlant(),
+								rootBean.getProgramName() };
+						bomline.setProperties(bomname, bomvalue);
+
+						String bomlineuid = bomline.getProperty("bl_occ_fnd0objectId");
+						rootBean.setBomLineUid(bomlineuid);
+					}
+				}
+
+				bomwindow.refresh();
+				roductLineItemRev.refresh();
+			}
+
+			// String jsons = JSONArray.toJSONString(rootBeanList);
+			// System.out.print("json ==" + jsons);
+
+			return AjaxResult.success("执行成功", rootBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 产品线移除零件
+	 * 
+	 * @param data
+	 * @return
+	 * @throws TCException
+	 */
+	public AjaxResult removeMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+
+			Gson gson = new Gson();
+			// ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+			for (int k = 0; k < rootBeanList.size(); k++) {
+				ProductLineBOMBean rootBean = rootBeanList.get(k);
+
+				String productLineItemUID = rootBean.getProductLineItemUID();
+				TCComponentItemRevision productLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+
+				String item_id = rootBean.getItemId();
+				String itemrev_id = rootBean.getItemRevision();
+				String d9_Category = rootBean.getCategory().trim();
+				String d9_Plant = rootBean.getPlant();
+
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine bomline = getTopBomline(bomwindow, productLineItemRev);
+				AIFComponentContext[] childrens = bomline.getChildren();
+				if (childrens.length > 0) {
+					for (int i = 0; i < childrens.length; i++) {
+						TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+						String bl_item_id = children.getProperty("bl_item_item_id");
+						String bl_itemrev_id = children.getProperty("bl_rev_item_revision_id");
+						String bl_occ_d9_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_occ_d9_Plant = children.getProperty("bl_occ_d9_Plant");
+
+						if (children.isPacked()) {
+							children.refresh();
+							TCComponentBOMLine[] packedLines = children.getPackedLines();
+							children.unpack();
+
+							for (int j = 0; j < packedLines.length; j++) {
+								String packed_bl_item_id = packedLines[j].getProperty("bl_item_item_id");
+								String packed_bl_itemrev_id = packedLines[j].getProperty("bl_rev_item_revision_id");
+								String packed_bl_occ_d9_Category = packedLines[j].getProperty("bl_occ_d9_Category");
+								String packed_bl_occ_d9_Plant = packedLines[j].getProperty("bl_occ_d9_Plant");
+								if (packed_bl_item_id.equals(item_id) && packed_bl_itemrev_id.equals(itemrev_id)
+										&& packed_bl_occ_d9_Category.equals(d9_Category)
+										&& packed_bl_occ_d9_Plant.equals(d9_Plant)) {
+									// 判断是否可移除
+									if (iscut(productLineItemRev, item_id, d9_Category, d9_Plant)) {
+										packedLines[j].cut();
+										break;
+									} else {
+										return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "移除失败，请先确定是否被产品使用！");
+									}
+								}
+							}
+						}
+
+						if (bl_item_id.equals(item_id) && bl_itemrev_id.equals(itemrev_id)
+								&& bl_occ_d9_Category.equals(d9_Category) && bl_occ_d9_Plant.equals(d9_Plant)) {
+							// 判断是否可移除
+							if (iscut(productLineItemRev, item_id, d9_Category, d9_Plant)) {
+								children.cut();
+							} else {
+								return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "移除失败，请先确定是否被产品使用！");
+							}
+						}
+					}
+				}
+				productLineItemRev.refresh();
+			}
+
+			return AjaxResult.success("执行成功");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 修改产品线零件
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult modifyMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			bomwindow = createBOMWindow(session);
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			String productLineItemUID = rootBean.getProductLineItemUID();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(productLineItemUID);
+			String lineid = rootBean.getLineId();
+
+			String itemId = rootBean.getItemId();
+			String category = rootBean.getCategory().trim();
+			String plant = rootBean.getPlant();
+			String remark = rootBean.getRemark();
+			String torqueIn = rootBean.getTorqueIn();
+			String torqueOut = rootBean.getTorqueOut();
+
+//			String lineIdString=CommonTools.md5Encode(itemId+category+plant);
+//			if(lineid.equals(lineIdString)) {
+//				//修改一般属性
+//				modifyBOMParts(roductLineItemRev, lineid, rootBean,bomwindow);
+//			}else {
+//				//修改key值属性
+//				modifyBOMParts(roductLineItemRev, lineid, rootBean,bomwindow);
+//				modifyVariable(roductLineItemRev, lineid, category, plant);
+//			}
+
+			String modifyKey = rootBean.getModifyKey();
+			System.out.println("modifyKey = " + modifyKey);
+
+			if ("remark".equals(modifyKey) || "plant".equals(modifyKey) || "category".equals(modifyKey)
+					|| "torqueIn".equals(modifyKey) || "torqueOut".equals(modifyKey)) {
+
+				modifyBOMParts(roductLineItemRev, lineid, rootBean, bomwindow);
+				modifyVariable(roductLineItemRev, lineid, category, plant, remark, torqueIn, torqueOut);
+			} else {
+				modifyBOMParts(roductLineItemRev, lineid, rootBean, bomwindow);
+			}
+
+			return AjaxResult.success("执行成功");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.toString());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 升版（修订）
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult upgradedverMatrixParts(String data) {
+		try {
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			String productLineItemUID = rootBean.getProductLineItemUID();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(productLineItemUID);
+
+			String item_id = rootBean.getItemId();
+			String ver = rootBean.getItemRevision();
+
+			TCComponentItemRevision itemrevision = queryItemRev(item_id, ver);
+			if (itemrevision != null) {
+				// 是否判断发布 才可升版？
+				boolean released = TCUtil.isReleased(itemrevision);
+				if (released) {
+					TCComponentItemRevision saveAsItermev = itemrevision.saveAs("");
+					String object_string = saveAsItermev.getProperty("object_string");
+					System.out.println("object_string = " + object_string);
+				}
+				// 修订后是否有特殊属性需要重新设置？
+
+			}
+			roductLineItemRev.refresh();
+
+			String jsons = JSONArray.toJSONString(rootBean);
+			System.out.print("json ==" + jsons);
+
+			return AjaxResult.success("执行成功", rootBean);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		}
+	}
+
+	/**
+	 * 上移下移排序 保存
+	 */
+	public AjaxResult moveUpDownMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			int sequence_no = 0;
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision productLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine bomline = getTopBomline(bomwindow, productLineItemRev);
+
+				// 解包
+				bomline.refresh();
+				AIFComponentContext[] childrens_Packed = bomline.getChildren();
+				for (AIFComponentContext aifchildren : childrens_Packed) {
+					TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+					if (children.isPacked()) {
+						children.unpack();
+						children.refresh();
+					}
+				}
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+
+					String lineid = rootBean.getLineId();
+
+					bomline.refresh();
+					AIFComponentContext[] childrens = bomline.getChildren();
+					if (childrens.length > 0) {
+						for (int i = 0; i < childrens.length; i++) {
+							TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+
+							String bl_item_id = children.getProperty("bl_item_item_id");
+							String bl_Category = children.getProperty("bl_occ_d9_Category");
+							String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+
+							String bl_lineIdString = CommonTools.md5Encode(bl_item_id + bl_Category + bl_Plant);
+							if (lineid.equals(bl_lineIdString)) {
+								sequence_no = sequence_no + 10;
+								children.setProperty("bl_sequence_no", "" + sequence_no);
+							}
+						}
+					}
+				}
+				productLineItemRev.refresh();
+			}
+
+			return AjaxResult.success("执行成功");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 导入零件(创建零件)
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult imputAddMatrixParts(String data) {
+		try {
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			String itemid = rootBean.getItemId();
+			String name = rootBean.getItemName();
+			String rev = rootBean.getItemRevision();
+			String itemType = rootBean.getItemType();
+
+			String qty = rootBean.getQty();
+			String uom_tag = "";
+			if (qty != null && qty.contains(".")) {
+				uom_tag = "Other";
+			}
+
+			if (itemType == null || "".equals(itemType)) {
+				itemType = "D9_CommonPart";
+			}
+
+			TCComponentItemRevision latestItemRevision = null;
+			if (itemid.equalsIgnoreCase("NA") || itemid.equalsIgnoreCase("N/A")) {
+				TCComponentItem newItem = createItem(session, "", rev, name, itemType);
+				latestItemRevision = newItem.getLatestItemRevision();
+				// 设置零件属性
+				String[] provalue = new String[] { rootBean.getCustomerPN(), rootBean.getManufacturerID(),
+						rootBean.getManufacturerPN(), rootBean.getEnglishDescription(), rootBean.getUn(),
+						rootBean.getSupplierZF(), rootBean.getItemDescription(), rootBean.getFrupn(),
+						rootBean.getThermalType(), rootBean.getCoolerFanVendor(), rootBean.getCoolerFanModelNo(),
+						rootBean.getChassis(), rootBean.getRating(), rootBean.getType() };
+
+				latestItemRevision.setProperties(proname, provalue);
+
+				if (rootBean.getMeetTCO90() != null && !rootBean.getMeetTCO90().equals("")) {
+					latestItemRevision.setProperty("d9_MeetTCO90", rootBean.getMeetTCO90());
+				}
+
+				newItem.setProperty("uom_tag", uom_tag);
+			} else {
+				if (!getRightStr(itemid)) {
+					return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "输入的ID不正确");
+				}
+
+				TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件版本...",
+						new String[] { "items_tag.item_id" }, new String[] { itemid });
+				if (executeQuery != null && executeQuery.length > 0) {
+					for (int i = 0; i < executeQuery.length; i++) {
+						if (executeQuery[i] instanceof TCComponentItemRevision) {
+							TCComponentItemRevision revision = (TCComponentItemRevision) executeQuery[i];
+							String item_revision_id = revision.getProperty("item_revision_id");
+							if (item_revision_id.equals(rev)) {
+								latestItemRevision = revision;
+							}
+						}
+					}
+
+					if (latestItemRevision == null) {
+						latestItemRevision = (TCComponentItemRevision) executeQuery[executeQuery.length - 1];
+					}
+				} else {
+					TCComponentItem newItem = createItem(session, itemid, rev, name, itemType);
+					latestItemRevision = newItem.getLatestItemRevision();
+					// 设置零件属性
+					String[] provalue = new String[] { rootBean.getCustomerPN(), rootBean.getManufacturerID(),
+							rootBean.getManufacturerPN(), rootBean.getEnglishDescription(), rootBean.getUn(),
+							rootBean.getSupplierZF(), rootBean.getItemDescription(), rootBean.getFrupn(),
+							rootBean.getThermalType(), rootBean.getCoolerFanVendor(), rootBean.getCoolerFanModelNo(),
+							rootBean.getChassis(), rootBean.getRating(), rootBean.getType() };
+
+					latestItemRevision.setProperties(proname, provalue);
+
+					if (rootBean.getMeetTCO90() != null && !rootBean.getMeetTCO90().equals("")) {
+						latestItemRevision.setProperty("d9_MeetTCO90", rootBean.getMeetTCO90());
+					}
+
+					latestItemRevision.getItem().setProperty("uom_tag", uom_tag);
+				}
+			}
+
+			rootBean.setItemRevision(latestItemRevision.getProperty("item_revision_id"));
+			rootBean.setItemId(latestItemRevision.getProperty("item_id"));
+			rootBean.setItemRevUid(latestItemRevision.getUid());
+
+			// 图片处理
+			boolean iswrite = TCUtil.checkOwninguserisWrite(session, latestItemRevision);
+			if (iswrite) {
+				String property_item_id = latestItemRevision.getProperty("item_id");
+				// String urlstr = "";
+				String base64Str = rootBean.getBase64Str();
+				String imgName = rootBean.getImgName();
+				if (StrUtil.isNotEmpty(base64Str) && StrUtil.isNotEmpty(imgName)) {
+					if (!imgName.contains("."))
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "参数imgName不正确");
+					// saveImage(urlstr, imgPath, imgName);
+					String substring = imgName.substring(imgName.lastIndexOf(".") + 1);
+					String imgFilepath = tempPath + "\\" + imgName;
+					base64StringToImage(base64Str, imgFilepath, imgName, substring);
+
+					if (!new File(imgFilepath).exists())
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "图片下载失败！");
+
+					TCComponentDataset dataSet = null;
+					if (substring.equalsIgnoreCase("png")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "Image", property_item_id, "Image");
+					} else if (substring.equalsIgnoreCase("jpeg")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "Image", property_item_id, "Image");
+					} else if (substring.equalsIgnoreCase("jpg")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "JPEG", property_item_id,
+								"JPEG_Reference");
+					} else if (substring.equalsIgnoreCase("gif")) {
+						dataSet = TCUtil.createDataSet(session, imgFilepath, "GIF", property_item_id, "GIF_Reference");
+					}
+					if (dataSet == null)
+						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "图片对象创建失败！");
+
+					latestItemRevision.setRelated("IMAN_specification", new TCComponent[] { dataSet });
+				}
+			}
+
+			latestItemRevision.refresh();
+
+			String jsons = JSONArray.toJSONString(rootBean);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBean);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		}
+	}
+
+	/**
+	 * 导入零件(保存结构)
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult imputAddBOMMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+
+					TCComponentBOMLine bomline;
+					String item_id = rootBean.getItemId();
+					String ver = rootBean.getItemRevision();
+					String category = rootBean.getCategory().trim();
+					String plant = rootBean.getPlant();
+					Integer sequence_no = rootBean.getSequence_no();
+
+//					if(StrUtil.isEmpty(item_id) || StrUtil.isEmpty(ver) || StrUtil.isEmpty(category) || StrUtil.isEmpty(plant)) {
+//						return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, "工厂或者Category不能为空！");
+//					}
+					TCComponentItemRevision itemrevision = queryItemRev(item_id, ver);
+					if (itemrevision != null) {
+
+						bomline = addbomline(bomwindow, topbom, itemrevision);
+
+						// 设置属性
+						String[] bomvalue = new String[] { rootBean.getTorqueIn(), rootBean.getTorqueOut(),
+								rootBean.getRemark(), rootBean.getCategory().trim(), rootBean.getPlant(),
+								rootBean.getProgramName() };
+						bomline.setProperties(bomname, bomvalue);
+						String qty = rootBean.getQty();
+						if (qty.contains(".")) {
+							bomline.setProperty("bl_uom", "Other");
+						}
+						bomline.setProperty("bl_quantity", "" + rootBean.getQty());
+						if (sequence_no != null && sequence_no != 0) {
+							bomline.setProperty("bl_sequence_no", "" + sequence_no);
+						}
+
+						String bomlineuid = bomline.getProperty("bl_occ_fnd0objectId");
+						rootBean.setBomLineUid(bomlineuid);
+					}
+				}
+
+				bomwindow.refresh();
+				roductLineItemRev.refresh();
+			}
+
+			// String jsons = JSONArray.toJSONString(rootBeanList);
+			// System.out.print("json ==" + jsons);
+
+			return AjaxResult.success("执行成功", rootBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 导入替代料
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult imputAddSubMatrixParts(String data) {
+
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+				// 解包
+				topbom.refresh();
+				AIFComponentContext[] childrens_Packed = topbom.getChildren();
+				for (AIFComponentContext aifchildren : childrens_Packed) {
+					TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+					if (children.isPacked()) {
+						children.unpack();
+						children.refresh();
+					}
+				}
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+					String bomlineuid = rootBean.getBomLineUid();
+					System.out.println("bomlineuid = " + bomlineuid);
+					String itemId = rootBean.getItemId();
+					String itemRevision = rootBean.getItemRevision();
+
+					topbom.refresh();
+					AIFComponentContext[] childrens = topbom.getChildren();
+					for (AIFComponentContext aifchildren : childrens) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+
+						String childrenuid = children.getProperty("bl_occ_fnd0objectId");
+						System.out.println("childrenuid = " + childrenuid);
+						if (childrenuid.equals(bomlineuid)) {
+							// 添加替代料
+							TCComponentItemRevision queryItemRev = queryItemRev(itemId, itemRevision);
+							children.add(queryItemRev.getItem(), queryItemRev, null, true);
+							bomwindow.save();
+							break;
+						}
+					}
+				}
+			}
+
+			String jsons = JSONArray.toJSONString(rootBeanList);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 添加替代料
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult addSubMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+				// 解包
+				topbom.refresh();
+				AIFComponentContext[] childrens_Packed = topbom.getChildren();
+				for (AIFComponentContext aifchildren : childrens_Packed) {
+					TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+					if (children.isPacked()) {
+						children.unpack();
+						children.refresh();
+					}
+				}
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+					String bomlineuid = rootBean.getBomLineUid();
+					System.out.println("bomlineuid = " + bomlineuid);
+					String itemId = rootBean.getItemId();
+					String itemRevision = rootBean.getItemRevision();
+
+					topbom.refresh();
+					AIFComponentContext[] childrens = topbom.getChildren();
+					for (AIFComponentContext aifchildren : childrens) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+						String bl_itemid = children.getProperty("bl_item_item_id");
+						String bl_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+						String lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+						String childrenuid = children.getProperty("bl_occ_fnd0objectId");
+						System.out.println("childrenuid = " + childrenuid);
+						if (childrenuid.equals(bomlineuid)) {
+							// 添加替代料
+							TCComponentItemRevision queryItemRev = queryItemRev(itemId, itemRevision);
+							children.add(queryItemRev.getItem(), queryItemRev, null, true);
+							bomwindow.save();
+
+							addSubVariable(roductLineItemRev, lineIdString, queryItemRev);
+							break;
+						}
+					}
+				}
+			}
+
+			String jsons = JSONArray.toJSONString(rootBeanList);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 移除替代料
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult cutSubMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			Gson gson = new Gson();
+			List<ProductLineBOMBean> rootBeanList = gson.fromJson(data, new TypeToken<List<ProductLineBOMBean>>() {
+			}.getType());
+
+			if (rootBeanList != null && rootBeanList.size() > 0) {
+				String productLineItemUID = rootBeanList.get(0).getProductLineItemUID();
+				TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+						.getTCComponent(productLineItemUID);
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+				// 解包
+				topbom.refresh();
+				AIFComponentContext[] childrens_Packed = topbom.getChildren();
+				for (AIFComponentContext aifchildren : childrens_Packed) {
+					TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+					if (children.isPacked()) {
+						children.unpack();
+						children.refresh();
+					}
+				}
+
+				for (int k = 0; k < rootBeanList.size(); k++) {
+					ProductLineBOMBean rootBean = rootBeanList.get(k);
+					String bomlineuid = rootBean.getBomLineUid();
+					System.out.println("bomlineuid = " + bomlineuid);
+					String itemId = rootBean.getItemId();
+					// String category = rootBean.getCategory().trim();
+					// String plant = rootBean.getPlant();
+					// String lineIdString=CommonTools.md5Encode(itemId+category+plant);
+					// String lineid = rootBean.getLineId();
+
+					topbom.refresh();
+					AIFComponentContext[] childrens = topbom.getChildren();
+					for (AIFComponentContext aifchildren : childrens) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+						String bl_itemid = children.getProperty("bl_item_item_id");
+						String bl_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+						String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+						if (children.hasSubstitutes()) {
+							TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+							for (TCComponentBOMLine subBomline : listSubstitutes) {
+								String childrenuidSub = subBomline.getProperty("bl_occ_fnd0objectId");
+								String bl_item_item_id = subBomline.getProperty("bl_item_item_id");
+								System.out.println("替代料bl_item_item_id = " + bl_item_item_id);
+								if (childrenuidSub.equals(bomlineuid) && bl_item_item_id.equals(itemId)) {
+									subBomline.cut();
+									bomwindow.save();
+
+									cutSubVariable(roductLineItemRev, bl_lineIdString, bl_item_item_id);
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			String jsons = JSONArray.toJSONString(rootBeanList);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBeanList);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 添加变体中对应的替代料
+	 * 
+	 * @param product
+	 * @param lineIdString
+	 * @param addItemRev
+	 */
+	public void addSubVariable(TCComponentItemRevision product, String lineIdString,
+			TCComponentItemRevision addItemRev) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					bomwindow = createBOMWindow(session);
+					TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+					bomline.refresh();
+					AIFComponentContext[] childrens_Packed = bomline.getChildren();
+					for (AIFComponentContext aifchildren : childrens_Packed) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+						if (children.isPacked()) {
+							children.unpack();
+							children.refresh();
+						}
+					}
+
+					bomline.refresh();
+					AIFComponentContext[] childrens = bomline.getChildren();
+					if (childrens.length > 0) {
+						for (AIFComponentContext aifchildren : childrens) {
+							TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+
+							String bl_itemid = children.getProperty("bl_item_item_id");
+							String bl_Category = children.getProperty("bl_occ_d9_Category");
+							String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+							String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+							if (lineIdString.equals(bl_lineIdString)) {
+
+								children.add(addItemRev.getItem(), addItemRev, null, true);
+								bomwindow.save();
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+
+	}
+
+	/**
+	 * 移除变体中对应的替代料
+	 * 
+	 * @param product
+	 * @param lineIdString
+	 * @param cutItemId
+	 */
+	public void cutSubVariable(TCComponentItemRevision product, String lineIdString, String cutItemId) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					bomwindow = createBOMWindow(session);
+					TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+					bomline.refresh();
+					AIFComponentContext[] childrens_Packed = bomline.getChildren();
+					for (AIFComponentContext aifchildren : childrens_Packed) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+						if (children.isPacked()) {
+							children.unpack();
+							children.refresh();
+						}
+					}
+
+					bomline.refresh();
+					AIFComponentContext[] childrens = bomline.getChildren();
+					if (childrens.length > 0) {
+						for (AIFComponentContext aifchildren : childrens) {
+							TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+
+							String bl_itemid = children.getProperty("bl_item_item_id");
+							String bl_Category = children.getProperty("bl_occ_d9_Category");
+							String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+							String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+							if (lineIdString.equals(bl_lineIdString)) {
+								if (children.hasSubstitutes()) {
+									TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+									for (TCComponentBOMLine subBomline : listSubstitutes) {
+										// String childrenuidSub = subBomline.getProperty("bl_occ_fnd0objectId");
+										String bl_item_item_id = subBomline.getProperty("bl_item_item_id");
+										System.out.println("替代料bl_item_item_id = " + bl_item_item_id);
+
+										if (bl_item_item_id.equals(cutItemId)) {
+											subBomline.cut();
+											bomwindow.save();
+											break;
+										}
+									}
+								}
+							}
+
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+
+	}
+
+	/**
+	 * 修改物料或替代件 零件属性
+	 * 
+	 * @throws TCException
+	 */
+	public void modifyParts(TCComponentItemRevision itemrev, ProductLineBOMBean rootBean) throws TCException {
+		boolean iswrite = TCUtil.checkOwninguserisWrite(session, itemrev);
+		if (iswrite) {
+			if (itemrev != null) {
+				// 修改零件属性
+				String[] provalue = new String[] { rootBean.getCustomerPN(), rootBean.getManufacturerID(),
+						rootBean.getManufacturerPN(), rootBean.getEnglishDescription(), rootBean.getUn(),
+						rootBean.getSupplierZF(), rootBean.getItemDescription(), rootBean.getFrupn(),
+						rootBean.getThermalType(), rootBean.getCoolerFanVendor(), rootBean.getCoolerFanModelNo(),
+						rootBean.getChassis(), rootBean.getRating(), rootBean.getType() };
+				itemrev.setProperties(proname, provalue);
+				if (rootBean.getMeetTCO90() != null && !rootBean.getMeetTCO90().equals("")) {
+					itemrev.setProperty("d9_MeetTCO90", rootBean.getMeetTCO90());
+				}
+			}
+		}
+	}
+
+	/**
+	 * 修改物料或替代件 结构属性
+	 * 
+	 * @throws TCException
+	 * 
+	 */
+	public void modifyBOMParts(TCComponent roductLineItemRev, String lineid, ProductLineBOMBean rootBean,
+			TCComponentBOMWindow bomwindow) throws TCException {
+		TCComponentItemRevision itemrev = null;
+
+		TCComponentBOMLine bomline = getTopBomline(bomwindow, roductLineItemRev);
+		bomline.refresh();
+		AIFComponentContext[] childrens = bomline.getChildren();
+
+		if (childrens.length > 0) {
+			for (int i = 0; i < childrens.length; i++) {
+				TCComponentBOMLine children = (TCComponentBOMLine) childrens[i].getComponent();
+				if (children.isPacked()) {
+					TCComponentBOMLine[] packedLines = children.getPackedLines();
+					children.unpack();
+
+					for (int j = 0; j < packedLines.length; j++) {
+						if (!rootBean.isSub()) {
+							String packed_bl_item_id = packedLines[j].getProperty("bl_item_item_id");
+							String packed_bl_occ_d9_Category = packedLines[j].getProperty("bl_occ_d9_Category");
+							String packed_bl_occ_d9_Plant = packedLines[j].getProperty("bl_occ_d9_Plant");
+							String packed_lineid = CommonTools
+									.md5Encode(packed_bl_item_id + packed_bl_occ_d9_Category + packed_bl_occ_d9_Plant);
+
+							if (packed_lineid.equals(lineid)) {
+								// 修改结构属性
+								System.out.println(packedLines[j].getProperty("bl_indented_title"));
+								String[] bomvalue = new String[] { rootBean.getTorqueIn(), rootBean.getTorqueOut(),
+										rootBean.getRemark(), rootBean.getCategory().trim(), rootBean.getPlant(),
+										rootBean.getProgramName() };
+								packedLines[j].setProperties(bomname, bomvalue);
+								packedLines[j].setProperty("bl_sequence_no", "" + rootBean.getSequence_no());
+								itemrev = packedLines[j].getItemRevision();
+
+								modifyParts(itemrev, rootBean);
+								roductLineItemRev.refresh();
+								return;
+							}
+						} else {
+							if (packedLines[j].hasSubstitutes()) {
+								TCComponentBOMLine[] listSubstitutes = packedLines[j].listSubstitutes();
+								for (TCComponentBOMLine subBomline : listSubstitutes) {
+									String sub_bl_item_id = subBomline.getProperty("bl_item_item_id");
+									String sub_bl_occ_d9_Category = subBomline.getProperty("bl_occ_d9_Category");
+									String sub_bl_occ_d9_Plant = subBomline.getProperty("bl_occ_d9_Plant");
+									String sub_lineid = CommonTools
+											.md5Encode(sub_bl_item_id + sub_bl_occ_d9_Category + sub_bl_occ_d9_Plant);
+									if (sub_lineid.equals(lineid)) {
+										itemrev = subBomline.getItemRevision();
+
+										modifyParts(itemrev, rootBean);
+										// bomwindow.save();
+										bomwindow.close();
+										roductLineItemRev.refresh();
+										return;
+									}
+								}
+							}
+						}
+					}
+				}
+				if (!rootBean.isSub()) {
+					String bl_item_id = children.getProperty("bl_item_item_id");
+					String bl_occ_d9_Category = children.getProperty("bl_occ_d9_Category");
+					String bl_occ_d9_Plant = children.getProperty("bl_occ_d9_Plant");
+					String bl_lineid = CommonTools.md5Encode(bl_item_id + bl_occ_d9_Category + bl_occ_d9_Plant);
+
+					if (bl_lineid.equals(lineid)) {
+						// 修改结构属性
+						String[] bomvalue = new String[] { rootBean.getTorqueIn(), rootBean.getTorqueOut(),
+								rootBean.getRemark(), rootBean.getCategory().trim(), rootBean.getPlant(),
+								rootBean.getProgramName() };
+						children.setProperties(bomname, bomvalue);
+						children.setProperty("bl_sequence_no", "" + rootBean.getSequence_no());
+						itemrev = children.getItemRevision();
+
+						modifyParts(itemrev, rootBean);
+						// bomwindow.save();
+						// bomwindow.close();
+						roductLineItemRev.refresh();
+						return;
+					}
+				} else {
+					if (children.hasSubstitutes()) {
+						TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+						for (TCComponentBOMLine subBomline : listSubstitutes) {
+							String sub_bl_item_id = subBomline.getProperty("bl_item_item_id");
+							String sub_bl_occ_d9_Category = subBomline.getProperty("bl_occ_d9_Category");
+							String sub_bl_occ_d9_Plant = subBomline.getProperty("bl_occ_d9_Plant");
+							String sub_lineid = CommonTools
+									.md5Encode(sub_bl_item_id + sub_bl_occ_d9_Category + sub_bl_occ_d9_Plant);
+							if (sub_lineid.equals(lineid)) {
+								itemrev = subBomline.getItemRevision();
+
+								modifyParts(itemrev, rootBean);
+								// bomwindow.save();
+								// bomwindow.close();
+								roductLineItemRev.refresh();
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
+		roductLineItemRev.refresh();
+		return;
+	}
+
+	/**
+	 * 修改Variable 物料对应变体属性
+	 * 
+	 * @param torqueOut
+	 * @param torqueIn
+	 * @param remark
+	 */
+	public void modifyVariable(TCComponentItemRevision product, String lineIdString, String d9_Category,
+			String d9_Plant, String d9_Remark, String d9_TorqueIn, String d9_TorqueOut) throws TCException {
+		TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+		if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+			for (int i = 0; i < tccom_HasVariants.length; i++) {
+				TCComponentBOMWindow bomwindow = createBOMWindow(session);
+				TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+				bomline.refresh();
+				AIFComponentContext[] childrens = bomline.getChildren();
+				if (childrens.length > 0) {
+					for (int j = 0; j < childrens.length; j++) {
+						TCComponentBOMLine children = (TCComponentBOMLine) childrens[j].getComponent();
+						if (children.isPacked()) {
+							TCComponentBOMLine[] packedLines = children.getPackedLines();
+							children.unpack();
+
+							for (int k = 0; k < packedLines.length; ++k) {
+								String bl_itemid = packedLines[k].getProperty("bl_item_item_id");
+								String bl_Category = packedLines[k].getProperty("bl_occ_d9_Category");
+								String bl_Plant = packedLines[k].getProperty("bl_occ_d9_Plant");
+								String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+								if (lineIdString.equals(bl_lineIdString)) {
+									packedLines[k].setProperty("bl_occ_d9_Category", d9_Category);
+									packedLines[k].setProperty("bl_occ_d9_Plant", d9_Plant);
+
+									packedLines[k].setProperty("bl_occ_d9_Remark", d9_Remark);
+									packedLines[k].setProperty("bl_occ_d9_TorqueIn", d9_TorqueIn);
+									packedLines[k].setProperty("bl_occ_d9_TorqueOut", d9_TorqueOut);
+
+									bomwindow.save();
+									break;
+								}
+							}
+						}
+
+						String bl_itemid = children.getProperty("bl_item_item_id");
+						String bl_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+						String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+						if (lineIdString.equals(bl_lineIdString)) {
+							children.setProperty("bl_occ_d9_Category", d9_Category);
+							children.setProperty("bl_occ_d9_Plant", d9_Plant);
+
+							children.setProperty("bl_occ_d9_Remark", d9_Remark);
+							children.setProperty("bl_occ_d9_TorqueIn", d9_TorqueIn);
+							children.setProperty("bl_occ_d9_TorqueOut", d9_TorqueOut);
+
+							bomwindow.save();
+							break;
+						}
+					}
+				}
+				bomwindow.save();
+				bomwindow.close();
+			}
+		}
+	}
+
+	/**
+	 * 修改物料图片
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult modifyMatrixImg(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		String errorMage = "";
+		try {
+			bomwindow = createBOMWindow(session);
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+			String productLineItemUID = rootBean.getProductLineItemUID();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(productLineItemUID);
+			String lineid = rootBean.getLineId();
+			boolean sub = rootBean.isSub();
+			String base64Str = rootBean.getBase64Str();
+			String imgName = rootBean.getImgName();
+
+			TCComponentBOMLine bomline = getTopBomline(bomwindow, roductLineItemRev);
+			bomline.refresh();
+			AIFComponentContext[] childrens_Packed = bomline.getChildren();
+			for (AIFComponentContext aifchildren : childrens_Packed) {
+				TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+				System.out.println(children.isPacked());
+				if (children.isPacked()) {
+					children.unpack();
+					children.refresh();
+				}
+			}
+
+			bomline.refresh();
+			AIFComponentContext[] childrens = bomline.getChildren();
+
+			if (childrens.length > 0) {
+				for (AIFComponentContext childrenAIF : childrens) {
+					TCComponentBOMLine children = (TCComponentBOMLine) childrenAIF.getComponent();
+					if (sub) {
+						if (children.hasSubstitutes()) {
+							TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+							for (TCComponentBOMLine subBomline : listSubstitutes) {
+								String sub_bl_item_id = subBomline.getProperty("bl_item_item_id");
+								String sub_bl_occ_d9_Category = subBomline.getProperty("bl_occ_d9_Category");
+								String sub_bl_occ_d9_Plant = subBomline.getProperty("bl_occ_d9_Plant");
+								String sub_lineid = CommonTools
+										.md5Encode(sub_bl_item_id + sub_bl_occ_d9_Category + sub_bl_occ_d9_Plant);
+								if (sub_lineid.equals(lineid)) {
+									TCComponentItemRevision itemrev = subBomline.getItemRevision();
+									errorMage = modifyImg(itemrev, base64Str, imgName);
+
+									if ("".equals(errorMage))
+										return AjaxResult.success("执行成功");
+									if (errorMage.startsWith("http:"))
+										return AjaxResult.success("执行成功", errorMage);
+									return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, errorMage);
+								}
+							}
+						}
+					} else {
+						String bl_item_id = children.getProperty("bl_item_item_id");
+						String bl_occ_d9_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_occ_d9_Plant = children.getProperty("bl_occ_d9_Plant");
+						String bl_lineid = CommonTools.md5Encode(bl_item_id + bl_occ_d9_Category + bl_occ_d9_Plant);
+
+						if (bl_lineid.equals(lineid)) {
+							TCComponentItemRevision itemrev = children.getItemRevision();
+							errorMage = modifyImg(itemrev, base64Str, imgName);
+							if ("".equals(errorMage))
+								return AjaxResult.success("执行成功");
+							if (errorMage.startsWith("http:"))
+								return AjaxResult.success("执行成功", errorMage);
+
+							return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, errorMage);
+						}
+					}
+				}
+			}
+
+			return AjaxResult.success("执行成功");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 修改图片
+	 * 
+	 * @param itemrev
+	 * @throws TCException
+	 */
+	public String modifyImg(TCComponentItemRevision itemrev, String base64Str, String imgName) throws TCException {
+		if (StrUtil.isNotEmpty(base64Str)) {
+			if (StrUtil.isEmpty(imgName))
+				return "";
+			if (base64Str.startsWith("http:"))
+				return "";
+
+			if (!imgName.contains("."))
+				return "参数imgName不正确";
+			String substring = imgName.substring(imgName.lastIndexOf(".") + 1);
+			String imgFilepath = tempPath + "\\" + imgName;
+			base64StringToImage(base64Str, imgFilepath, imgName, substring);
+
+			if (!new File(imgFilepath).exists())
+				return "图片下载失败！";
+
+			TCComponentDataset dataSet = null;
+			if (substring.equalsIgnoreCase("png")) {
+				dataSet = TCUtil.createDataSet(session, imgFilepath, "Image", imgName, "Image");
+			} else if (substring.equalsIgnoreCase("jpg")) {
+				dataSet = TCUtil.createDataSet(session, imgFilepath, "JPEG", imgName, "JPEG_Reference");
+			} else if (substring.equalsIgnoreCase("gif")) {
+				dataSet = TCUtil.createDataSet(session, imgFilepath, "GIF", imgName, "GIF_Reference");
+			}
+
+			if (dataSet == null)
+				return "图片对象创建失败！";
+
+			itemrev.setRelated("IMAN_specification", new TCComponent[] { dataSet });
+
+//			String uid=dataSet.getUid();
+//			String url=TCUtil.getPreference(session, TCPreferenceService.TC_preference_site, "D9_SpringCloud_URL");
+//			String itemImgPath=url+"/tc-hdfs/downloadFile?site=WH&refId="+uid;
+			itemrev.refresh();
+
+			return "";
+			// itemrev.add("IMAN_specification", dataSet);
+		} else {
+			itemrev.setRelated("IMAN_specification", new TCComponent[] {});
+		}
+
+		return "";
+	}
+
+	/**
+	 * 创建BOMWindow
+	 * 
+	 * @param session
+	 * @return
+	 */
+	public static TCComponentBOMWindow createBOMWindow(TCSession session) {
+		TCComponentBOMWindow window = null;
+		try {
+			TCComponentRevisionRuleType imancomponentrevisionruletype = (TCComponentRevisionRuleType) session
+					.getTypeComponent("RevisionRule");
+			TCComponentRevisionRule imancomponentrevisionrule = imancomponentrevisionruletype.getDefaultRule();
+			TCComponentBOMWindowType imancomponentbomwindowtype = (TCComponentBOMWindowType) session
+					.getTypeComponent("BOMWindow");
+			window = imancomponentbomwindowtype.create(imancomponentrevisionrule);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return window;
+	}
+
+	public static TCComponentBOMLine getTopBomline(TCComponentBOMWindow bomWindow, TCComponent com) {
+		TCComponentBOMLine topBomline = null;
+		try {
+			if (bomWindow == null) {
+				return topBomline;
+			}
+			TCComponentItemRevision rev = null;
+			TCComponentItem item = null;
+			if (com instanceof TCComponentItem) {
+				item = (TCComponentItem) com;
+				topBomline = bomWindow.setWindowTopLine(item, item.getLatestItemRevision(), null, null);
+			} else if (com instanceof TCComponentItemRevision) {
+				rev = (TCComponentItemRevision) com;
+				topBomline = bomWindow.setWindowTopLine(rev.getItem(), rev, null, null);
+			}
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return topBomline;
+	}
+
+	public static TCComponentBOMLine addbomline(TCComponentBOMWindow newBOMWindow, TCComponentBOMLine topLine,
+			TCComponentItemRevision itemrev) throws TCException {
+		AIFComponentContext[] childrens_pack = topLine.getChildren();
+		// System.out.println("childrens_pack = "+childrens_pack.length);
+		int sequence_no = 0;
+
+		topLine.refresh();
+		// 先执行全部解包
+		for (AIFComponentContext childrenAIF_pack : childrens_pack) {
+			TCComponentBOMLine children_pack = (TCComponentBOMLine) childrenAIF_pack.getComponent();
+			if (children_pack.isPacked()) {
+				children_pack.unpack();
+				children_pack.refresh();
+				// newBOMWindow.save();
+			}
+		}
+
+		// 再执行查找编号计算
+		topLine.refresh();
+		AIFComponentContext[] childrens = topLine.getChildren();
+		// System.out.println("childrens = "+childrens.length);
+		for (AIFComponentContext childrenAIF : childrens) {
+			TCComponentBOMLine children = (TCComponentBOMLine) childrenAIF.getComponent();
+			/*
+			 * if(children.isSubstitute()) {} if (children.hasSubstitutes()) {
+			 * TCComponentBOMLine[] listSubstitutes = children.listSubstitutes(); for
+			 * (TCComponentBOMLine subBomline : listSubstitutes) { String bl_item_id =
+			 * subBomline.getProperty("bl_item_item_id");
+			 * System.out.println("替代料bl_item_id = " + bl_item_id); } }
+			 * 
+			 * String bl_item_id = children.getProperty("bl_item_item_id"); if
+			 * (item_id1.equals(bl_item_id)) { isequalsid = true; bl_sequence_no =
+			 * children.getProperty("bl_sequence_no"); break; }
+			 */
+
+			String bl_sequence_no = children.getProperty("bl_sequence_no");
+			// System.out.println("item_id =
+			// "+children.getProperty("bl_item_item_id")+","+bl_sequence_no);
+			int parseInt = 0;
+			try {
+				parseInt = Integer.parseInt(bl_sequence_no);
+			} catch (NumberFormatException e) {
+				parseInt = 0;
+			}
+
+			if (parseInt > sequence_no) {
+				sequence_no = parseInt;
+			}
+		}
+
+		TCComponentBOMLine bomline = topLine.add(itemrev.getItem(), itemrev, null, false);
+
+		if (sequence_no > 0) {
+			sequence_no = sequence_no + 10;
+			bomline.setProperty("bl_sequence_no", "" + sequence_no);
+		}
+		// newBOMWindow.save();
+		// newBOMWindow.refresh();
+		return bomline;
+	}
+
+	public TCComponentItemRevision queryItemRev(String item_id, String item_revision_id) throws Exception {
+		TCComponentItemRevision itemrevision = null;
+		TCComponent[] executeQuery = TCUtil.executeQuery(session, "零组件版本...",
+				new String[] { "items_tag.item_id", "item_revision_id" }, new String[] { item_id, item_revision_id });
+		if (executeQuery != null && executeQuery.length > 0) {
+			if (executeQuery[0] instanceof TCComponentItemRevision)
+				itemrevision = (TCComponentItemRevision) executeQuery[0];
+		}
+		return itemrevision;
+	}
+
+	/**
+	 * 判断是否可以移除 part
+	 * 
+	 * @param product
+	 * @param item_id
+	 * @param d9_Plant
+	 * @param d9_Category
+	 * @return
+	 * @throws TCException
+	 */
+	public boolean iscut(TCComponentItemRevision product, String item_id, String d9_Category, String d9_Plant)
+			throws TCException {
+		boolean cut = true;
+		TCComponentBOMWindow bomwindow = null;
+		TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+		if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+			for (int i = 0; i < tccom_HasVariants.length; i++) {
+				bomwindow = createBOMWindow(session);
+				TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+				AIFComponentContext[] childrens = bomline.getChildren();
+				if (childrens.length > 0) {
+					for (int j = 0; j < childrens.length; j++) {
+						TCComponentBOMLine children = (TCComponentBOMLine) childrens[j].getComponent();
+						String bl_item_id = children.getProperty("bl_item_item_id");
+						String bl_occ_d9_Category = children.getProperty("bl_occ_d9_Category");
+						String bl_occ_d9_Plant = children.getProperty("bl_occ_d9_Plant");
+						if (bl_item_id.equals(item_id) && bl_occ_d9_Category.equals(d9_Category)
+								&& bl_occ_d9_Plant.equals(d9_Plant)) {
+							cut = false;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (bomwindow != null) {
+			bomwindow.close();
+		}
+
+		return cut;
+	}
+
+	public static TCComponentItem createItem(TCSession session, String itemId, String itemRev, String itemName,
+			String itemTypeName) throws TCException {
+		TCComponentItem item = null;
+		System.out.println("itemTypeName = " + itemTypeName);
+		TCComponentItemType itemType = (TCComponentItemType) session.getTypeComponent(itemTypeName);
+		if (itemId.equals("")) {
+			itemId = itemType.getNewID();
+		}
+		if (itemRev == null || itemRev.equals("")) {
+			itemRev = itemType.getNewRev(null);
+		}
+		item = itemType.create(itemId, itemRev, itemTypeName, itemName, "", null);
+		return item;
+	}
+
+	/**
+	 * 根据LOV显示值和真实值
+	 * 
+	 * @param lovName
+	 * @return
+	 */
+	public static HashMap<String, String> getLovValues(String lovName) {
+		HashMap<String, String> map = new HashMap<String, String>();
+
+		TCComponentListOfValues lov = TCComponentListOfValuesType.findLOVByName(lovName);
+		if (lov == null) {
+			return null;
+		}
+		try {
+			String[] objs1 = lov.getListOfValues().getLOVDisplayValues();
+			Object[] objs = lov.getListOfValues().getListOfValues();
+
+			for (int i = 0; i < objs.length; i++) {
+				map.put(objs1[i], (String) objs[i]);
+			}
+			return map;
+		} catch (TCException e) {
+			e.printStackTrace();
+		}
+		return map;
+	}
+
+	/**
+	 * 
+	 * @param urlstr
+	 * @return
+	 * @throws IOException
+	 */
+	public static InputStream getinputStream(String urlstr) throws IOException {
+		InputStream is = null;
+		URL url = new URL(urlstr);
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		connection.setRequestMethod("GET");
+		connection.setRequestProperty("Content-Type", "application/json");
+		connection.setDoInput(true);
+		connection.setDoOutput(true);
+		connection.connect();
+
+		is = connection.getInputStream();
+		return is;
+	}
+
+	/**
+	 * 保存图片
+	 * 
+	 * @param urlstr
+	 * @param path
+	 * @param name
+	 * @throws IOException
+	 */
+	public static void saveImage(String urlstr, String path, String name) throws IOException {
+		InputStream inputStream = getinputStream(urlstr);
+		byte[] data = new byte[10240];
+		int len = 0;
+		FileOutputStream fileOutputStream = new FileOutputStream(path + "\\" + name);
+		while ((len = inputStream.read(data)) != -1) {
+			fileOutputStream.write(data, 0, len);
+		}
+
+		if (inputStream != null) {
+			inputStream.close();
+		}
+		if (fileOutputStream != null) {
+			fileOutputStream.close();
+		}
+	}
+
+	/**
+	 * 匹配id判断是否满足正则表达式
+	 * 
+	 * @param
+	 * @return
+	 */
+	private static boolean getRightStr(String itemid) {
+		String match = "^.{7,17}$";
+		if (itemid.matches(match)) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * 创建item对象
+	 * 
+	 * @param session
+	 * @param itemTypeName
+	 * @param itemID
+	 * @param itemMap
+	 * @param revisionMap
+	 * @return
+	 * @throws TCException
+	 */
+	public static TCComponent createObject(TCSession session, String itemTypeName, String itemID,
+			Map<String, Object> itemMap, Map<String, Object> revisionMap) throws TCException {
+		IBOCreateDefinition createDefinition = BOCreateDefinitionFactory.getInstance().getCreateDefinition(session,
+				itemTypeName);
+		CreateInstanceInput createInstanceInput = new CreateInstanceInput(createDefinition);
+		if (itemID != null && !"".equals(itemID.trim()))
+			createInstanceInput.add("item_id", itemID);
+		// createInstanceInput.add("object_name", name);
+
+		IBOCreateDefinition createDefinitionRev = BOCreateDefinitionFactory.getInstance().getCreateDefinition(session,
+				itemTypeName + "Revision");
+		CreateInstanceInput createInstanceInputRev = new CreateInstanceInput(createDefinitionRev);
+		if (revisionMap == null) {
+			revisionMap = new HashMap<String, Object>();
+		}
+		// createInstanceInputRev.add("item_revision_id", revisionID);
+
+		for (Entry<String, Object> entry : itemMap.entrySet()) {
+			String p = entry.getKey();
+			Object v = entry.getValue();
+			if (null == v) {
+				continue;
+			}
+			createInstanceInput.add(p, v);
+		}
+
+		for (Entry<String, Object> entry : revisionMap.entrySet()) {
+			String p = entry.getKey();
+			Object v = entry.getValue();
+			if (null == v) {
+				continue;
+			}
+			createInstanceInputRev.add(p, v);
+		}
+		ArrayList<CreateInstanceInput> iputList = new ArrayList<CreateInstanceInput>();
+		iputList.add(createInstanceInput);
+		List<ICreateInstanceInput> list = new ArrayList<ICreateInstanceInput>(0);
+		list.addAll(iputList);
+		createInstanceInput.addSecondaryCreateInput("revision", createInstanceInputRev);
+		TCComponent obj = null;
+		List<TCComponent> comps = null;
+		comps = SOAGenericCreateHelper.create(session, createDefinition, list);
+		obj = (TCComponent) comps.get(0);
+
+		return obj;
+	}
+
+	/**
+	 * 获取 变更前发布版本
+	 * 
+	 * @param itemRevision
+	 * @return
+	 * @throws TCException
+	 */
+	public static TCComponentItemRevision getImpactedRevision(TCComponentItemRevision itemRevision) throws TCException {
+		try {
+			String myVer = itemRevision.getProperty("item_revision_id");
+			TCComponent[] revions = itemRevision.getItem().getRelatedComponents("revision_list");
+			if (revions.length == 1) {
+				return null;
+			}
+
+			for (int i = 0; i < revions.length; i++) {
+				itemRevision = (TCComponentItemRevision) revions[i];
+				String version = itemRevision.getProperty("item_revision_id");
+				if (myVer.equals(version)) {
+					TCComponentItemRevision impactedRev = (TCComponentItemRevision) revions[i - 1];
+					if (TCUtil.isReleased(impactedRev)) {
+						return impactedRev;
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * 将图片转换成二进制
+	 *
+	 * @return
+	 */
+	public static String getImageBinary(String fileImg) {
+		FileInputStream bi = null;
+		try {
+			File file = new File(fileImg);
+			String file_ext = fileImg.substring(fileImg.lastIndexOf(".") + 1);
+			if (file_ext.equalsIgnoreCase("jpeg") || file_ext.equalsIgnoreCase("jpg")
+					|| file_ext.equalsIgnoreCase("png") || file_ext.equalsIgnoreCase("gif")) {
+				bi = new FileInputStream(file);
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				// ImgUtil.convert(bi, "jpg", baos);
+				ImgUtil.convert(bi, file_ext, baos);
+				byte[] bytes = baos.toByteArray();
+				String trim1 = Base64.encode(bytes).trim();
+
+				return trim1;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(bi)) {
+				try {
+					bi.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 将二进制转换为图片
+	 *
+	 * @param base64String
+	 */
+	public static void base64StringToImage(String base64String, String filestr, String imgName, String substring) {
+		FileOutputStream fileOutputStream = null;
+		try {
+			// String substring = imgName.substring(imgName.lastIndexOf(".")+1);
+			// String filestr = tempPath+"\\"+imgName;
+			File file = new File(filestr);
+			fileOutputStream = new FileOutputStream(file);
+			byte[] bytes1 = Base64.decode(base64String);
+			ByteArrayInputStream bais = new ByteArrayInputStream(bytes1);
+
+			ImgUtil.convert(bais, substring, new FileOutputStream(file));
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(fileOutputStream)) {
+				try {
+					fileOutputStream.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 创建流程，发布DCN
+	 * 
+	 * @param tcsession
+	 * @param com
+	 * @param mProcessName
+	 * @return
+	 * @throws TCException
+	 */
+	public static String addStatusByWorkFlow(TCSession tcsession, TCComponent[] com, String mProcessName)
+			throws TCException {
+		String mProcess = "";
+		if (com != null && com.length > 0) {
+			TCComponentTaskTemplateType tcTaskTemType = (TCComponentTaskTemplateType) tcsession
+					.getTypeComponent("EPMTaskTemplate");
+			TCComponentTaskTemplate taskTem = tcTaskTemType.find(mProcessName, 0);
+			TCComponentProcessType tcProcessType = (TCComponentProcessType) tcsession.getTypeComponent("Job");
+			int[] var7 = new int[com.length];
+			Arrays.fill(var7, 1);
+			tcProcessType.create(mProcessName + ":" + com[0].getProperty("object_string"), mProcessName, taskTem, com,
+					var7);
+			mProcess = mProcessName + ":" + com[0].getProperty("object_string");
+		}
+		return mProcess;
+	}
+
+	/**
+	 * 指派项目
+	 * 
+	 * @param folder
+	 * @param project
+	 * @throws Exception
+	 */
+	public static void assignedProject(TCSession session, ModelObject folder, ModelObject[] project) throws Exception {
+		AssignedOrRemovedObjects assignedOrRemovedObjects = new AssignedOrRemovedObjects();
+		assignedOrRemovedObjects.objectToAssign = new ModelObject[] { folder };
+		// assignedOrRemovedObjects.objectToRemove = null;
+		assignedOrRemovedObjects.projects = project;
+		AssignedOrRemovedObjects[] aassignedorremovedobjects = new AssignedOrRemovedObjects[1];
+		aassignedorremovedobjects[0] = assignedOrRemovedObjects;
+		ProjectLevelSecurityService projectLevelSecurityService = ProjectLevelSecurityService
+				.getService(session.getSoaConnection());
+		ServiceData serviceData = projectLevelSecurityService.assignOrRemoveObjects(aassignedorremovedobjects);
+		if (serviceData.sizeOfPartialErrors() > 0) {
+			throw new Exception(serviceData.getPartialError(0).toString());
+		}
+	}
+
+	/**
+	 * 获取最新冻结版本
+	 * 
+	 * @param item
+	 * @return
+	 * @throws TCException
+	 */
+	public TCComponentItemRevision get_Latest_Released_ItemRev(TCComponentItem item) throws TCException {
+
+		TCComponentItemRevision[] itemRev = null;
+		TCComponentItemRevision itemRev_single = null;
+		try {
+			itemRev = item.getReleasedItemRevisions();
+			if (itemRev.length >= 1) {
+				for (int i = 0; i < itemRev.length; i++) {
+					if (!itemRev[i].getProperty("item_revision_id").contains(".")) {
+						itemRev_single = itemRev[i];
+						break;
+					}
+				}
+				if (itemRev_single != null) {
+					Date released_date = itemRev_single.getDateProperty("date_released");
+					for (int i = 0; i < itemRev.length; i++) {
+						if (itemRev[i].getProperty("item_revision_id").contains(".")) {
+							continue;
+						}
+						Date released_date_another = itemRev[i].getDateProperty("date_released");
+						if (released_date_another.after(released_date)) {
+							released_date = released_date_another;
+							itemRev_single = itemRev[i];
+						}
+					}
+				}
+
+			} else {
+				itemRev_single = null;
+			}
+		} catch (TCException e1) {
+
+			e1.printStackTrace();
+		} catch (Throwable e2) {
+
+			e2.printStackTrace();
+		}
+		return itemRev_single;
+	}
+
+	/**
+	 * 替換物料
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public AjaxResult replaceMatrixParts(String data) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			Gson gson = new Gson();
+			ProductLineBOMBean rootBean = gson.fromJson(data, ProductLineBOMBean.class);
+
+			String productLineItemUID = rootBean.getProductLineItemUID();
+			TCComponentItemRevision roductLineItemRev = (TCComponentItemRevision) session.getComponentManager()
+					.getTCComponent(productLineItemUID);
+			bomwindow = createBOMWindow(session);
+			TCComponentBOMLine topbom = getTopBomline(bomwindow, roductLineItemRev);
+			// 解包
+			topbom.refresh();
+			AIFComponentContext[] childrens_Packed = topbom.getChildren();
+			for (AIFComponentContext aifchildren : childrens_Packed) {
+				TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+				if (children.isPacked()) {
+					children.unpack();
+					children.refresh();
+				}
+			}
+
+			String bomlineuid = rootBean.getBomLineUid();
+			System.out.println("bomlineuid = " + bomlineuid);
+			String itemId = rootBean.getItemId();
+			String itemRevision = rootBean.getItemRevision();
+
+			topbom.refresh();
+			AIFComponentContext[] childrens = topbom.getChildren();
+			for (AIFComponentContext aifchildren : childrens) {
+				TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+				String childrenuid = children.getProperty("bl_occ_fnd0objectId");
+				System.out.println("childrenuid = " + childrenuid);
+				if (childrenuid.equals(bomlineuid)) {
+					// 替換物料
+					String bl_itemid = children.getProperty("bl_item_item_id");
+					String bl_Category = children.getProperty("bl_occ_d9_Category");
+					String bl_Plant = children.getProperty("bl_occ_d9_Plant").trim();
+
+					String lineIdStringTmp = CommonTools.md5Encode(itemId + bl_Category + bl_Plant);
+
+					if (isExsitPart(childrens, lineIdStringTmp, itemId, roductLineItemRev)) {
+						throw new Exception("物料：" + itemId + "已存在变体中,不能替換");
+					}
+
+					String bl_remark = children.getProperty("bl_occ_d9_Remark");
+					String bl_sequence_no = children.getProperty("bl_sequence_no");
+					String bl_TorqueIn = children.getProperty("bl_occ_d9_TorqueIn");
+					String bl_TorqueOut = children.getProperty("bl_occ_d9_TorqueOut");
+					String bl_quantity = children.getProperty("bl_quantity");
+					String lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+					if (variableReleased(roductLineItemRev, lineIdString)) {
+						throw new Exception("物料：" + bl_itemid + "已存在冻结的变体中,不能替換");
+					}
+
+					TCComponentItemRevision queryItemRev = queryItemRev(itemId, itemRevision);
+					if (queryItemRev == null) {
+						throw new Exception("输入信息有误，未找到物料：" + itemId + "/" + itemRevision);
+					}
+					// TCComponentItemRevision queryItemRev = queryItemRev("TC@000000001423", "A");
+					TCComponentBOMLine[] subBomLines = children.listSubstitutes();
+
+					// 替換掉
+					children.cut();
+					TCComponentBOMLine childBomLine = topbom.add(queryItemRev.getItem(), queryItemRev, null, false);
+					childBomLine.setProperty("bl_quantity", "" + bl_quantity);
+					childBomLine.setProperty("bl_sequence_no", "" + bl_sequence_no);
+					childBomLine.setProperty("bl_occ_d9_Plant", "" + bl_Plant);// 修改
+					childBomLine.setProperty("bl_occ_d9_Category", "" + bl_Category.trim());// 修改
+					childBomLine.setProperty("bl_occ_d9_Remark", "" + bl_remark.trim());// 修改
+					childBomLine.setProperty("bl_occ_d9_TorqueIn", "" + bl_TorqueIn.trim());// 修改
+					childBomLine.setProperty("bl_occ_d9_TorqueOut", "" + bl_TorqueOut.trim());// 修改
+
+					for (TCComponentBOMLine sub : subBomLines) {
+						childBomLine.add(sub.getItem(), sub.getItemRevision(), null, true);
+					}
+					// children.add(queryItemRev.getItem(), queryItemRev, null, true);
+
+					bomwindow.save();
+
+					replaceVariable(roductLineItemRev, lineIdString, queryItemRev, subBomLines);
+					break;
+				}
+			}
+
+			String jsons = JSONArray.toJSONString(rootBean);
+			System.out.print("json ==" + jsons);
+			return AjaxResult.success("执行成功", rootBean);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return AjaxResult.error(AjaxResult.STATUS_PARAM_ERROR, e.getLocalizedMessage());
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 检查替换的物料是否已经存在
+	 * 
+	 * @param childrens
+	 * @param lineId
+	 * @param itemId
+	 * @param product
+	 * @return
+	 * @throws Exception
+	 */
+	private boolean isExsitPart(AIFComponentContext[] childrens, String lineId, String itemId,
+			TCComponentItemRevision product) throws Exception {
+//    	for (AIFComponentContext aifchildren : childrens) {
+//			TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+//			String bl_itemid = children.getProperty("bl_item_item_id");
+//	        String bl_Category = children.getProperty("bl_occ_d9_Category");
+//	        String bl_Plant = children.getProperty("bl_occ_d9_Plant").trim();
+//	        String lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+//	        if(lineIdString.equalsIgnoreCase(lineId)) {
+//	        	return true;
+//	        }
+//	        if(children.hasSubstitutes()) {
+//	        	TCComponentBOMLine[] listSubstitutes = children.listSubstitutes();
+//	 	        for (TCComponentBOMLine listSubstitute :listSubstitutes) {
+//	 	        	String bl_itemid_sub = listSubstitute.getProperty("bl_item_item_id");
+//	 		        String bl_Category_sub = listSubstitute.getProperty("bl_occ_d9_Category");
+//	 		        String bl_Plant_sub = listSubstitute.getProperty("bl_occ_d9_Plant").trim();
+//	 		        String lineIdString_sub = CommonTools.md5Encode(bl_itemid_sub + bl_Category_sub + bl_Plant_sub);
+//	 		       if(lineIdString_sub.equalsIgnoreCase(lineId)) {
+//	 		        	return true;
+//	 		        }
+//	 			}
+//	        }
+//    	}
+		TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+		for (TCComponent component : tccom_HasVariants) {
+			String item_id = component.getProperty("item_id");
+			if (item_id.equalsIgnoreCase(itemId)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 判断是否被发布的变体引用
+	 * 
+	 * @param product
+	 * @param lineIdString
+	 * @param addItemRev
+	 * @param subBomLines
+	 */
+	public boolean variableReleased(TCComponentItemRevision product, String lineIdString) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					// AIFComponentContext[] related = tccom_HasVariants[i].getRelated();
+					if (TCUtil.isReleased(tccom_HasVariants[i])) {
+						bomwindow = createBOMWindow(session);
+						TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+						bomline.refresh();
+						AIFComponentContext[] childrens_Packed = bomline.getChildren();
+						for (AIFComponentContext aifchildren : childrens_Packed) {
+							TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+							if (children.isPacked()) {
+								children.unpack();
+								children.refresh();
+							}
+						}
+
+						bomline.refresh();
+						AIFComponentContext[] childrens = bomline.getChildren();
+						if (childrens.length > 0) {
+							for (AIFComponentContext aifchildren : childrens) {
+								TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+
+								String bl_itemid = children.getProperty("bl_item_item_id");
+								String bl_Category = children.getProperty("bl_occ_d9_Category");
+								String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+								String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+								if (lineIdString.equals(bl_lineIdString)) {
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 替換变体中对应的物料
+	 * 
+	 * @param product
+	 * @param lineIdString
+	 * @param addItemRev
+	 */
+	public void replaceVariable(TCComponentItemRevision product, String lineIdString,
+			TCComponentItemRevision addItemRev, TCComponentBOMLine[] subBomLines) {
+		TCComponentBOMWindow bomwindow = null;
+		try {
+			TCComponent[] tccom_HasVariants = product.getRelatedComponents(MatrixBOMConstant.D9_HASVARIANTS_REL);
+			if (tccom_HasVariants != null && tccom_HasVariants.length > 0) {
+				for (int i = 0; i < tccom_HasVariants.length; i++) {
+					bomwindow = createBOMWindow(session);
+					TCComponentBOMLine bomline = getTopBomline(bomwindow, tccom_HasVariants[i]);
+					bomline.refresh();
+					AIFComponentContext[] childrens_Packed = bomline.getChildren();
+					for (AIFComponentContext aifchildren : childrens_Packed) {
+						TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+						if (children.isPacked()) {
+							children.unpack();
+							children.refresh();
+						}
+					}
+
+					bomline.refresh();
+					AIFComponentContext[] childrens = bomline.getChildren();
+					if (childrens.length > 0) {
+						for (AIFComponentContext aifchildren : childrens) {
+							TCComponentBOMLine children = (TCComponentBOMLine) aifchildren.getComponent();
+
+							String bl_itemid = children.getProperty("bl_item_item_id");
+							String bl_Category = children.getProperty("bl_occ_d9_Category");
+							String bl_Plant = children.getProperty("bl_occ_d9_Plant");
+							String bl_lineIdString = CommonTools.md5Encode(bl_itemid + bl_Category + bl_Plant);
+
+							if (lineIdString.equals(bl_lineIdString)) {
+
+								String bl_remark = children.getProperty("bl_occ_d9_Remark");
+								String bl_TorqueIn = children.getProperty("bl_occ_d9_TorqueIn");
+								String bl_TorqueOut = children.getProperty("bl_occ_d9_TorqueOut");
+								String bl_quantity = children.getProperty("bl_quantity");
+
+								children.cut();
+								TCComponentBOMLine childBomLine = bomline.add(addItemRev.getItem(), addItemRev, null,
+										false);
+								childBomLine.setProperty("bl_quantity", "" + bl_quantity);//
+								childBomLine.setProperty("bl_occ_d9_Plant", "" + bl_Plant);// 修改
+								childBomLine.setProperty("bl_occ_d9_Category", "" + bl_Category.trim());// 修改
+								childBomLine.setProperty("bl_occ_d9_Remark", "" + bl_remark.trim());// 修改
+								childBomLine.setProperty("bl_occ_d9_TorqueIn", "" + bl_TorqueIn.trim());// 修改
+								childBomLine.setProperty("bl_occ_d9_TorqueOut", "" + bl_TorqueOut.trim());// 修改
+								for (TCComponentBOMLine sub : subBomLines) {
+									childBomLine.add(sub.getItem(), sub.getItemRevision(), null, true);
+								}
+
+								bomwindow.save();
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (ObjUtil.isNotEmpty(bomwindow)) {
+				try {
+					bomwindow.save();
+					bomwindow.close();
+				} catch (TCException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+
+	}
+
+
+}
